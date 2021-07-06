@@ -1,0 +1,135 @@
+diff -Naur uboot_old/common/cli_readline.c uboot/common/cli_readline.c
+--- uboot_old/common/cli_readline.c	2020-08-07 11:13:55.747261295 +0800
++++ uboot/common/cli_readline.c	2020-07-31 16:34:02.047695084 +0800
+@@ -13,6 +13,7 @@
+ #include <cli.h>
+ #include <watchdog.h>
+ 
++extern int Disable_watchdog(void);
+ DECLARE_GLOBAL_DATA_PTR;
+ 
+ static const char erase_seq[] = "\b \b";	/* erase sequence */
+@@ -517,7 +518,9 @@
+ 	 * it instead of entering it from scratch as desired.
+ 	 */
+ 	console_buffer[0] = '\0';
+-
++#ifdef CONFIG_SPX_FEATURE_HW_FAILSAFE_BOOT
++        Disable_watchdog();
++#endif	
+ 	return cli_readline_into_buffer(prompt, console_buffer, 0);
+ }
+ 
+diff -Naur uboot_old/env/sf.c uboot/env/sf.c
+--- uboot_old/env/sf.c	2020-08-07 11:13:55.755261183 +0800
++++ uboot/env/sf.c	2020-07-31 16:34:02.047695084 +0800
+@@ -34,7 +34,9 @@
+ #endif /* CONFIG_ENV_OFFSET_REDUND */
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+-
++#ifdef CONFIG_SPX_FEATURE_HW_FAILSAFE_BOOT 
++unsigned char broken_spi_banks = 0;// specify the number of broken SPI flash bank
++#endif
+ static struct spi_flash *env_flash;
+ 
+ static int setup_flash_device(void)
+@@ -43,6 +45,21 @@
+ 	struct udevice *new;
+ 	int	ret;
+ 
++#ifdef CONFIG_SPX_FEATURE_HW_FAILSAFE_BOOT 
++	unsigned int cs;
++	//unsigned long wdt_timeout_status;
++	struct spi_flash *flash=NULL;
++    for(cs=2;cs>0;cs--){
++		flash = spi_flash_probe(CONFIG_ENV_SPI_BUS, cs-1,CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);		
++		if ((cs == 2) && (flash == NULL))
++		{
++			broken_spi_banks = 2;
++			continue;
++		}		    
++		spi_flash_free(flash);	  	
++    }    
++	
++#endif	
+ 	/* speed and mode will be read from DT */
+ 	ret = spi_flash_probe_bus_cs(CONFIG_ENV_SPI_BUS, CONFIG_ENV_SPI_CS,
+ 				     CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE,
+diff -Naur uboot_old/oem/ami/fmh/cmd_fmh.c uboot/oem/ami/fmh/cmd_fmh.c
+--- uboot_old/oem/ami/fmh/cmd_fmh.c	2020-08-07 11:13:55.763261071 +0800
++++ uboot/oem/ami/fmh/cmd_fmh.c	2020-07-31 16:34:02.383690368 +0800
+@@ -186,6 +186,13 @@
+ 	return 0;
+ }
+ 
++int GetFlashStartAddr (int cs,unsigned long *address)
++{
++	if((cs > 3)||(cs < 0)) return -1;
++	
++	*address=((((*(volatile u32 *)(0x1E620030 + cs*4)) >> 16) & 0xff) << 23);
++	return 0;
++}
+ int 
+ do_bootmenu (cmd_tbl_t *cmdtp, int flag , int argc, char * const argv[]) 
+ { 
+@@ -990,7 +997,7 @@
+ 	int rootisinitrd = 0; /*indicates root is actually an initrd*/
+ 	char *side = NULL;
+ 	u8 golden_side;
+-	struct spi_flash *flash;
++	struct spi_flash *flash=NULL;
+ 	int ret = 0;
+ #ifdef CONFIG_YAFU_SUPPORT
+ 	int  boot_fwupd = 0;
+@@ -1055,18 +1062,6 @@
+ 		return 0;			/* Full Access to Uboot Console */
+ 	}
+ 
+-    flash = spi_flash_probe((CONFIG_ENV_SPI_BUS), (CONFIG_ENV_SPI_CS+1),
+-                        CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
+-    if (flash == NULL)
+-        puts("\n BootFMH spi_flash_probe failed CE1");
+-
+-    flash = spi_flash_probe(CONFIG_ENV_SPI_BUS, CONFIG_ENV_SPI_CS,
+-                        CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
+-    if (flash == NULL)
+-    {
+-        puts("\nspi_flash_probe failed");
+-        hang();
+-    }
+ 
+ #ifdef CONFIG_SPX_FEATURE_GLOBAL_DUAL_IMAGE_SUPPORT
+     if( GetBootImage(&imagetoboot) != 0 )
+@@ -1086,6 +1081,8 @@
+         StartingSector = 0;
+         //startaddress=CONFIG_SYS_FLASH_BASE;
+         startaddress=0;
++        flash = spi_flash_probe(CONFIG_ENV_SPI_BUS, 0,CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
++
+     }
+     else//for image2
+     {
+@@ -1100,14 +1097,22 @@
+ 		startaddress=StartingSector;
+         StartingSector/=SectorSize;
+         SectorCount/=SectorSize;
++		GetFlashStartAddr(1,&startaddress);
++        flash = spi_flash_probe(CONFIG_ENV_SPI_BUS, (CONFIG_ENV_SPI_CS+1),CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
+ #else
+ 
+         StartingSector = (CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE/SectorSize);
+         SectorCount = ( (2*CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE)/SectorSize );
++        flash = spi_flash_probe(CONFIG_ENV_SPI_BUS, CONFIG_ENV_SPI_CS ,CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
+         //startaddress=CONFIG_SYS_FLASH_BASE+CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE;
+        startaddress=CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE;
+ #endif
+     }
++    if (flash == NULL)
++    {
++        puts("\nspi_flash_probe failed");
++        hang();
++    }  
+ 
+         #ifdef CONFIG_SPX_FEATURE_SECURE_BOOT_SUPPORT
+                 hrot_start();

@@ -1,0 +1,10 @@
+--- linux_ori/include/uapi/linux/ethtool.h	2020-01-16 11:26:47.850588124 +0800
++++ linux_new/include/uapi/linux/ethtool.h	2020-01-16 11:27:31.057628518 +0800
+@@ -975,6 +975,7 @@
+ #define SPEED_1000		1000
+ #define SPEED_2500		2500
+ #define SPEED_10000		10000
++#define SPEED_25000		25000
+ #define SPEED_UNKNOWN		-1
+ 
+ /* Duplex, half or full. */

@@ -1,0 +1,11 @@
+diff -Naur u-boot-2019.04/drivers/serial/ns16550.c u-boot.new/drivers/serial/ns16550.c
+--- u-boot-2019.04/drivers/serial/ns16550.c	2020-05-06 17:06:57.082250469 +0800
++++ u-boot.new/drivers/serial/ns16550.c	2020-05-06 17:07:40.977019000 +0800
+@@ -348,6 +348,7 @@
+ 	struct ns16550_platdata *plat = com_port->plat;
+ 	int clock_divisor;
+ 
++ 	baudrate = CONFIG_SPX_FEATURE_BAUDRATE_CONSOLE_TTY;
+ 	clock_divisor = ns16550_calc_divisor(com_port, plat->clock, baudrate);
+ 
+ 	NS16550_setbrg(com_port, clock_divisor);

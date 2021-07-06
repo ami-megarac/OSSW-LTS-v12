@@ -1,0 +1,15 @@
+diff -Naur linux/drivers/mtd/spi-nor/spi-nor.c linux.new/drivers/mtd/spi-nor/spi-nor.c
+--- linux/drivers/mtd/spi-nor/spi-nor.c	2020-05-29 18:23:30.822993517 +0800
++++ linux.new/drivers/mtd/spi-nor/spi-nor.c	2020-05-29 18:24:58.002997257 +0800
+@@ -2511,6 +2511,11 @@
+ 			SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
+ 			SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB)
+ 	},
++	{
++		"w25q512jvfim",INFO( 0xef7020, 0, 64 * 1024, 1024,
++			SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
++			SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB)
++	},
+ 	{ "w25q80", INFO(0xef5014, 0, 64 * 1024,  16, SECT_4K) },
+ 	{ "w25q80bl", INFO(0xef4014, 0, 64 * 1024,  16, SECT_4K) },
+ 	{ "w25q128", INFO(0xef4018, 0, 64 * 1024, 256, SECT_4K) },

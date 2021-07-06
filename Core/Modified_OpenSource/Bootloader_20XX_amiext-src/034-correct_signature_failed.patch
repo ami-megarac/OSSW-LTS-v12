@@ -1,0 +1,66 @@
+diff -Naur uboot_org/oem/ami/fmh/hrotcore.c uboot/oem/ami/fmh/hrotcore.c
+--- uboot_org/oem/ami/fmh/hrotcore.c	2020-09-03 17:16:59.000000000 +0800
++++ uboot/oem/ami/fmh/hrotcore.c	2020-09-03 17:21:55.000000000 +0800
+@@ -39,7 +39,10 @@
+         int rc = 0;
+ 	UINT32 hash_start, size_to_hash;
+ 	struct spi_flash *flash;
+-
++	if (0)
++	{
++		startaddress=startaddress;
++	}
+ 	if((ModType == MODULE_BOOTLOADER) && (strncmp((char *)ModName,"boot",sizeof("boot")) == 0)){
+ 		boot_fmh_location = fmhLocation;
+ 	}
+@@ -54,16 +57,16 @@
+ 	if((ModType != MODULE_JFFS2 && ModType != MODULE_BOOTLOADER) || (UBOOT_VALIDATE && ModType == MODULE_BOOTLOADER)){
+ 
+ 		if(ModType != MODULE_BOOTLOADER && ModType != MODULE_FMH_FIRMWARE){
+-                        hash_start = startaddress + fmhLocation;
++                        hash_start = fmhLocation;
+                         size_to_hash = AllocSize;
+                 }
+                 else if(ModType == MODULE_FMH_FIRMWARE){
+-                        hash_start = startaddress + fmhLocation;
++                        hash_start = fmhLocation;
+                         size_to_hash = AllocSize - (3*PROD_SIG_OFFSET+1024);
+-			product_info_offset=startaddress + fmhLocation +AllocSize;
++			product_info_offset= fmhLocation +AllocSize;
+                 }
+                 else{
+-                        hash_start = startaddress + location;
++                        hash_start =  location;
+                 	size_to_hash = fmhLocation + SIZE_OF_UBOOT_FMH - PROD_SIG_OFFSET;
+                 }
+ 
+@@ -82,7 +85,7 @@
+                                 return 1;
+                         }
+ 						
+-						if ((ModType == MODULE_FMH_FIRMWARE) && (hash_start == (startaddress + fmhLocation)))
++						if ((ModType == MODULE_FMH_FIRMWARE) && (hash_start == (fmhLocation)))
+ 						{
+ 							// Start with FmhLocation + 0x17 offset exclude 1 Byte FMH_Header_Checksum
+ 							memset(&hash_data[23], 0, 1);
+@@ -106,7 +109,7 @@
+ int
+ hrot_finish(unsigned long startaddress){
+         unsigned char output [65];
+-        UINT32 keyInfo = startaddress + boot_fmh_location - KEY_INFO_LENGTH;
++        UINT32 keyInfo = boot_fmh_location - KEY_INFO_LENGTH;
+         UINT32 sigaddr = product_info_offset  - PROD_SIG_OFFSET;
+         int rc = 0;
+         int size = 64;
+@@ -116,7 +119,10 @@
+ 		int sig_length;
+ 		char identifier[8];
+ 		struct spi_flash *flash;
+-	
++		if(0)
++		{
++			startaddress=startaddress;
++		}
+ 		flash = spi_flash_probe(CONFIG_ENV_SPI_BUS, CONFIG_ENV_SPI_CS,
+ 							CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
+ 		if (flash == NULL) 

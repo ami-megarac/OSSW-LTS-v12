@@ -1,0 +1,10 @@
+--- linux.new/drivers/char/hw_random/Makefile	2018-10-15 11:47:47.899368464 +0800
++++ linux/drivers/char/hw_random/Makefile	2018-10-12 14:18:51.033967973 +0800
+@@ -4,6 +4,7 @@
+ 
+ obj-$(CONFIG_HW_RANDOM) += rng-core.o
+ rng-core-y := core.o
++obj-$(CONFIG_HW_RANDOM_PILOT) += pilot_rng.o
+ obj-$(CONFIG_HW_RANDOM_TIMERIOMEM) += timeriomem-rng.o
+ obj-$(CONFIG_HW_RANDOM_INTEL) += intel-rng.o
+ obj-$(CONFIG_HW_RANDOM_AMD) += amd-rng.o

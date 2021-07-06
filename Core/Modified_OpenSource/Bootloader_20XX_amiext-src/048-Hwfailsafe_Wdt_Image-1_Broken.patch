@@ -1,0 +1,41 @@
+diff -Naur uboot_orig/oem/ami/fmh/ast_wdt.c uboot/oem/ami/fmh/ast_wdt.c
+--- uboot_orig/oem/ami/fmh/ast_wdt.c	2021-06-23 17:40:09.596217056 +0530
++++ uboot/oem/ami/fmh/ast_wdt.c	2021-06-23 17:41:55.491950711 +0530
+@@ -91,7 +91,11 @@
+ int Disable_watchdog(void)
+ {
+ 
++#ifdef CONFIG_SPX_FEATURE_HW_FAILSAFE_BOOT
++    if((*((volatile unsigned long *)(WDT2_CONTROL_REG)) & (WDT_ENABLE | WDT_RESET_SYSTEM)) && (broken_spi_banks != 1))
++#else
+     if(*((volatile unsigned long *)(WDT2_CONTROL_REG)) & (WDT_ENABLE | WDT_RESET_SYSTEM))
++#endif
+     {
+        printf("Disabling Watchdog 2 Timer\n");
+        *((volatile unsigned long *)(WDT2_CONTROL_REG)) &= ~(WDT_RESET_SYSTEM | WDT_ENABLE);
+diff -Naur uboot_orig/oem/ami/fmh/cmd_fmh.c uboot/oem/ami/fmh/cmd_fmh.c
+--- uboot_orig/oem/ami/fmh/cmd_fmh.c	2021-06-23 17:40:09.596217056 +0530
++++ uboot/oem/ami/fmh/cmd_fmh.c	2021-06-23 17:45:37.803303517 +0530
+@@ -71,6 +71,9 @@
+ 
+ int check_firmware_recovery(void);
+ 
++#ifdef CONFIG_SPX_FEATURE_HW_FAILSAFE_BOOT
++	extern unsigned char broken_spi_banks;	// specify the number of broken SPI flash bank
++#endif
+ 
+ #if defined(CONFIG_SPX_FEATURE_FAIL_SAFE_BOOTING) || defined(CONFIG_SPX_FEATURE_BMC_FIRMWARE_AUTO_RECOVERY)
+ extern int Enable_watchdog(unsigned long *wdt_timeout_status);
+@@ -1584,6 +1587,12 @@
+         printf("Error locating Kernel. Reset the board\n");
+ #endif                
+ 		printf("Unable to locate %s\n",KERNEL_FILE);
++#ifdef CONFIG_SPX_FEATURE_HW_FAILSAFE_BOOT
++	if (broken_spi_banks == 0)
++	{
++		broken_spi_banks = 1;
++	}
++#endif
+ 	}
+ 
+ #if defined (CONFIG_CMD_EXT4) && defined (CONFIG_CMD_MMC) && defined (CONFIG_SPX_FEATURE_MMC_BOOT)

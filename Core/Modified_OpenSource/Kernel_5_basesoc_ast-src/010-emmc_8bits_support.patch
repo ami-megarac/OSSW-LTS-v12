@@ -1,0 +1,363 @@
+diff -Naur linux/drivers/mmc/core/mmc.c linux_new/drivers/mmc/core/mmc.c
+--- linux/drivers/mmc/core/mmc.c	2020-05-14 13:58:30.000000000 +0800
++++ linux_new/drivers/mmc/core/mmc.c	2020-11-09 14:07:56.133714000 +0800
+@@ -389,6 +389,14 @@
+ 	 * are authorized, see JEDEC JESD84-B50 section B.8.
+ 	 */
+ 	card->ext_csd.rev = ext_csd[EXT_CSD_REV];
++        if(card->ext_csd.rev > 8)
++        {
++		pr_err("%s: unrecognised EXT_CSD revision %d\n",
++ 			mmc_hostname(card->host), card->ext_csd.rev);
++ 		err = -EINVAL;
++		goto out;
++        }
++        
+ 
+ 	/* fixup device after ext_csd revision field is updated */
+ 	mmc_fixup_device(card, mmc_ext_csd_fixups);
+@@ -1023,7 +1031,7 @@
+ 
+ 		bus_width = bus_widths[idx];
+ 		mmc_set_bus_width(host, bus_width);
+-
++		
+ 		/*
+ 		 * If controller can't handle bus width test,
+ 		 * compare ext_csd previously read in 1 bit mode
+@@ -1036,6 +1044,7 @@
+ 
+ 		if (!err) {
+ 			err = bus_width;
++			printk("mmc uses %i bits data transfer mode \n", 0x0001 << bus_width);
+ 			break;
+ 		} else {
+ 			pr_warn("%s: switch to bus width %d failed\n",
+@@ -1354,7 +1363,6 @@
+ 		err = err < 0 ? err : -ENOTSUPP;
+ 		goto out_err;
+ 	}
+-
+ 	/* Switch card to HS mode */
+ 	err = __mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+ 			   EXT_CSD_HS_TIMING, EXT_CSD_TIMING_HS,
+diff -Naur linux/drivers/mmc/host/sdhci-ast.c linux_new/drivers/mmc/host/sdhci-ast.c
+--- linux/drivers/mmc/host/sdhci-ast.c	2020-11-09 16:07:54.430532934 +0800
++++ linux_new/drivers/mmc/host/sdhci-ast.c	2020-11-09 14:07:13.281726000 +0800
+@@ -15,6 +15,7 @@
+ #include "sdhci-ast.h"
+ #include "sdhci.h"
+ 
++
+ static int  ast_sd_remove(struct platform_device *pdev);
+ 
+ static unsigned int ast_scu_sdhc1_enabled = 0;
+@@ -48,7 +49,6 @@
+ 	return AST_SD_MIN_CLOCK;
+ }
+ 
+-
+ static struct sdhci_ops ast_sd_ops = {
+ 	/* Define the max and min clock */
+ 	.get_max_clock = ast_get_max_clk,
+@@ -58,6 +58,9 @@
+ 	.set_clock = sdhci_set_clock,
+ 	.set_power = sdhci_set_power,
+ 	.set_bus_width = sdhci_set_bus_width,
++#if defined(EMMC_8BITS)
++        .platform_bus_width = ast_platform_bus_width,
++#endif
+ 	.set_uhs_signaling = sdhci_set_uhs_signaling,
+ 	.adma_write_desc = sdhci_adma_write_desc,
+ 	/* Remaining elements in this structure is intentionally left blank,
+@@ -249,16 +252,20 @@
+ 	host->quirks |= SDHCI_QUIRK_BROKEN_TIMEOUT_VAL;
+ #endif
+ 
+-#if defined(SOC_AST2500) || defined(SOC_AST2530) || defined(SOC_AST3200)
++#if defined(EMMC_8BITS)
+ 	/* Timeout clock frequency is not reported in
+ 	 * capabilities register, so added following
+ 	 * quirk to get it from other means */
+ 	host->quirks |= SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK;
++
++	if((ast_sdhc_port1_enabled + ast_sdhc_port2_enabled) >= 2)
++		host->mmc->caps |= MMC_CAP_4_BIT_DATA;
++	else
++		host->mmc->caps |= MMC_CAP_8_BIT_DATA;//Start Trace From MMC 8 Bits Transfer Mode
+ #endif
+ 
+ 	return 0;
+ }
+-
+ static int  ast_sd_remove(struct platform_device *pdev)
+ {
+ 	struct mmc_host *mmc = platform_get_drvdata(pdev);
+@@ -318,11 +325,10 @@
+ 
+ static int __init ast_sd_init(void)
+ {
+-	uint32_t reg;
+-	
++	uint32_t reg, i;
++
+ 	/* Unlock SCU */
+ 	iowrite32(SCU_UNLOCK_MAGIC, (void __iomem*)SCU_KEY_CONTROL_REG);
+-
+ 	/* Enable reset of SDHC */
+ 	reg = ioread32((void __iomem*)SCU_SYS_RESET_REG);
+ 	reg |= SD_RESET_BIT;
+@@ -371,14 +377,31 @@
+ 
+ 	/* Set debounce value */
+ 	iowrite32(0x1000, (void __iomem*)AST_SDHC_VA_BASE + AST_SDHC_DEBOUNCE);
+-
++	/* enable multifucntion for SDHC */	
++	if(NO_OF_SDHCS != 0)
++	{
++		reg = ioread32(SCU_MISC_MULTI_PIN5_REG);
++		for(i=1; i <= NO_OF_SDHCS; i++)
++		{
++			if(i == SDHC0)
++				reg |= AST_SCU_MULTI_PIN_SDHC0;
++
++			if(i == SDHC1)
++				reg |= AST_SCU_MULTI_PIN_SDHC1;
++
++			if(i > SDHC1)
++				break;
++		}
++		iowrite32(reg, SCU_MISC_MULTI_PIN5_REG);		
++	}
++	mdelay(10);
+ 	/* Read SCU90 to check if SD is enabled */
+ 	if ((ast_scu_sdhc1_enabled == 0) && (ast_scu_sdhc2_enabled == 0))
+ 	{
+ 		reg = ioread32((void __iomem*)AST_SCU_VA_BASE + 0x90);
+-		if (reg & AST_SCU_MULTI_PIN_SDHC1)
++		if (reg & AST_SCU_MULTI_PIN_SDHC0)
+ 			ast_scu_sdhc1_enabled = 1;
+-		if (reg & AST_SCU_MULTI_PIN_SDHC2)
++		if (reg & AST_SCU_MULTI_PIN_SDHC1)
+ 			ast_scu_sdhc2_enabled = 1;
+ 	}
+ 
+diff -Naur linux/drivers/mmc/host/sdhci-ast.h linux_new/drivers/mmc/host/sdhci-ast.h
+--- linux/drivers/mmc/host/sdhci-ast.h	2020-11-09 16:07:54.354533783 +0800
++++ linux_new/drivers/mmc/host/sdhci-ast.h	2020-11-09 14:07:28.741725000 +0800
+@@ -1,18 +1,30 @@
+ #ifdef CONFIG_SPX_FEATURE_MMC_OEM_PLATFORM
+ #include "../../../../../../Build/include/projdef.h"
+ #endif
++//#define EMMC_8BITS
++#define IO_BASE         0xF0000000                 // VA of IO
++#define IO_ADDRESS(x)   ((x&0x0fffffff)+IO_BASE)
+ /* AST SoC SD/MMC related register address and values */
+ 
+ #define AST_SDHC_VA_BASE                IO_ADDRESS(0x1E740000)
+-
++#define SCU_UNLOCK_MAGIC                0x1688A8A8
+ #define AST_SDHC_SLOT1_ADDR             0x1E740100
+ #define AST_SDHC_SLOT2_ADDR             0x1E740200
+-
+-#define SCU_UNLOCK_MAGIC                0x1688A8A8
++#define AST_SCU_BASE                    0x1E6E2000
++#define AST_SCU_VA_BASE                 IO_ADDRESS(AST_SCU_BASE)
++#define SCU_MISC_MULTI_PIN5_REG	        (AST_SCU_VA_BASE +  0x90)
++#define AST_MDMA_BASE                   0x1E740000
++#define AST_MDMA_VA_BASE                IO_ADDRESS(AST_MDMA_BASE)
+ 
+ #define SD_CLOCK_BIT                    (1 << 27)
+ #define SD_CLOCK_RUN                    (1 << 15)
+ #define SD_RESET_BIT                    (1 << 16)
++#define AST_SCU_MULTI_PIN_ENABLE_8_BITS_MODE 0x00000008 /* bit 3 */
++#define AST_SCU_MULTI_PIN_SDHC1 0x00000002 /* bit 1 */
++#define AST_SCU_MULTI_PIN_SDHC0 0x00000001 /* bit 0 */
++#define NO_OF_SDHCS		(CONFIG_SPX_FEATURE_GLOBAL_SD_SLOT_COUNT + CONFIG_SPX_FEATURE_GLOBAL_EMMC_FLASH_COUNT)	//Numbers of SDIO
++#define SDHC0			1
++#define SDHC1			2
+ 
+ #define SD_CLOCK_DIVIDER_MASK           (7 << 12) /* bits[14:12] */
+ #define SD_CLOCK_DIVIDER_SELECTION      1 /* SDCLK = H-PLL / 4 */
+@@ -29,8 +41,8 @@
+ #define AST_INT_STATUSEN2_REG           0x234
+ #define AST_INT_ENABLE2_REG             0x238
+ 
+-#define AST_SCU_MULTI_PIN_SDHC1         0x01
+-#define AST_SCU_MULTI_PIN_SDHC2         0x02
++//#define AST_SCU_MULTI_PIN_SDHC1         0x01
++//#define AST_SCU_MULTI_PIN_SDHC2         0x02
+ 
+ #define AST_SDHC_IRQ_NUM                26
+ 
+diff -Naur linux/drivers/mmc/host/sdhci.c linux_new/drivers/mmc/host/sdhci.c
+--- linux/drivers/mmc/host/sdhci.c	2020-11-09 16:07:53.638541785 +0800
++++ linux_new/drivers/mmc/host/sdhci.c	2020-11-09 14:07:00.765724000 +0800
+@@ -32,6 +32,7 @@
+ #include <linux/mmc/slot-gpio.h>
+ 
+ #include "sdhci.h"
++#include "sdhci-ast.h"
+ 
+ #define DRIVER_NAME "sdhci"
+ 
+@@ -1913,17 +1914,19 @@
+ 	spin_unlock_irqrestore(&host->lock, flags);
+ }
+ EXPORT_SYMBOL_GPL(sdhci_request);
+-
+ void sdhci_set_bus_width(struct sdhci_host *host, int width)
+ {
+ 	u8 ctrl;
+-
+ 	ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
+-	if (width == MMC_BUS_WIDTH_8) {
++	if (width == MMC_BUS_WIDTH_8) 
++        {
+ 		ctrl &= ~SDHCI_CTRL_4BITBUS;
+-		ctrl |= SDHCI_CTRL_8BITBUS;
+-	} else {
+-		if (host->mmc->caps & MMC_CAP_8_BIT_DATA)
++		if ((host->version & SDHCI_SPEC_VER_MASK) >= SDHCI_SPEC_300)
++			ctrl |= SDHCI_CTRL_8BITBUS;
++	} 
++        else 
++        {
++		if ((host->version & SDHCI_SPEC_VER_MASK) >= SDHCI_SPEC_300)
+ 			ctrl &= ~SDHCI_CTRL_8BITBUS;
+ 		if (width == MMC_BUS_WIDTH_4)
+ 			ctrl |= SDHCI_CTRL_4BITBUS;
+@@ -1958,7 +1961,74 @@
+ 	sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
+ }
+ EXPORT_SYMBOL_GPL(sdhci_set_uhs_signaling);
++#if defined(EMMC_8BITS) //only ast2500 supporta 8 bit mode. 
++#define SDHCI_CTRL_S0_8BITBUS 0x1000000;
++#define AST_SCU_MULTI_PIN_ENABLE_8_BITS_MODE 0x00000008 /* bit 3 */
++#define ENABLE_8_BIT 1
++
++static void ast_set_gerneral_transfer_mode(int set)
++{
++	u32 ctrl2;
++
++	/*Enable 8bits transfer mode multi function ping*/
++	iowrite32(SCU_UNLOCK_MAGIC, (void __iomem*)AST_SCU_VA_BASE);/* unlock SCU */
++
++        	ctrl2 = ioread32((void __iomem*)AST_SCU_VA_BASE+0x90);
++        	if(set == ENABLE_8_BIT)
++        	{
++        		ctrl2 |= AST_SCU_MULTI_PIN_ENABLE_8_BITS_MODE;//Enable 8bits multi unction ping
++        	}else
++        	{
++        		ctrl2 &= ~AST_SCU_MULTI_PIN_ENABLE_8_BITS_MODE;//Disable 8bits multi unction ping
++        	}
++        	iowrite32(ctrl2, (void __iomem*)AST_SCU_VA_BASE+0x90);
++        	mdelay(10);
++        	ctrl2 = ioread32((void __iomem*)AST_SCU_VA_BASE+0x90);
++
++	iowrite32(0, (void __iomem*)AST_SCU_VA_BASE);/* lock SCU */
++
++        	/*Enable 8bits host transfer mode*/
++	ctrl2 = ioread32((void __iomem*)AST_MDMA_VA_BASE);
++	if(set == ENABLE_8_BIT)
++	{
++		ctrl2 |= SDHCI_CTRL_S0_8BITBUS;//Enable 8bits transfer mode
++	}
++	else
++	{
++		ctrl2 &= ~SDHCI_CTRL_S0_8BITBUS;//Disable 8bits transfer mode
++	}
++	iowrite32(ctrl2, (void __iomem*)AST_MDMA_VA_BASE);
++}
+ 
++int ast_platform_bus_width(struct sdhci_host *host, int width)
++{
++	u32 ctrl;
++	int enable_set;
++
++	ctrl = sdhci_readl(host, SDHCI_HOST_CONTROL);
++
++	switch (width) {
++	case MMC_BUS_WIDTH_8:
++		ctrl &= ~SDHCI_CTRL_4BITBUS;
++		enable_set = ENABLE_8_BIT;
++		break;
++
++	case MMC_BUS_WIDTH_4:
++		ctrl |= SDHCI_CTRL_4BITBUS;
++		enable_set = 0;
++		break;
++	default:
++		ctrl &= ~SDHCI_CTRL_4BITBUS;
++		enable_set = 0;
++		break;
++	}
++	ast_set_gerneral_transfer_mode(enable_set);
++	
++	sdhci_writel(host, ctrl, SDHCI_HOST_CONTROL);
++
++	return 0;
++}
++#endif
+ void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
+ {
+ 	struct sdhci_host *host = mmc_priv(mmc);
+@@ -2012,9 +2082,16 @@
+ 
+ 	if (host->ops->platform_send_init_74_clocks)
+ 		host->ops->platform_send_init_74_clocks(host, ios->power_mode);
+-
++	/*
++	 * If your platform has 8-bit width support but is not a v3 controller,
++	 * or if it requires special setup code, you should implement that in
++	 * platform_bus_width().
++	 */
++#if defined(EMMC_8BITS)
++	host->ops->platform_bus_width(host, ios->bus_width);
++#else
+ 	host->ops->set_bus_width(host, ios->bus_width);
+-
++#endif
+ 	ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
+ 
+ 	if (!(host->quirks & SDHCI_QUIRK_NO_HISPD_BIT)) {
+@@ -4053,8 +4130,19 @@
+ 	 * won't assume 8-bit width for hosts without that CAP.
+ 	 */
+ 	if (!(host->quirks & SDHCI_QUIRK_FORCE_1_BIT_DATA))
+-		mmc->caps |= MMC_CAP_4_BIT_DATA;
+-
++        {
++		//mmc->caps |= MMC_CAP_4_BIT_DATA;
++        	if(host->mmc->caps & MMC_CAP_8_BIT_DATA)
++		{
++                        printk("8 bits auto-detect\n");
++			mmc->caps |= MMC_CAP_8_BIT_DATA;//MMC used 8bits auto detect mode
++		}
++		else
++		{
++			printk("4 bits auto-detect\n");
++			mmc->caps |= MMC_CAP_4_BIT_DATA;//MMC used 4bits auto detect mode
++		}
++        }
+ 	if (host->quirks2 & SDHCI_QUIRK2_HOST_NO_CMD23)
+ 		mmc->caps &= ~MMC_CAP_CMD23;
+ 
+diff -Naur linux/drivers/mmc/host/sdhci.h linux_new/drivers/mmc/host/sdhci.h
+--- linux/drivers/mmc/host/sdhci.h	2020-11-09 16:07:53.642541740 +0800
++++ linux_new/drivers/mmc/host/sdhci.h	2020-11-09 14:06:54.781722000 +0800
+@@ -644,6 +644,7 @@
+ 	unsigned int	(*get_max_timeout_count)(struct sdhci_host *host);
+ 	void		(*set_timeout)(struct sdhci_host *host,
+ 				       struct mmc_command *cmd);
++        int		(*platform_bus_width)(struct sdhci_host *host, int width);
+ 	void		(*set_bus_width)(struct sdhci_host *host, int width);
+ 	void (*platform_send_init_74_clocks)(struct sdhci_host *host,
+ 					     u8 power_mode);
+@@ -808,5 +809,5 @@
+ void sdhci_abort_tuning(struct sdhci_host *host, u32 opcode);
+ void sdhci_set_data_timeout_irq(struct sdhci_host *host, bool enable);
+ void __sdhci_set_timeout(struct sdhci_host *host, struct mmc_command *cmd);
+-
++int ast_platform_bus_width(struct sdhci_host *host, int width);
+ #endif /* __SDHCI_HW_H */

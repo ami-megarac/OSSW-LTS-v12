@@ -1,0 +1,104 @@
+--- uboot/arch/arm/mach-aspeed/board.c	2020-07-29 11:52:26.008625739 +0530
++++ uboot_new/arch/arm/mach-aspeed/board.c	2020-07-29 13:21:30.758179645 +0530
+@@ -11,6 +11,23 @@
+ #include <linux/err.h>
+ #include <dm/uclass.h>
+ 
++#define AST_LPC_BASE                   0x1E789000    /* Not in AST3100   */
++#define AST_SCU_BASE                   0x1E6E2000
++#define SCU_KEY_CONTROL_REG			    (AST_SCU_VA_BASE +  0x00)
++#define AST_SCU_VA_BASE                 AST_SCU_BASE
++#define AST_PWM_FAN_BASE                0x1E786000
++
++#define AST_PCIE_REG_BASE	0x1e6ed000
++#define AST_PCIE_KEY_CONTROL	0x7C
++#define AST_PCIE_L1_ENTRY_TIMER	0x68
++
++#define AST_SCU_MULTI_FN_REG1  0x80
++#define AST_SCU_MULTI_FN_REG2  0x84
++#define AST_SCU_MULTI_FN_REG3  0x88
++#define AST_SCU_MULTI_FN_REG4  0x8c
++#define AST_SCU_MULTI_FN_REG5  0x90
++#define AST_LPC_HICR9_REGISTER        0x98
++
+ /*
+  * Second Watchdog Timer by default is configured
+  * to trigger secondary boot source.
+@@ -76,6 +93,55 @@
+ 
+ 	return 0;
+ }
++int misc_init_r (void)
++{
++
++	//printf("Calling misc_init_r\n");	
++	*((volatile ulong*) 0x1e6e2000) = 0x1688A8A8;	/* unlock SCU */
++
++ 	*(volatile u32 *)(AST_SCU_BASE + 0x40) |= 0x1000;
++	/* Disable below for security concern */
++	/* iLPC2AHB Pt1, and SCU70[20] = 0 */
++	*(volatile u32 *)(AST_LPC_BASE + 0x80) &= ~(0x100);
++	*(volatile u32 *)(AST_LPC_BASE + 0x100) |= 0x40;
++	/* iLPC2AHB Pt2, and HICR5[8] and HICRB[6] are disable */
++	/* Use hardware strapping to decide SCU70[20], here software does nothing on it */
++	/* PCI VGA P2A (PCI2AHB) bridge */
++	*(volatile u32 *)(AST_SCU_BASE + 0x180) &= ~(0x2);
++	/* UART-based SoC Debug interface */
++	*(volatile u32 *)(AST_SCU_BASE + 0x2C) |= 0x400;
++	/* DMA from/to arbitrary BMC Address-space via X-DMA */
++	*(volatile u32 *)(AST_SCU_BASE + 0x4) |= 0x2000000;
++	*(volatile u32 *)(AST_SCU_BASE + 0x180) &= ~(0x4040);
++	/* LPC2AHB bridge, and HICR5[8] are disable */
++	*(volatile u32 *)(AST_SCU_BASE + 0x2C) |= 0x1;
++	*(volatile u32 *)(AST_LPC_BASE + 0x80) &= ~(0x400);
++	/* PCI BMC Device */
++	*(volatile u32 *)(AST_SCU_BASE + 0x180) &= ~(0x100);
++
++	
++       /* Disable Pull down resistors of GPIOC_S/D_Y/G_AB/J */
++       *((volatile u32 *)0x1e6e208c) |= 0x024C0000;
++       /* Enable UART-3 function pin */
++       *((volatile ulong *)(AST_SCU_VA_BASE +  AST_SCU_MULTI_FN_REG1)) |= 0x00ff0000;
++       /* Enable UART-1/2 function pin */
++       *((volatile ulong *)(AST_SCU_VA_BASE +  AST_SCU_MULTI_FN_REG2)) |= 0xffff0000;
++       /* Disable digital video input port function pin */
++       *((volatile ulong *)(AST_SCU_VA_BASE +  AST_SCU_MULTI_FN_REG5)) &= 0xffffffcf;
++       /* Disable PWM function pin */
++       *((volatile ulong *)(AST_SCU_VA_BASE +  AST_SCU_MULTI_FN_REG3)) &= 0xffffff00;
++//       *((volatile ulong *)SCU_KEY_CONTROL_REG) = 0; /* lock SCU */
++	
++       /* Disabling UART-1/2/3 Reset source from LPC */
++       *(volatile ulong *)(AST_LPC_BASE + AST_LPC_HICR9_REGISTER) &= 0xffffff8f;
++
++	*((volatile ulong*) AST_PCIE_REG_BASE + AST_PCIE_KEY_CONTROL) = 0xA8;	/* unlock PCIE */
++	*((volatile ulong*) AST_PCIE_REG_BASE + AST_PCIE_L1_ENTRY_TIMER) = 0xc81f0a;  /* L1 entry timer */
++	*((volatile ulong*) AST_PCIE_REG_BASE + AST_PCIE_KEY_CONTROL) = 0x0;	/* lock PCIE */
++
++//	setenv("verify", "n");
++	return (0);
++}
+ 
+ int dram_init(void)
+ {
+--- uboot/common/board_r.c	2019-07-23 08:27:53.000000000 +0530
++++ uboot_new/common/board_r.c	2020-07-29 13:22:29.026124775 +0530
+@@ -559,6 +559,7 @@
+ 	debug("Reset Ethernet PHY\n");
+ 	reset_phy();
+ #endif
++	*((volatile ulong*) 0x1e6e2000) = 0;
+ 	return 0;
+ }
+ #endif
+@@ -764,9 +765,9 @@
+ #ifdef CONFIG_ARCH_MISC_INIT
+ 	arch_misc_init,		/* miscellaneous arch-dependent init */
+ #endif
+-#ifdef CONFIG_MISC_INIT_R
++//#ifdef CONFIG_MISC_INIT_R
+ 	misc_init_r,		/* miscellaneous platform-dependent init */
+-#endif
++//#endif
+ 	INIT_FUNC_WATCHDOG_RESET
+ #ifdef CONFIG_CMD_KGDB
+ 	initr_kgdb,

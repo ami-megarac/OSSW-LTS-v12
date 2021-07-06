@@ -1,0 +1,142 @@
+--- uboot.old/oem/ami/fmh/cmd_fmh.c	2020-06-11 16:53:45.966639988 +0800
++++ uboot/oem/ami/fmh/cmd_fmh.c	2020-06-11 10:45:13.000000000 +0800
+@@ -30,6 +30,7 @@
+ 
+ # define  KERNEL_LOADADDR	0xC00000
+ # define  KERNEL_FILE		"/boot/uImage"
++# define  KERNEL_DTB		"/boot/kernel.dtb"
+ 
+ 
+ # define AUTO_HIGH_VER_FW          	0x0
+@@ -950,6 +951,9 @@
+ #if 1
+ 	char Command[128] = "FMHEXECUTE";
+ 	char AddrStr[128] = "0xFFFFFFFF";
++#if defined CONFIG_SPX_FEATURE_MMC_BOOT	
++	char AddrStr2[128] = "0xFFFFFFFF";
++#endif
+ 	char bootargs[256] = {0};
+ 	char imagebooted[16] = {0};
+     char goldenside[16];
+@@ -996,7 +1000,7 @@
+ 	char *bootselect = NULL;
+ #endif
+ 
+-	sprintf(baudrate_str,"%d",CONFIG_BAUDRATE);
++	sprintf(baudrate_str,"%d", CONFIG_SPX_FEATURE_BAUDRATE_CONSOLE_TTY);
+ 
+ #ifdef CONFIG_YAFU_SUPPORT
+ 	s = env_get("boot_fwupd");
+@@ -1438,10 +1442,12 @@
+ 		{
+ 			sprintf(AddrStr,"0x%lx",ExecuteAddr);
+ 			sprintf(INITRDAddrStr,"0x%lx",initrd_address);
++			sprintf(dtsaddrstr,"0x%lx",dtsaddr);
+ 			argv[0] = &Command[0];
+ 			argv[1] = &AddrStr[0];
+ 			argv[2] = &INITRDAddrStr[0];
+-			argv[3] = NULL;
++			argv[3] = &dtsaddrstr[0];
++			argv[4] = NULL;
+ 		}
+ 
+ 		/* If module is a ELF Executable */
+@@ -1469,7 +1475,7 @@
+ 			else
+ 			{
+ 				env_set("initrd_high","off");
+-				retval = do_bootm(NULL,0,3,argv);
++				retval = do_bootm(NULL,0,4,argv);
+ 			}
+ 			console_assign(stdout,"serial");
+ 			printf("Failed\n");
+@@ -1569,13 +1575,32 @@
+ 
+ 	if(do_ext4_load(NULL,0,5,argv) == 0)
+ 	{
+-		argv[0] = &Command[0];
+-		argv[1] = &AddrStr[0];
+-		argv[2] = NULL;
+-		retval = do_bootm(NULL,0,2,argv);
+-		console_assign(stdout,"serial");
+-		printf("Failed\n");
+-		return retval;
++		retval = snprintf(AddrStr2,128,"0x%x",CONFIG_SYS_LOAD_DTB_ADDR);
++		if(retval < 0 || retval >= 128)
++		{
++			return retval;
++		}
++	
++		argv[0] = "ext4load";
++		argv[1] = "mmc";
++		argv[2] = &partition[0]; /* It is assumed that boot partition will be in slot 0 */
++		argv[3] = &AddrStr2[0];
++		argv[4] = KERNEL_DTB;
++		argv[5] = NULL;
++
++		if(do_ext4_load(NULL,0,5,argv) == 0)
++		{
++			argv[0] = &Command[0];
++			argv[1] = &AddrStr[0];
++			argv[2] = "-";
++			argv[3] = &AddrStr2[0];
++			argv[4] = NULL;
++			retval = do_bootm(NULL,0,4,argv);
++			console_assign(stdout,"serial");
++			printf("Failed\n");
++			return retval;
++		}
++		
+ 	}
+ 	console_assign(stdout,"nulldev");
+ 	printf("Unable to locate %s\n",KERNEL_FILE);
+--- uboot.old/include/configs/evb_ast2500.h	2020-06-11 16:16:07.007727117 +0800
++++ uboot/include/configs/evb_ast2500.h	2020-06-11 10:40:01.000000000 +0800
+@@ -16,6 +16,7 @@
+ 
+ /* Memory Info */
+ #define CONFIG_SYS_LOAD_ADDR		0x83000000
++#define CONFIG_SYS_LOAD_DTB_ADDR	0X84000000
+ 
+ /* Environment */
+ #define CONFIG_ENV_SIZE			(0x10000 - 4 )
+--- aspeed-common.h	2020-06-07 21:29:29.704063239 -0400
++++ uboot/include/configs/aspeed-common.h	2020-06-07 21:34:59.832062375 -0400
+@@ -36,6 +36,10 @@
+ 
+ #define CONFIG_SYS_MALLOC_LEN		(32 << 20)
+ 
++#ifdef CONFIG_SPX_FEATURE_MMC_BOOT
++#define CONFIG_SD_BOOT_SELECTOR    1
++#endif
++
+ /* BigPhys Area*/
+ #ifdef CONFIG_SPX_FEATURE_GLOBAL_FRAME_BUFFER_SUPPORT
+ #define CONFIG_BIGPHYSAREA          "8192"
+@@ -61,6 +65,18 @@
+ #define CONFIG_SYS_BOOTMAPSZ       (256 * 1024 * 1024)
+ #define CONFIG_SYS_BOOTM_LEN       (0x800000 * 2)
+ 
++
++#ifdef CONFIG_SPX_FEATURE_MMC_BOOT 
++#define CONFIG_EXTRA_ENV_SETTINGS \
++        "autoload=no\0"                 \
++        "verify=yes\0"  \
++        "spi_dma=no\0" \
++        "do_memtest=" __stringify(CONFIG_MEMTEST_ENABLE)        "\0" \
++        "bootselector=1\0" \
++        "recentlyprogfw=1\0" \
++	"sdbootselector=" __stringify(CONFIG_SD_BOOT_SELECTOR) "\0" \
++        ""
++#else
+ #define CONFIG_EXTRA_ENV_SETTINGS \
+ 	"autoload=no\0"			\
+ 	"verify=yes\0"	\
+@@ -69,6 +85,7 @@
+ 	"bootselector=1\0" \
+ 	"recentlyprogfw=1\0" \
+ 	""
++#endif
+ 
+ /*
+  * Ethernet related

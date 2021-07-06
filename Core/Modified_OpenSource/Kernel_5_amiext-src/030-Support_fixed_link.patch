@@ -1,0 +1,56 @@
+diff -Naur linux_org/drivers/net/ethernet/faraday/ftgmac100.c linux/drivers/net/ethernet/faraday/ftgmac100.c
+--- linux_org/drivers/net/ethernet/faraday/ftgmac100.c	2020-12-02 13:41:28.692575724 +0800
++++ linux/drivers/net/ethernet/faraday/ftgmac100.c	2020-12-02 13:41:12.449232818 +0800
+@@ -1862,15 +1862,34 @@
+ 	}
+ #endif
+ 	
+-	priv->use_ncsi = false;
+-	err = ftgmac100_setup_mdio(netdev);
+-	if (err)
+-	{
+-		//Enable interface for NCSI usage
+-		dev_info(&pdev->dev, "Using NCSI interface\n");
+-		priv->use_ncsi = true;
++	if (np && of_get_property(np, "fixed-link", NULL)){
++		struct phy_device *phy;
++
++		phy = of_phy_get_and_connect(priv->netdev, np,
++					     &ftgmac100_adjust_link);
++		if (!phy) {
++			dev_err(&pdev->dev, "Failed to connect to phy\n");
++			goto err_setup_mdio;
++		}
++
++		/* Indicate that we support PAUSE frames (see comment in
++		 * Documentation/networking/phy.txt)
++		 */
++		phy_support_asym_pause(phy);
++
++		/* Display what we found */
++		phy_attached_info(phy);
++	}else{
++		priv->use_ncsi = false;
++		err = ftgmac100_setup_mdio(netdev);
++		if (err)
++		{
++			//Enable interface for NCSI usage
++			dev_info(&pdev->dev, "Using NCSI interface\n");
++			priv->use_ncsi = true;
++		}
+ 	}
+-	
++
+ 	if (priv->is_aspeed)
+ 		ftgmac100_setup_clk(priv);
+ 
+@@ -1909,9 +1928,7 @@
+ #endif
+ err_register_netdev:
+ 	ftgmac100_destroy_mdio(netdev);
+-#if 0 //Marked for ignore open source NCSI 
+ err_setup_mdio:
+-#endif
+ 	iounmap(priv->base);
+ err_ioremap:
+ 	release_resource(priv->res);
