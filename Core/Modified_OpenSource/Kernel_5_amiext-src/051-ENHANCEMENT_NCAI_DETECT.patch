@@ -1,0 +1,44 @@
+diff -Naur linux_org/drivers/net/ethernet/faraday/ftgmac100.c linux/drivers/net/ethernet/faraday/ftgmac100.c
+--- linux_org/drivers/net/ethernet/faraday/ftgmac100.c	2021-06-29 13:25:13.294214283 +0800
++++ linux/drivers/net/ethernet/faraday/ftgmac100.c	2021-06-29 13:26:46.247535917 +0800
+@@ -52,7 +52,15 @@
+ #define FTGMAC_100MHZ		100000000
+ #define FTGMAC_25MHZ		25000000
+ 
+-long unsigned int ftgmac100_mac_register[4] = {0x1e660000, 0x1e680000, 0x1e670000, 0x1e690000};
++#if defined(CONFIG_SPX_FEATURE_NCSI_ACTIVE_MAC1) || defined(CONFIG_SPX_FEATURE_NCSI_ACTIVE_MAC2) 
++	#ifdef CONFIG_SPX_FEATURE_NCSI_ACTIVE_MAC1
++		long unsigned int ftgmac100_mac_register[4] = {0x1e660000, 0, 0, 0 };
++	#else
++		long unsigned int ftgmac100_mac_register[4] = {0x1e680000, 0, 0, 0 };
++	#endif
++#else
++		long unsigned int ftgmac100_mac_register[4] = {0x1e660000, 0x1e680000, 0x1e670000, 0x1e690000};
++#endif
+ 
+ struct ftgmac100 {
+ 	/* Registers */
+@@ -1885,6 +1893,15 @@
+ 	}else{
+ 		priv->use_ncsi = false;
+ #ifdef CONFIG_SPX_FEATURE_NCSI_DEFAULT_INTERFACE
++#if defined(CONFIG_SPX_FEATURE_NCSI_ACTIVE_MAC1) || defined(CONFIG_SPX_FEATURE_NCSI_ACTIVE_MAC2)
++		index = 0;
++		sscanf(pdev->name, "%lx.ethernet", &register_addr);
++		if (ftgmac100_mac_register[index] == register_addr) {
++			//Enable interface for NCSI usage
++			dev_info(&pdev->dev, "Using NCSI interface\n");
++			priv->use_ncsi = true;
++		}else 
++#else
+ 		sscanf(CONFIG_SPX_FEATURE_NCSI_DEFAULT_INTERFACE, "eth%d", &index);
+ 		sscanf(pdev->name, "%lx.ethernet", &register_addr);
+ 		if (ftgmac100_mac_register[index] == register_addr) {
+@@ -1893,6 +1910,7 @@
+ 			priv->use_ncsi = true;
+ 		}else 
+ #endif
++#endif
+ 		{
+ 			err = ftgmac100_setup_mdio(netdev);
+ 			if (err)

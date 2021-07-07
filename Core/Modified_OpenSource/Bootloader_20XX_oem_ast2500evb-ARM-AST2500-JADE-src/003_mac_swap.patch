@@ -1,0 +1,57 @@
+diff -Naur uboot/arch/arm/dts/ast2500.dtsi uboot_new/arch/arm/dts/ast2500.dtsi
+--- uboot/arch/arm/dts/ast2500.dtsi	2020-06-03 21:53:23.928189954 +0530
++++ uboot_new/arch/arm/dts/ast2500.dtsi	2020-06-12 22:08:44.109085651 +0530
+@@ -148,19 +148,19 @@
+ 			reg = <0x1e6c0080 0x80>;
+ 		};
+ 
+-		mac0: ethernet@1e660000 {
++		mac0: ethernet@1e680000 {
+ 			compatible = "aspeed,ast2500-mac", "faraday,ftgmac100";
+-			reg = <0x1e660000 0x180>;
+-			interrupts = <2>;
+-			clocks = <&scu ASPEED_CLK_GATE_MAC1CLK>, <&scu ASPEED_CLK_D2PLL>;
++			reg = <0x1e680000 0x180>;
++			interrupts = <3>;
++			clocks = <&scu ASPEED_CLK_GATE_MAC2CLK>, <&scu ASPEED_CLK_D2PLL>;
+ 			status = "disabled";
+ 		};
+ 
+-		mac1: ethernet@1e680000 {
++		mac1: ethernet@1e660000 {
+ 			compatible = "aspeed,ast2500-mac", "faraday,ftgmac100";
+-			reg = <0x1e680000 0x180>;
+-			interrupts = <3>;
+-			clocks = <&scu ASPEED_CLK_GATE_MAC2CLK>, <&scu ASPEED_CLK_D2PLL>;
++			reg = <0x1e660000 0x180>;
++			interrupts = <2>;
++			clocks = <&scu ASPEED_CLK_GATE_MAC1CLK>, <&scu ASPEED_CLK_D2PLL>;
+ 			status = "disabled";
+ 		};
+ 
+diff -Naur uboot/arch/arm/dts/ast2500-evb.dts uboot_new/arch/arm/dts/ast2500-evb.dts
+--- uboot/arch/arm/dts/ast2500-evb.dts	2019-07-23 08:27:52.000000000 +0530
++++ uboot_new/arch/arm/dts/ast2500-evb.dts	2020-06-12 22:08:02.160010047 +0530
+@@ -46,18 +46,19 @@
+ &mac0 {
+ 	status = "okay";
+ 	phy-mode = "rgmii";
+-
+ 	pinctrl-names = "default";
+-	pinctrl-0 = <&pinctrl_mac1link_default &pinctrl_mdio1_default>;
++	pinctrl-0 = <&pinctrl_mac2link_default &pinctrl_mdio2_default>;
+ };
+ 
+ &mac1 {
+ 	status = "okay";
+ 	phy-mode = "rgmii";
++
+ 	pinctrl-names = "default";
+-	pinctrl-0 = <&pinctrl_mac2link_default &pinctrl_mdio2_default>;
++	pinctrl-0 = <&pinctrl_mac1link_default &pinctrl_mdio1_default>;
+ };
+ 
++
+ &fmc {
+ 	status = "okay";
+ 	flash@0 {

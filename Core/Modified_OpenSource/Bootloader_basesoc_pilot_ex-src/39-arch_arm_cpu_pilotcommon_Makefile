@@ -1,0 +1,12 @@
+--- old/arch/arm/cpu/pilotcommon/Makefile	2019-02-21 17:13:38.775593616 +0800
++++ new/arch/arm/cpu/pilotcommon/Makefile	2019-02-21 17:25:45.875573607 +0800
+@@ -30,6 +30,9 @@
+ COBJS-$(CONFIG_CMD_I2C) += piloti2c.o
+ #COBJS-$(CONFIG_FAIL_SAFE) += wdt.o
+ COBJS-y += wdt.o
++ifeq ($(CONFIG_EARLYBOOT_ESPI_HANDSHAKE),"YES")
++COBJS-y += espi_boot.o
++endif
+
+ #-------------------------------------------------------------------
+ COBJS	:= $(COBJS-y)

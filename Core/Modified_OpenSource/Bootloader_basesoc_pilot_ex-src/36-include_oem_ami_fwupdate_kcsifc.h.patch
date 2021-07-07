@@ -1,0 +1,43 @@
+--- uboot/include/oem/ami/fwupdate/kcsifc.h	2018-06-11 15:17:20.105340524 +0500
++++ uboot_new/include/oem/ami/fwupdate/kcsifc.h	2018-06-11 15:21:52.374712904 +0500
+@@ -92,21 +92,29 @@
+ #define KCS_CMD_REG(CHANNEL, CMD)         								                 \
+ do {                                            				                         \
+     switch (CHANNEL) {                       				                             \
+-    case KCS_1_CHANNEL: CMD = READ_U8(lpc_base[CHANNEL] + KCS_IDR1); break;   		 \
+-    case KCS_2_CHANNEL: CMD = READ_U8(lpc_base[CHANNEL] + KCS_IDR2); break;   		 \
++    case KCS_1_CHANNEL: CMD = READ_U8(lpc_base[CHANNEL] + KCS_CMD1); break;   		 \
++    case KCS_2_CHANNEL: CMD = READ_U8(lpc_base[CHANNEL] + KCS_CMD2); break;   		 \
+     }                                            				         				 \
+ } while (0)
+ 
++#define CLEAR_IBF_STATUS(CHANNEL) \
++do {                                             \
++        u8 Status = 0;                           \
++        READ_KCS_STATUS_REG (CHANNEL,Status);            \
++        Status = Status & (~0x02);               \
++        WRITE_KCS_STATUS_REG (CHANNEL,Status);           \
++} while (0)
+ 
+-/** 
+- * @def CLEAR_IBF_STATUS
+-**/
+-#define CLEAR_IBF_STATUS(CHANNEL)
+-
+-/** 
+- * @def SET_OBF_STATUS
+-**/
+-#define SET_OBF_STATUS(CHANNEL)
++/**
++  * @def SET_OBF_STATUS
++ **/
++#define SET_OBF_STATUS(CHANNEL)                         \
++do {                                                                                    \
++        u8 Status = 0;                                                  \
++        READ_KCS_STATUS_REG (CHANNEL,Status);                \
++        Status = Status | 0x01 ;                \
++        WRITE_KCS_STATUS_REG (CHANNEL,Status);                \
++} while (0)
+ 
+ /**
+  * @def INIT_KCS

@@ -1,0 +1,110 @@
+// SPDX-License-Identifier: GPL-2.0+
+/dts-v1/;
+
+#include "projdef.h"
+#include "aspeed-g5.dtsi"
+
+/ {
+	model = "EthanolX";
+	compatible = "aspeed,ast2500";
+
+	aliases {
+		serial0 = &uart1;
+		serial4 = &uart5;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x80000000 0x20000000>;
+	};
+
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		gfx_memory: framebuffer {
+			size = <0x01000000>;
+			alignment = <0x01000000>;
+			compatible = "shared-dma-pool";
+			reusable;
+		};
+	};
+};
+
+#if defined(CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK)
+&fmc {
+	status = "okay";
+	flash0: flash@0 {
+		status = "okay";
+		m25p,fast-read;
+		spi-max-frequency = <50000000>;
+		reg= <0>;
+	};
+	flash1: flash@1 {
+		status = "okay";
+		m25p,fast-read;
+		spi-max-frequency = <50000000>;
+		reg = <1>;
+	};
+};
+&mtdconcat {
+	status="okay";
+	devices=<&flash0 &flash1>;
+ 	label = "spx";
+	partitions {
+           compatible = "ami,spx-fmh";
+	};
+
+};
+#else
+&fmc {
+	status = "okay";
+	flash@0 {
+		status = "okay";
+		m25p,fast-read;
+		spi-max-frequency = <50000000>;
+ 		label = "spx";
+        partitions {
+           compatible = "ami,spx-fmh";
+       };
+
+	};
+};
+&spi1 {
+	status = "okay";
+	flash@0 {
+		status = "okay";
+		m25p,fast-read;
+		label = "pnor";
+		spi-max-frequency = <100000000>;
+	};
+};
+#endif
+
+&spi2 {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&uart5 {
+	status = "okay";
+};
+
+&mac0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_rgmii1_default &pinctrl_mdio1_default>;
+};
+
+&mac1 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_rgmii2_default &pinctrl_mdio2_default>;
+};
+
+
+#include "legacy.dtsi"

@@ -1,0 +1,100 @@
+diff -Naur uboot_orig/oem/ami/fmh/cmd_fmh.c uboot/oem/ami/fmh/cmd_fmh.c
+--- uboot_orig/oem/ami/fmh/cmd_fmh.c	2021-04-09 19:35:45.184705982 +0530
++++ uboot/oem/ami/fmh/cmd_fmh.c	2021-04-09 19:48:08.784478246 +0530
+@@ -28,6 +28,11 @@
+ int recover_both_spi=0;
+ #endif
+ 
++#ifdef CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
++        #define CE1_ADDRESS_SEGMENT 0x28000000
++        struct spi_flash *flashspi[CONFIG_SPX_FEATURE_GLOBAL_FLASH_BANKS]={NULL};
++#endif
++
+ # define  KERNEL_LOADADDR	0xC00000
+ # define  KERNEL_FILE		"/boot/uImage"
+ # define  KERNEL_DTB		"/boot/kernel.dtb"
+@@ -476,7 +481,9 @@
+         for (i=0;i<SectorCount;)
+         {
+                 #ifdef CONFIG_SPX_FEATURE_GLOBAL_DUAL_IMAGE_SUPPORT
++		#ifndef CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
+                 if( (i*SectorSize) >= (2 * CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE) ) { break; }
++		#endif
+                 #else
+                 if( (i*SectorSize) >= CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE ) { break; }
+                 #endif
+@@ -1062,6 +1069,19 @@
+ 		return 0;			/* Full Access to Uboot Console */
+ 	}
+ 
++#if defined CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
++    int cs=0;
++    for(cs=0; cs<CONFIG_SPX_FEATURE_GLOBAL_FLASH_BANKS ; cs++)
++    {
++        flashspi[cs]= spi_flash_probe(CONFIG_ENV_SPI_BUS, cs,
++                      CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
++        if (flashspi[cs] == NULL)
++        {
++            printf("\nspi_flash_probe failed for cS=%d\n",cs);
++            continue;
++        }
++    }
++#endif
+ 
+ #ifdef CONFIG_SPX_FEATURE_GLOBAL_DUAL_IMAGE_SUPPORT
+     if( GetBootImage(&imagetoboot) != 0 )
+@@ -1077,30 +1097,29 @@
+ 
+     if(imagetoboot == IMAGE_1)
+     {
++#ifdef CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
++        flash = flashspi[0];
++        SectorCount = (CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE/SectorSize);
++        StartingSector = 0;
++        startaddress=0;
++#else
+         SectorCount = (CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE/SectorSize);
+         StartingSector = 0;
+         //startaddress=CONFIG_SYS_FLASH_BASE;
+         startaddress=0;
+         flash = spi_flash_probe(CONFIG_ENV_SPI_BUS, 0,CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
+-
++#endif
+     }
+     else//for image2
+     {
+-#if defined CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
+-        StartingSector=0;
+-        for(i=0;i< CONFIG_SPX_FEATURE_SECONDARY_IMAGE_SPI; i++){
+-            //StartingSector+=flash_info[i].size;
+-			StartingSector+=CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE;
+-        }
+-        SectorCount=StartingSector+CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE;
+-        //startaddress=CONFIG_SYS_FLASH_BASE+StartingSector;
+-		startaddress=StartingSector;
++#ifdef CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
++        flash = flashspi[1];
++        StartingSector=flash->size;
++        SectorCount=StartingSector+flash->size;
++        startaddress=CE1_ADDRESS_SEGMENT;
+         StartingSector/=SectorSize;
+         SectorCount/=SectorSize;
+-		GetFlashStartAddr(1,&startaddress);
+-        flash = spi_flash_probe(CONFIG_ENV_SPI_BUS, (CONFIG_ENV_SPI_CS+1),CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
+ #else
+-
+         StartingSector = (CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE/SectorSize);
+         SectorCount = ( (2*CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE)/SectorSize );
+         flash = spi_flash_probe(CONFIG_ENV_SPI_BUS, CONFIG_ENV_SPI_CS ,CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
+diff -Naur uboot_orig/oem/ami/fmh/fmhcore.c uboot/oem/ami/fmh/fmhcore.c
+--- uboot_orig/oem/ami/fmh/fmhcore.c	2021-04-09 19:35:45.184705982 +0530
++++ uboot/oem/ami/fmh/fmhcore.c	2021-04-09 19:48:28.968586969 +0530
+@@ -224,7 +224,7 @@
+ #if defined CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
+ 	mod = &(fmh->Module_Info);
+ 	for(i = 0; i < CONFIG_SPX_FEATURE_SECONDARY_IMAGE_SPI; i++)
+-		SecStartAddr += CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE;
++		SecStartAddr += flash->size;
+ 		//SecStartAddr += flash_info[i].size;
+ 
+        

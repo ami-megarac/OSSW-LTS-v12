@@ -1,0 +1,70 @@
+--- uboot.old/oem/ami/fmh/cmd_fmh.c	2020-07-15 05:01:21.114937600 -0700
++++ uboot/oem/ami/fmh/cmd_fmh.c	2020-07-15 20:58:20.596087500 -0700
+@@ -233,6 +233,13 @@
+     unsigned char Name[9] = {0};
+     MODULE_INFO *mod;
+     long SkipSize;
++	
++    flash = spi_flash_probe((CONFIG_ENV_SPI_BUS), (CONFIG_ENV_SPI_CS+1),
++                        CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
++    if (flash == NULL) 
++        puts("\nListFMH spi_flash_probe failed CE1");
++	else 
++		flashsize += flash->size;
+ 
+     flash = spi_flash_probe(CONFIG_ENV_SPI_BUS, CONFIG_ENV_SPI_CS,
+                         CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
+@@ -242,7 +249,7 @@
+         hang();
+     }
+ 
+-    flashsize = flash->size;
++    flashsize += flash->size;
+     SectorSize = 0x10000; //flash->erase_size;//0x10000;//flash->sector_size;
+     SectorCount = flashsize/SectorSize;
+    printf("Flash size 0x%lx Sector size 0x%lx SectorCount 0x%lx\n",flashsize,SectorSize,SectorCount);
+@@ -737,7 +744,7 @@
+         hang();
+     }
+ 
+-	flashsize = flash->size;
++	flashsize = 2*(flash->size);
+ 	SectorSize = 0x10000;
+ 	SectorCount = flashsize/SectorSize;
+         memset(&platform_ver,0,sizeof(platform_ver));
+@@ -1048,6 +1055,11 @@
+ 		return 0;			/* Full Access to Uboot Console */
+ 	}
+ 
++    flash = spi_flash_probe((CONFIG_ENV_SPI_BUS), (CONFIG_ENV_SPI_CS+1),
++                        CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
++    if (flash == NULL)
++        puts("\n BootFMH spi_flash_probe failed CE1");
++
+     flash = spi_flash_probe(CONFIG_ENV_SPI_BUS, CONFIG_ENV_SPI_CS,
+                         CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
+     if (flash == NULL)
+@@ -1080,10 +1092,12 @@
+ #if defined CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
+         StartingSector=0;
+         for(i=0;i< CONFIG_SPX_FEATURE_SECONDARY_IMAGE_SPI; i++){
+-            StartingSector+=flash_info[i].size;
++            //StartingSector+=flash_info[i].size;
++			StartingSector+=CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE;
+         }
+         SectorCount=StartingSector+CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE;
+-        startaddress=CONFIG_SYS_FLASH_BASE+StartingSector;
++        //startaddress=CONFIG_SYS_FLASH_BASE+StartingSector;
++		startaddress=StartingSector;
+         StartingSector/=SectorSize;
+         SectorCount/=SectorSize;
+ #else
+@@ -1223,7 +1237,7 @@
+ 
+ 		if (le16_to_host(mod->Module_Type) == MODULE_FPGA)
+ 		{
+-			dtsaddr = startaddress + le32_to_host(startaddress + mod->Module_Location);
++			dtsaddr = startaddress + le32_to_host(mod->Module_Location);
+ 		}
+ 
+ 

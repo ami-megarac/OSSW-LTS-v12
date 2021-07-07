@@ -1,0 +1,13 @@
+diff -Naur uboot/arch/arm/mach-aspeed/ast2500/aspeed_scu_info.c uboot_new/arch/arm/mach-aspeed/ast2500/aspeed_scu_info.c
+--- uboot/arch/arm/mach-aspeed/ast2500/aspeed_scu_info.c	2019-07-23 08:27:53.000000000 +0530
++++ uboot_new/arch/arm/mach-aspeed/ast2500/aspeed_scu_info.c	2020-10-12 18:51:46.663435132 +0530
+@@ -102,7 +102,8 @@
+ 	}	
+ 	if (rest & SYS_PWR_RESET_FLAG) {
+ 		printf("RST : Power On \n");
+-		writel(readl(ASPEED_SYS_RESET_CTRL) & ~SYS_PWR_RESET_FLAG, ASPEED_SYS_RESET_CTRL);
++		/*This Bit is used by Application layer to identfy AC Power on*/
++//		writel(readl(ASPEED_SYS_RESET_CTRL) & ~SYS_PWR_RESET_FLAG, ASPEED_SYS_RESET_CTRL);
+ 	}
+ }
+ 

@@ -1,0 +1,370 @@
+diff -Naur linux/drivers/mtd/parsers/spx-fmh.c linux_new/drivers/mtd/parsers/spx-fmh.c
+--- linux/drivers/mtd/parsers/spx-fmh.c	2021-01-27 11:55:31.632738098 +0530
++++ linux_new/drivers/mtd/parsers/spx-fmh.c	2021-01-27 11:56:12.032998068 +0530
+@@ -17,9 +17,13 @@
+ #include <linux/mtd/mtd.h>
+ #include <linux/mtd/map.h>
+ #include <linux/mtd/partitions.h>
+-
++#include <linux/mtd/concat.h>
+ #include "../fmh/fmh.h"
++#include "../mtdcore.h"
+ 
++#ifdef CONFIG_SPX_FEATURE_HW_FAILSAFE_BOOT
++unsigned char broken_spi_banks = 0;// specify the number of broken SPI flash bank
++#endif
+ 
+ 
+ //#define MAX_BANKS CONFIG_SPX_FEATURE_GLOBAL_FLASH_BANKS	     /* TODO: Not using now. Code to be added when we have a platform to test */
+@@ -43,94 +47,7 @@
+ int totalbanks=0;
+ struct mtd_info *ractrends_mtd[MAX_BANKS];
+ EXPORT_SYMBOL(ractrends_mtd);
+-#if 0
+-static
+-int
+-GetFMHPartitions(struct mtd_info *mtd,unsigned long FlashStart, uint64_t FlashSize, uint32_t SectorSize,struct mtd_partition  *parts)
+-{
+-
+-	FMH *fmh;
+-	MODULE_INFO *mod;
+-	unsigned short ModuleType;
+-
+-	int PartCount=0;
+-	unsigned long sec;
+-	unsigned long startingsector=0,endingsector=0;
+-
+-	endingsector=(unsigned long)div_u64(FlashSize,SectorSize);
+-
+-	
+-	/* Create a MTD for full Flash */
+-#if 0 	/* DT Kernel creates "mtd0"  for full flash */
+-	parts[PartCount].name = kstrndup("fullpart",16,GFP_KERNEL);
+-	if (!parts[PartCount].name)
+-		return 0;
+-    parts[PartCount].size = FlashSize;
+-    parts[PartCount].offset = 0;
+-    parts[PartCount].mask_flags = 0;
+-    parts[PartCount].types=0;
+-    parts[PartCount].of_node = 0;
+-	printk("MTD Partition %d : %s @ 0x%lx of Size 0x%lx\n",PartCount,parts[PartCount].name,
+-								(unsigned long)parts[PartCount].offset,(unsigned long)parts[PartCount].size);
+-	PartCount++;
+-#endif
+-
+ 
+-	for (sec=startingsector;sec<endingsector;)
+-	{
+-		fmh = ScanforFMH((unsigned char *)(FlashStart+(sec*SectorSize)),(unsigned long)SectorSize,mtd);
+-		if (fmh == NULL)
+-		{
+-			sec++;
+-			continue;	
+-		}
+-		mod = &(fmh->Module_Info);
+-
+-		/* Check if module type is JFFS or JFFS2 */
+-		ModuleType = le16_to_host(mod->Module_Type);
+-		if ((ModuleType != MODULE_JFFS) && (ModuleType != MODULE_JFFS2) && 
+-			(ModuleType != MODULE_INITRD_CRAMFS) && (ModuleType != MODULE_CRAMFS)  && 
+-			(ModuleType != MODULE_SQUASHFS) && (ModuleType != MODULE_INITRD_SQUASHFS) &&
+-		    (ModuleType != MODULE_CACHE))
+-		{
+-			if ((sec*SectorSize) > le32_to_host(mod->Module_Location))		/* AltFMH */
+-				sec++;
+-			else
+-				sec+=(unsigned long)div_u64(le32_to_host(fmh->FMH_AllocatedSize),SectorSize);
+-			continue;
+-		}
+-
+-		/* Fill the parition information */
+-		parts[PartCount].name = kstrndup(mod->Module_Name,16, GFP_KERNEL);
+- 		if (!parts[PartCount].name)
+-        	return 0;
+-		parts[PartCount].mask_flags = 0;
+-    	parts[PartCount].types=0;
+-    	parts[PartCount].of_node = 0;
+-		parts[PartCount].size = le32_to_host(mod->Module_Size);
+-
+-		if ((fmh->FMH_Ver_Major == 1) && (fmh->FMH_Ver_Minor >= 8))
+-			parts[PartCount].offset = le32_to_host(mod->Module_Location);
+-		else
+-			parts[PartCount].offset = (sec*SectorSize)+ le32_to_host(mod->Module_Location);
+-
+-		printk("MTD Partition %d : %s @ 0x%lx of Size 0x%lx\n",PartCount,parts[PartCount].name,
+-								(unsigned long)parts[PartCount].offset,(unsigned long)parts[PartCount].size);
+-
+-
+-		if ((sec*SectorSize) > le32_to_host(mod->Module_Location))   /* AltFMH */
+-			sec++;
+-		else
+-			sec+=(unsigned long)div_u64(le32_to_host(fmh->FMH_AllocatedSize),SectorSize);
+-		PartCount++;
+-	}
+-
+-	printk("PartCount is %d\n",PartCount);
+-	return  PartCount;
+-}
+-#endif
+-
+-#if 1 
+ static
+ int
+ GetFMHPartitions(struct mtd_info *mtd,unsigned long FlashStart, uint64_t FlashSize, uint32_t SectorSize,struct mtd_partition  *parts)
+@@ -143,39 +60,45 @@
+ 	int PartCount=0;
+ 	unsigned long sec;
+ 	unsigned long startingsector=0,endingsector=0,startaddress=0;
++#if defined CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
++	unsigned long img2_offset=0;
++	int i=0;
++#endif
++#if defined (CONFIG_SPX_FEATURE_GLOBAL_DUAL_IMAGE_SUPPORT)
++	unsigned long startingsector_p=0,endingsector_p=0,startaddress_p=0;
++	int scan_flag=1;
++#endif
+ 
+ 	endingsector=(unsigned long)div_u64(FlashSize,SectorSize);
+ 
+ #if defined (CONFIG_SPX_FEATURE_GLOBAL_DUAL_IMAGE_SUPPORT)
+-	unsigned long startingsector_p=0,endingsector_p=0,startaddress_p=0;
+-	int scan_flag=1;
+ 
+ #if defined CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
+-    unsigned long img2_offset=0;
+     for(i=0;i<CONFIG_SPX_FEATURE_SECONDARY_IMAGE_SPI;i++){
+ #ifdef CONFIG_SPX_FEATURE_HW_FAILSAFE_BOOT
+         if (broken_spi_banks == 1)
++        {
+             img2_offset = (CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_START - CONFIG_SPX_FEATURE_GLOBAL_FLASH_START);
++	}
+         else
+ #endif
+         {
+-            img2_offset+=ractrends_mtd[i]->size;
++            //img2_offset+=ractrends_mtd[i]->size;
++            img2_offset+=CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE;
+         }
+     }
+-
+ #endif
+ 	if(strstr(boot_command_line,IMAGE_1)){
+     	endingsector=(unsigned long)div_u64(CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE,SectorSize);
+ 
+- #if defined CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
+-       
++#if defined CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
+         startingsector_p=(unsigned long)div_u64(img2_offset,SectorSize);
+         endingsector_p=(unsigned long)div_u64(img2_offset+CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE,SectorSize);
+         startaddress_p=img2_offset;
+ #else
+-		startingsector_p=endingsector;
+-		endingsector_p=2*endingsector;
+-		startaddress_p=CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE;
++	startingsector_p=endingsector;
++	endingsector_p=2*endingsector;
++	startaddress_p=CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE;
+ #endif  
+ 	}
+ 	else if(strstr(boot_command_line,IMAGE_2)){
+@@ -185,10 +108,10 @@
+         startaddress=img2_offset;
+         endingsector_p=(unsigned long)div_u64(CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE,SectorSize);
+ #else
+-		startingsector=(unsigned long)div_u64(CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE,SectorSize);
+-		endingsector=2*startingsector;
+-		startaddress=CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE;
+-		endingsector_p=startingsector;
++	startingsector=(unsigned long)div_u64(CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE,SectorSize);
++	endingsector=2*startingsector;
++	startaddress=CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE;
++	endingsector_p=startingsector;
+ #endif  
+     }
+ #else
+@@ -210,6 +133,9 @@
+ 	PartCount++;
+ #endif
+ 
++#if defined (CONFIG_SPX_FEATURE_GLOBAL_DUAL_IMAGE_SUPPORT)
++START_SCAN:
++#endif
+ 
+ 	for (sec=startingsector;sec<endingsector;)
+ 	{
+@@ -224,7 +150,7 @@
+ 		/* Check if module type is JFFS or JFFS2 */
+ 		ModuleType = le16_to_host(mod->Module_Type);
+ 		if ((ModuleType != MODULE_JFFS) && (ModuleType != MODULE_JFFS2) && 
+-			(ModuleType != MODULE_INITRD_CRAMFS) && (ModuleType != MODULE_CRAMFS)  && 
++			(ModuleType != MODULE_INITRD_CRAMFS) && (ModuleType != MODULE_CRAMFS)  &&
+ 			(ModuleType != MODULE_SQUASHFS) && (ModuleType != MODULE_INITRD_SQUASHFS) &&
+ 		    (ModuleType != MODULE_CACHE))
+ 		{
+@@ -240,19 +166,18 @@
+  		if (!parts[PartCount].name)
+         	return 0;
+ 		parts[PartCount].mask_flags = 0;
+-    	parts[PartCount].types=0;
+-    	parts[PartCount].of_node = 0;
++	    	parts[PartCount].types=0;
++    		parts[PartCount].of_node = 0;
+ 		parts[PartCount].size = le32_to_host(mod->Module_Size);
+ 
+-		if ((fmh->FMH_Ver_Major == 1) && (fmh->FMH_Ver_Minor >= 8)){
++		if ((fmh->FMH_Ver_Major == 1) && (fmh->FMH_Ver_Minor >= 8))
++		{
+ 			parts[PartCount].offset = startaddress+le32_to_host(mod->Module_Location);
+-printk("vers if\n");
+-}
++		}
+ 		else
+-{
++		{
+ 			parts[PartCount].offset =startaddress+ (sec*SectorSize)+ le32_to_host(mod->Module_Location);
+-printk("vers else\n");
+-}
++		}
+ 
+ 		printk("MTD Partition %d : %s @ 0x%lx of Size 0x%lx\n",PartCount,parts[PartCount].name,
+ 								(unsigned long)parts[PartCount].offset,(unsigned long)parts[PartCount].size);
+@@ -264,12 +189,23 @@
+ 			sec+=(unsigned long)div_u64(le32_to_host(fmh->FMH_AllocatedSize),SectorSize);
+ 		PartCount++;
+ 	}
++#if defined (CONFIG_SPX_FEATURE_GLOBAL_DUAL_IMAGE_SUPPORT)
++		if(scan_flag== 1){
++			scan_flag=2;
++			startingsector=startingsector_p;
++			endingsector=endingsector_p;
++			startaddress=startaddress_p;
++#ifdef CONFIG_SPX_FEATURE_HW_FAILSAFE_BOOT
++			if (broken_spi_banks == 0)
++#endif
++			{
++				goto START_SCAN;// NOW START SCANNING FOR INACTIVE IMAGE
++			}
++		}
++#endif
+ 
+-	//printk("PartCount is %d\n",PartCount);
+ 	return  PartCount;
+ }
+-#endif
+-
+ 
+ static int 
+ parse_fmh_partitions(struct mtd_info *mtd,
+@@ -282,33 +218,95 @@
+ 	struct mtd_partition tmp_parts[MAX_PARTS];
+ 	struct mtd_partition *parts;
+ 	int PartCount;
+-	int bank,flashstart=0;
++	int flashstart=0;
++/*	int bank,flashstart=0;
+ 
+-	/* Initialize all on first call */
++	// Initialize all on first call
+ 	if (totalbanks == 0)
+ 	{
+  		for (bank = 0; bank < MAX_BANKS; bank++)
+         	ractrends_mtd[bank] = 0;
+ 	}
++*/
+ 	ractrends_mtd[totalbanks++]=mtd;
+ 
+ 
+-
+ /*	if(strstr(boot_command_line,IMAGE_1)){
+ 		  flashstart=0;
+ 	}*/
+-//	if(0){
++	if(0){
+ #if defined (CONFIG_SPX_FEATURE_GLOBAL_DUAL_IMAGE_SUPPORT)	
+ 	if(strstr(boot_command_line,IMAGE_2)){
+-		   printk("[%s:%d]\n",__FILE__,__LINE__);
+ 		   flashstart=CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE;
+ 	}
+ #endif
+-//}
++}
+ 	PartCount = GetFMHPartitions(mtd,flashstart,mtd->size,mtd->erasesize,tmp_parts);
++
+ 	if (!PartCount)
+ 		return -ENOMEM;
+ 	
++#if defined (CONFIG_SPX_FEATURE_GLOBAL_DUAL_IMAGE_SUPPORT) && defined (CONFIG_SPX_FEATURE_COMMON_CONF_SECTION)
++	printk("Creating Partition for conf \n");
++	tmp_parts[PartCount].name   		= "conf";
++	tmp_parts[PartCount].offset 		= (CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE * 2);
++	tmp_parts[PartCount].size   		= CONFIG_SPX_FEATURE_GLOBAL_CONF_SIZE;
++	tmp_parts[PartCount].mask_flags 	= 0;
++	tmp_parts[PartCount].types			= 0;
++	tmp_parts[PartCount].of_node		= 0;
++	
++	printk("MTD Partition %d : %s @ 0x%lx of Size 0x%lx\n",PartCount,tmp_parts[PartCount].name,
++							(unsigned long)tmp_parts[PartCount].offset,(unsigned long)tmp_parts[PartCount].size);
++	PartCount++;
++#ifdef CONFIG_SPX_FEATURE_GLOBAL_FAILSAFECONF
++	tmp_parts[PartCount].name   		= "conf";
++	tmp_parts[PartCount].offset 		= (CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE * 2) + CONFIG_SPX_FEATURE_GLOBAL_CONF_SIZE;
++	tmp_parts[PartCount].size   		= CONFIG_SPX_FEATURE_GLOBAL_CONF_SIZE;
++	tmp_parts[PartCount].mask_flags 	= 0;
++	tmp_parts[PartCount].types			= 0;
++	tmp_parts[PartCount].of_node		= 0;
++	
++	printk("MTD Partition %d : %s @ 0x%lx of Size 0x%lx\n",PartCount,tmp_parts[PartCount].name,
++							(unsigned long)tmp_parts[PartCount].offset,(unsigned long)tmp_parts[PartCount].size);
++	PartCount++;
++#endif 
++#endif
++
++#if defined (CONFIG_SPX_FEATURE_GLOBAL_DUAL_IMAGE_SUPPORT) && defined (CONFIG_SPX_FEATURE_COMMON_EXTLOG_SECTION)
++	printk("Creating Partition for extlog \n");
++	tmp_parts[PartCount].name   		= "extlog";
++#if defined (CONFIG_SPX_FEATURE_COMMON_CONF_SECTION) && defined (CONFIG_SPX_FEATURE_GLOBAL_FAILSAFECONF)
++	tmp_parts[PartCount].offset 		= (CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE * 2) + (CONFIG_SPX_FEATURE_GLOBAL_CONF_SIZE * 2);
++#elif defined (CONFIG_SPX_FEATURE_COMMON_CONF_SECTION)
++	tmp_parts[PartCount].offset        = (CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE * 2) + CONFIG_SPX_FEATURE_GLOBAL_CONF_SIZE;
++#else
++    tmp_parts[PartCount].offset 		= (CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE * 2);
++#endif
++	tmp_parts[PartCount].size   		= CONFIG_SPX_FEATURE_GLOBAL_EXTLOG_SIZE;
++	tmp_parts[PartCount].mask_flags 	= 0;
++	tmp_parts[PartCount].types			= 0;
++	tmp_parts[PartCount].of_node		= 0;
++	printk("MTD Partition %d : %s @ 0x%lx of Size 0x%lx\n",PartCount,tmp_parts[PartCount].name,
++							(unsigned long)tmp_parts[PartCount].offset,(unsigned long)tmp_parts[PartCount].size);
++	PartCount++;
++#ifdef CONFIG_SPX_FEATURE_GLOBAL_FAILSAFEEXTLOG
++	tmp_parts[PartCount].name   		= "extlog";
++#if defined (CONFIG_SPX_FEATURE_COMMON_CONF_SECTION) && defined (CONFIG_SPX_FEATURE_GLOBAL_FAILSAFECONF)
++	tmp_parts[PartCount].offset 		= (CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE * 2) + (CONFIG_SPX_FEATURE_GLOBAL_CONF_SIZE * 2) + CONFIG_SPX_FEATURE_GLOBAL_EXTLOG_SIZE;
++#elif defined (CONFIG_SPX_FEATURE_COMMON_CONF_SECTION)
++	tmp_parts[PartCount].offset        = (CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE * 2) + CONFIG_SPX_FEATURE_GLOBAL_CONF_SIZE + CONFIG_SPX_FEATURE_GLOBAL_EXTLOG_SIZE;
++#else
++	tmp_parts[PartCount].offset        = (CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE * 2) + CONFIG_SPX_FEATURE_GLOBAL_EXTLOG_SIZE;
++#endif
++    tmp_parts[PartCount].size   		= CONFIG_SPX_FEATURE_GLOBAL_EXTLOG_SIZE;
++	tmp_parts[PartCount].mask_flags 	= 0;
++	tmp_parts[PartCount].types			= 0;
++	tmp_parts[PartCount].of_node		= 0;
++	printk("MTD Partition %d : %s @ 0x%lx of Size 0x%lx\n",PartCount,tmp_parts[PartCount].name,
++							(unsigned long)tmp_parts[PartCount].offset,(unsigned long)tmp_parts[PartCount].size);
++	PartCount++;
++#endif
++#endif		
+ 
+ 	/* Allocate memory and copy information */
+     parts = kzalloc(PartCount * sizeof(struct mtd_partition), GFP_KERNEL);
+@@ -338,6 +336,10 @@
+ };
+ module_mtd_part_parser(fmh_parser);
+ 
++#ifdef CONFIG_SPX_FEATURE_HW_FAILSAFE_BOOT
++EXPORT_SYMBOL(broken_spi_banks) ;
++#endif
++
+ MODULE_AUTHOR("American Megatrends International");
+ MODULE_DESCRIPTION("SPX FMH partition parser");
+ MODULE_LICENSE("GPL");

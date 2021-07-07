@@ -1,0 +1,108 @@
+diff -Naur linux_org/include/linux/ipv6.h linux/include/linux/ipv6.h
+--- linux_org/include/linux/ipv6.h	2021-02-02 13:42:04.934092346 +0800
++++ linux/include/linux/ipv6.h	2021-02-02 13:31:48.485830897 +0800
+@@ -216,7 +216,8 @@
+ #ifdef CONFIG_IPV6_SUBTREES
+ 	const struct in6_addr		*saddr_cache;
+ #endif
+-
++	struct in6_addr		default_ipsrc;
++	struct in6_addr		default_ipdest;
+ 	__be32			flow_label;
+ 	__u32			frag_size;
+ 
+diff -Naur linux_org/include/uapi/linux/in6.h linux/include/uapi/linux/in6.h
+--- linux_org/include/uapi/linux/in6.h	2021-02-02 13:42:04.214124740 +0800
++++ linux/include/uapi/linux/in6.h	2021-02-02 13:31:36.270380582 +0800
+@@ -163,6 +163,8 @@
+ #define IPV6_NEXTHOP		9
+ #define IPV6_AUTHHDR		10	/* obsolete */
+ #define IPV6_FLOWINFO		11
++#define IPV6_UNICAST_SRC	12
++#define IPV6_UNICAST_DEST	13
+ 
+ #define IPV6_UNICAST_HOPS	16
+ #define IPV6_MULTICAST_IF	17
+diff -Naur linux_org/net/ipv6/af_inet6.c linux/net/ipv6/af_inet6.c
+--- linux_org/net/ipv6/af_inet6.c	2021-02-02 13:42:04.210124920 +0800
++++ linux/net/ipv6/af_inet6.c	2021-02-02 13:32:02.201213716 +0800
+@@ -203,6 +203,8 @@
+ 	sk->sk_backlog_rcv	= answer->prot->backlog_rcv;
+ 
+ 	inet_sk(sk)->pinet6 = np = inet6_sk_generic(sk);
++	np->default_ipsrc = in6addr_any;
++	np->default_ipdest = in6addr_any;
+ 	np->hop_limit	= -1;
+ 	np->mcast_hops	= IPV6_DEFAULT_MCASTHOPS;
+ 	np->mc_loop	= 1;
+diff -Naur linux_org/net/ipv6/ipv6_sockglue.c linux/net/ipv6/ipv6_sockglue.c
+--- linux_org/net/ipv6/ipv6_sockglue.c	2021-02-02 13:42:04.210124920 +0800
++++ linux/net/ipv6/ipv6_sockglue.c	2021-02-02 13:31:20.063109898 +0800
+@@ -607,6 +607,24 @@
+ 		break;
+ 	}
+ 
++	case IPV6_UNICAST_SRC:
++		if (optlen < sizeof(struct in6_addr))
++			goto e_inval;
++		retv = -EFAULT;
++		if (copy_from_user(&np->default_ipsrc, optval, sizeof(struct in6_addr)))
++			break;
++		retv = 0;
++		break;
++
++	case IPV6_UNICAST_DEST:
++		if (optlen < sizeof(struct in6_addr))
++			goto e_inval;
++		retv = -EFAULT;
++		if (copy_from_user(&np->default_ipdest, optval, sizeof(struct in6_addr)))
++			break;
++		retv = 0;
++		break;
++
+ 	case IPV6_MULTICAST_IF:
+ 		if (sk->sk_type == SOCK_STREAM)
+ 			break;
+@@ -1278,6 +1296,18 @@
+ 		val = np->mc_loop;
+ 		break;
+ 
++	case IPV6_UNICAST_SRC:
++	{
++		if(copy_to_user(optval,&np->default_ipsrc,sizeof(struct in6_addr)))
++			break;
++		return 0;
++	}
++	case IPV6_UNICAST_DEST:
++	{
++		if(copy_to_user(optval,&np->default_ipdest,sizeof(struct in6_addr)))
++			break;
++		return 0;
++	}
+ 	case IPV6_MULTICAST_IF:
+ 		val = np->mcast_oif;
+ 		break;
+diff -Naur linux_org/net/ipv6/udp.c linux/net/ipv6/udp.c
+--- linux_org/net/ipv6/udp.c	2021-02-02 13:42:04.206125101 +0800
++++ linux/net/ipv6/udp.c	2021-02-02 13:31:05.031786301 +0800
+@@ -355,6 +355,10 @@
+ 		}
+ 		*addr_len = sizeof(*sin6);
+ 
++		if (!is_udp4) {
++			np->default_ipsrc = ipv6_hdr(skb)->daddr;
++		}
++
+ 		if (cgroup_bpf_enabled)
+ 			BPF_CGROUP_RUN_PROG_UDP6_RECVMSG_LOCK(sk,
+ 						(struct sockaddr *)sin6);
+@@ -1426,6 +1430,9 @@
+ 	if (ipv6_addr_any(&fl6.daddr))
+ 		fl6.daddr.s6_addr[15] = 0x1; /* :: means loopback (BSD'ism) */
+ 
++	if (ipv6_addr_any(&fl6.saddr) && !ipv6_addr_any(&np->default_ipdest))
++		fl6.saddr = np->default_ipdest;
++
+ 	final_p = fl6_update_dst(&fl6, opt, &final);
+ 	if (final_p)
+ 		connected = false;

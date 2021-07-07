@@ -1,0 +1,56 @@
+diff -Naur u-boot/arch/arm/cpu/arm1176/start.S u-boot-2019.04/arch/arm/cpu/arm1176/start.S
+--- u-boot/arch/arm/cpu/arm1176/start.S	2019-10-01 17:51:17.565812142 +0530
++++ u-boot-2019.04/arch/arm/cpu/arm1176/start.S	2019-10-01 17:53:37.886668062 +0530
+@@ -49,7 +49,28 @@
+ 	bic	r0, r0, #0x3f
+ 	orr	r0, r0, #0xd3
+ 	msr	cpsr, r0
+-
++continue_early_init:                 /*  Reset is done or not required*/
++        ldr   r0, =0x1e6e2000         /* Unlock SCU */
++        ldr   r1, =0x1688a8a8
++        str   r1, [r0]
++        ldr   r0, =0x1e6e2070
++        ldr   r2, =0x2000000
++        ldr   r1, [r0]
++        tst   r1, r2                     /*Check eSPI is enabled */
++        beq   espi_early_init_done
++        ldr   r0, =0x1e6e2070
++        ldr   r1, [r0]
++        orr   r1, r1, #0x2000000
++        str   r1, [r0]
++        ldr   r0, =0x1e6e2000            /*Lock SCU */
++        ldr   r1, =0x1
++        str   r1, [r0]
++        /*Timing from ESPI master requires OOB channel ready bit be set early */
++        ldr   r0, =0x1e6ee000
++        ldr   r1, [r0]                    /* ESPI000: ESPI Engine Control Reg */
++        orr   r1, r1, #0x10  /* Set OOB Channel Ready bit */
++        str   r1, [r0]
++espi_early_init_done:
+ /*
+  *************************************************************************
+  *
+diff -Naur u-boot/common/board_r.c u-boot-2019.04/common/board_r.c
+--- u-boot/common/board_r.c	2019-10-01 17:51:13.905789826 +0530
++++ u-boot-2019.04/common/board_r.c	2019-10-01 17:58:34.452479160 +0530
+@@ -559,6 +559,7 @@
+ 	debug("Reset Ethernet PHY\n");
+ 	reset_phy();
+ #endif
++	*((volatile ulong*) 0x1e6e2000) = 0;   /* lock SCU */
+ 	return 0;
+ }
+ #endif
+@@ -764,9 +765,9 @@
+ #ifdef CONFIG_ARCH_MISC_INIT
+ 	arch_misc_init,		/* miscellaneous arch-dependent init */
+ #endif
+-#ifdef CONFIG_MISC_INIT_R
++//#ifdef CONFIG_MISC_INIT_R
+ 	misc_init_r,		/* miscellaneous platform-dependent init */
+-#endif
++//#endif
+ 	INIT_FUNC_WATCHDOG_RESET
+ #ifdef CONFIG_CMD_KGDB
+ 	initr_kgdb,

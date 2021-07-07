@@ -1,0 +1,21 @@
+diff -Naur uboot/arch/arm/dts/ast2500-evb.dts uboot_new/arch/arm/dts/ast2500-evb.dts
+--- uboot/arch/arm/dts/ast2500-evb.dts	2020-10-24 20:24:18.635739709 +0530
++++ uboot_new/arch/arm/dts/ast2500-evb.dts	2020-10-24 20:29:46.512117424 +0530
+@@ -47,7 +47,7 @@
+ 	status = "okay";
+ 	phy-mode = "rgmii";
+ 	pinctrl-names = "default";
+-	pinctrl-0 = <&pinctrl_mac2link_default &pinctrl_mdio2_default>;
++	pinctrl-0 = <&pinctrl_mdio2_default>;
+ };
+ 
+ &mac1 {
+@@ -55,7 +55,7 @@
+ 	phy-mode = "rgmii";
+ 
+ 	pinctrl-names = "default";
+-	pinctrl-0 = <&pinctrl_mac1link_default &pinctrl_mdio1_default>;
++	pinctrl-0 = <&pinctrl_mdio1_default>;
+ };
+ 
+ 
