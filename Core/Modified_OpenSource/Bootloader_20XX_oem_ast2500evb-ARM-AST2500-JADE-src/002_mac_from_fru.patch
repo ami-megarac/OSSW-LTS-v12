@@ -367,14 +367,15 @@ diff -Naur uboot/oem/ami/mac_eeprom/macto_eeprom.c uboot_new/oem/ami/mac_eeprom/
 +
 +
 diff -Naur uboot/oem/Makefile uboot_new/oem/Makefile
---- uboot/oem/Makefile	2021-01-04 10:19:46.924390739 +0530
-+++ uboot_new/oem/Makefile	2021-01-04 10:52:08.903022892 +0530
-@@ -18,4 +18,8 @@
+--- uboot/oem/Makefile	2021-07-23 14:07:02.307418773 +0530
++++ uboot_new/oem/Makefile	2021-07-23 15:48:38.444894297 +0530
+@@ -18,5 +18,9 @@
  endif
  ifeq ($(CONFIG_SPX_FEATURE_WRITE_MAC_TO_EEPROM_SUPPORT),"YES")
  obj-y += ami/mac_eeprom/
-+else
++else 
 +ifeq ($(CONFIG_SPX_FEATURE_WRITE_MAC_TO_FRU_SUPPORT),"YES")
 +obj-y += ami/mac_eeprom/
 +endif
  endif
+ obj-y += ami/porting/

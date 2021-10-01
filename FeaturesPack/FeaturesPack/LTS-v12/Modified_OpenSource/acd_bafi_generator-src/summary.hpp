@@ -2,7 +2,7 @@
  *
  * INTEL CONFIDENTIAL
  *
- * Copyright 2020 Intel Corporation.
+ * Copyright 2021 Intel Corporation.
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
@@ -20,9 +20,9 @@
 #include <array>
 #include <map>
 #include <string>
-#include "aer.hpp"
-#include "mca_defs.hpp"
-#include "tor_defs_icx.hpp"
+#include <aer.hpp>
+#include <mca_defs.hpp>
+#include <tor_defs_icx.hpp>
 
 class Summary
 {

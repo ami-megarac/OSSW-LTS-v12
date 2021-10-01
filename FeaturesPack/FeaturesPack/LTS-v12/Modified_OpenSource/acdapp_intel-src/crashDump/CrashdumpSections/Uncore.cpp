@@ -32,6 +32,7 @@ extern "C" {
 #endif
 #include "Uncore.hpp"
 #include "crashdump.hpp"
+#include "utils.hpp"
 
 /******************************************************************************
  *
@@ -48,14 +49,15 @@ static void uncoreStatusPciJson(const char* regName,
     // Format the Uncore Status register data out to the .json debug file
     if (sRegData->bInvalid)
     {
-        cd_snprintf_s(jsonItemString, US_JSON_STRING_LEN, UNCORE_UA_DF,
+        cd_snprintf_s(jsonItemString, US_JSON_STRING_LEN, US_UA_DF_CPX,
                       sRegData->cc, sRegData->ret);
         cJSON_AddStringToObject(pJsonChild, regName, jsonItemString);
         return;
     }
     else if (PECI_CC_UA(sRegData->cc))
     {
-        cd_snprintf_s(jsonItemString, US_JSON_STRING_LEN, US_UA, sRegData->cc);
+        cd_snprintf_s(jsonItemString, US_JSON_STRING_LEN, US_UA_CPX,
+                      sRegData->uValue.u64, sRegData->cc);
         cJSON_AddStringToObject(pJsonChild, regName, jsonItemString);
         return;
     }
@@ -241,8 +243,8 @@ int uncoreStatusPciCPX(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                     }
                 }
                 break;
-			default:
-				break;
+	    default:
+		break;
         }
         // Log this Uncore Status PCI Register
         uncoreStatusPciJson(pciReg.regName, &sRegData, pJsonChild);
@@ -436,7 +438,7 @@ static void uncoreStatusIioJson(const char* regName,
         {
             cd_snprintf_s(jsonNameString, US_JSON_STRING_LEN, regName,
                           uncoreStatusMcaRegNames[i]);
-            cd_snprintf_s(jsonItemString, US_JSON_STRING_LEN, UNCORE_UA_DF,
+            cd_snprintf_s(jsonItemString, US_JSON_STRING_LEN, US_UA_DF_CPX,
                           sMcaData->cc, sMcaData->ret);
             cJSON_AddStringToObject(pJsonChild, jsonNameString, jsonItemString);
         }
@@ -448,8 +450,8 @@ static void uncoreStatusIioJson(const char* regName,
         {
             cd_snprintf_s(jsonNameString, US_JSON_STRING_LEN, regName,
                           uncoreStatusMcaRegNames[i]);
-            cd_snprintf_s(jsonItemString, US_JSON_STRING_LEN, US_UA,
-                          sMcaData->cc);
+            cd_snprintf_s(jsonItemString, US_JSON_STRING_LEN, US_UA_CPX,
+                          sMcaData->uRegData.u64Raw[i], sMcaData->cc);
             cJSON_AddStringToObject(pJsonChild, jsonNameString, jsonItemString);
         }
         return;
@@ -533,17 +535,16 @@ static void uncoreStatusCrashdumpJson(uint32_t u32NumReads,
                       US_UNCORE_CRASH_DW_NAME, i);
         if (puUncoreRet[i] != PECI_CC_SUCCESS)
         {
-            cd_snprintf_s(jsonItemString, US_JSON_STRING_LEN, UNCORE_UA_DF,
+            cd_snprintf_s(jsonItemString, US_JSON_STRING_LEN, US_UA_DF_CPX,
                           pu8UncoreCc[i], puUncoreRet[i]);
             cJSON_AddStringToObject(pJsonChild, jsonNameString, jsonItemString);
             return;
         }
         else if (PECI_CC_UA(pu8UncoreCc[i]))
         {
-            cd_snprintf_s(jsonItemString, US_JSON_STRING_LEN, US_UA,
-                          pu8UncoreCc[i]);
+            cd_snprintf_s(jsonItemString, US_JSON_STRING_LEN, US_UA_CPX,
+                          pu32UncoreCrashdump[i], pu8UncoreCc[i]);
             cJSON_AddStringToObject(pJsonChild, jsonNameString, jsonItemString);
-            return;
         }
         else
         {
@@ -586,6 +587,7 @@ static int uncoreStatusCrashdump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_UNCORE_CRASHDUMP_SEQ, sizeof(uint32_t),
                              peci_fd, &cc);
+        peci_Unlock(peci_fd);
         return ret;
     }
 
@@ -598,6 +600,7 @@ static int uncoreStatusCrashdump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_UNCORE_CRASHDUMP_SEQ, sizeof(uint32_t),
                              peci_fd, &cc);
+        peci_Unlock(peci_fd);
         return ret;
     }
 
@@ -606,12 +609,13 @@ static int uncoreStatusCrashdump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     ret = peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU,
                                US_UCRASH_START, sizeof(uint32_t),
                                (uint8_t*)&u32NumReads, peci_fd, &cc);
-    if (ret != PECI_CC_SUCCESS)
+    if (ret != PECI_CC_SUCCESS || (PECI_CC_UA(cc)))
     {
         // Uncore Crashdump dump sequence failed, abort the sequence
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_UNCORE_CRASHDUMP_SEQ, sizeof(uint32_t),
                              peci_fd, &cc);
+        peci_Unlock(peci_fd);
         return ret;
     }
 
@@ -626,6 +630,7 @@ static int uncoreStatusCrashdump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_UNCORE_CRASHDUMP_SEQ, sizeof(uint32_t),
                              peci_fd, &cc);
+        peci_Unlock(peci_fd);
         return ret;
     }
     // API version is included in the number of reads, so decrement by one
@@ -655,6 +660,7 @@ static int uncoreStatusCrashdump(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_UNCORE_CRASHDUMP_SEQ, sizeof(uint32_t),
                              peci_fd, &cc);
+        peci_Unlock(peci_fd);
         return SIZE_FAILURE;
     }
     for (uint32_t i = 0; i < u32NumReads; i++)
@@ -1074,6 +1080,7 @@ int uncoreStatusPciMmioICX(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 
     if (0 != bus30ToPostEnumeratedBus(cpuInfo.clientAddr, &postEnumBus))
     {
+        peci_Unlock(peci_fd);
         return 1;
     }
 
@@ -1192,6 +1199,7 @@ static const SUncoreStatusLogVx sUncoreStatusLogVx[] = {
     {crashdump::cpu::skx, logUncoreStatusCPX1},
     {crashdump::cpu::icx, logUncoreStatusICX1},
     {crashdump::cpu::icx2, logUncoreStatusICX1},
+    {crashdump::cpu::icxd, logUncoreStatusICX1},
 };
 
 /******************************************************************************

@@ -2,7 +2,7 @@
  *
  * INTEL CONFIDENTIAL
  *
- * Copyright 2020 Intel Corporation.
+ * Copyright 2021 Intel Corporation.
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
@@ -22,9 +22,9 @@
 #include <utility>
 #include <vector>
 
-#include "tor_defs.hpp"
+#include <tor_defs.hpp>
 
-const std::array<const char*, 27> SKX_PORT_ID = {
+const std::array<const char*, 32> SKX_PORT_ID = {
     "KTI0",
     "KTI1",
     "KTI2",
@@ -52,6 +52,11 @@ const std::array<const char*, 27> SKX_PORT_ID = {
     "PCI4",
     "PCI5",
     "UBOX",
+    "not implemented",
+    "not implemented",
+    "not implemented",
+    "not implemented",
+    "not implemented",
 };
 
 const std::array<const char *, 16> SKX_LLCS = {
@@ -89,7 +94,7 @@ const std::map<uint8_t, uint8_t> SkxfirstErrorCha = {
     {0x0fc, 60}, {0x0fd, 61}, {0x0fe, 62}, {0x0ff, 63}
 };
 
-const std::map<uint8_t, const char*> SkxfirstError = {
+const std::map<uint16_t, const char*> SkxfirstError = {
     {0x002, "UPI 0, bank 5"},
     {0x003, "UPI 1, bank 12"},
     {0x006, "UPI 2, bank 19"},
@@ -97,9 +102,9 @@ const std::map<uint8_t, const char*> SkxfirstError = {
     {0x00a, "UPI 4"},
     {0x00b, "UPI 5"},
     {0x044, "PCU, bank 4"},
-    {0x060, "IMC 0, bank 13,14,17"},
+    {0x060, "IMC 0, bank 13, 14, 17"},
     {0x062, "M2MEM0, bank 7"},
-    {0x064, "IMC 1, bank 15,16,18"},
+    {0x064, "IMC 1, bank 15, 16, 18"},
     {0x066, "M2MEM1, bank 8"},
     {0x0a0, "IIO0, bank 6"},
     {0x0a1, "IIO0, bank 6"},
@@ -262,38 +267,4 @@ const std::map<uint32_t, const char*> SkxOpCodeDecode = {
     {0x00c, "KEvctCln"},
     {0x00d, "KNonSnpRd"},
     {0x00f, "Slot0LLCTRL"}
-
 };
-
-struct SkxTORData
-{
-    union
-    {
-        struct
-        {
-            uint32_t master_valid : 1, valid : 1, retry : 1, in_pipe : 1,
-                cha_inside : 5, tor : 5, core_id : 6, thread_id : 1,
-                request_opCode : 11;
-        };
-        uint32_t dw0;
-    };
-    union
-    {
-        struct
-        {
-            uint32_t addr_lo : 14, fsm : 6, target : 5, sad : 3, lcs : 4;
-        };
-        uint32_t dw1;
-    };
-    union
-    {
-        uint32_t address;
-        uint32_t dw2;
-    };
-
-    uint32_t cha;
-    uint32_t idx;
-};
-
-using SkxTOR =
-    std::map<uint32_t, std::pair<SocketCtx, std::vector<SkxTORData>>>;

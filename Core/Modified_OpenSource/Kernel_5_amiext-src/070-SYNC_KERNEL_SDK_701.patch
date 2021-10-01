@@ -1,0 +1,87 @@
+--- linux/mm/sparse.c	2021-02-17 17:35:20.000000000 +0800
++++ linux-new/mm/sparse.c	2021-09-13 16:07:03.952006449 +0800
+@@ -551,6 +551,7 @@
+ 			pr_err("%s: node[%d] memory map backing failed. Some memory will not be available.",
+ 			       __func__, nid);
+ 			pnum_begin = pnum;
++			sparse_buffer_fini();
+ 			goto failed;
+ 		}
+ 		check_usemap_section_nr(nid, usage);
+--- linux/mm/memory-failure.c	2021-02-17 17:35:20.000000000 +0800
++++ linux-new/mm/memory-failure.c	2021-09-13 16:09:05.079897903 +0800
+@@ -1215,7 +1215,7 @@
+ 		 * communicated in siginfo, see kill_proc()
+ 		 */
+ 		start = (page->index << PAGE_SHIFT) & ~(size - 1);
+-		unmap_mapping_range(page->mapping, start, start + size, 0);
++		unmap_mapping_range(page->mapping, start, size, 0);
+ 	}
+ 	kill_procs(&tokill, flags & MF_MUST_KILL, !unmap_success, pfn, flags);
+ 	rc = 0;
+--- linux/include/linux/smp.h	2021-02-17 17:35:20.000000000 +0800
++++ linux-new/include/linux/smp.h	2021-09-13 16:11:29.603719604 +0800
+@@ -57,7 +57,7 @@
+ 		smp_call_func_t func, void *info, bool wait,
+ 		gfp_t gfp_flags, const struct cpumask *mask);
+ 
+-int smp_call_function_single_async(int cpu, call_single_data_t *csd);
++int smp_call_function_single_async(int cpu, struct __call_single_data *csd);
+ 
+ #ifdef CONFIG_SMP
+ 
+--- linux/kernel/smp.c	2021-02-17 17:35:20.000000000 +0800
++++ linux-new/kernel/smp.c	2021-09-13 16:13:31.367537371 +0800
+@@ -104,12 +104,12 @@
+  * previous function call. For multi-cpu calls its even more interesting
+  * as we'll have to ensure no other cpu is observing our csd.
+  */
+-static __always_inline void csd_lock_wait(call_single_data_t *csd)
++static __always_inline void csd_lock_wait(struct __call_single_data *csd)
+ {
+ 	smp_cond_load_acquire(&csd->flags, !(VAL & CSD_FLAG_LOCK));
+ }
+ 
+-static __always_inline void csd_lock(call_single_data_t *csd)
++static __always_inline void csd_lock(struct __call_single_data *csd)
+ {
+ 	csd_lock_wait(csd);
+ 	csd->flags |= CSD_FLAG_LOCK;
+@@ -122,7 +122,7 @@
+ 	smp_wmb();
+ }
+ 
+-static __always_inline void csd_unlock(call_single_data_t *csd)
++static __always_inline void csd_unlock(struct __call_single_data *csd)
+ {
+ 	WARN_ON(!(csd->flags & CSD_FLAG_LOCK));
+ 
+@@ -139,7 +139,7 @@
+  * for execution on the given CPU. data must already have
+  * ->func, ->info, and ->flags set.
+  */
+-static int generic_exec_single(int cpu, call_single_data_t *csd,
++static int generic_exec_single(int cpu, struct __call_single_data *csd,
+ 			       smp_call_func_t func, void *info)
+ {
+ 	if (cpu == smp_processor_id()) {
+@@ -332,7 +332,7 @@
+  * NOTE: Be careful, there is unfortunately no current debugging facility to
+  * validate the correctness of this serialization.
+  */
+-int smp_call_function_single_async(int cpu, call_single_data_t *csd)
++int smp_call_function_single_async(int cpu, struct __call_single_data *csd)
+ {
+ 	int err = 0;
+ 
+--- linux/kernel/up.c	2021-02-17 17:35:20.000000000 +0800
++++ linux-new/kernel/up.c	2021-09-13 16:13:59.535491784 +0800
+@@ -24,7 +24,7 @@
+ }
+ EXPORT_SYMBOL(smp_call_function_single);
+ 
+-int smp_call_function_single_async(int cpu, call_single_data_t *csd)
++int smp_call_function_single_async(int cpu, struct __call_single_data *csd)
+ {
+ 	unsigned long flags;
+ 

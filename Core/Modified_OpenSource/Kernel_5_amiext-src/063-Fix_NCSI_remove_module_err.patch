@@ -1,0 +1,37 @@
+diff -Naur linux_org/drivers/net/ethernet/faraday/ftgmac100.c linux/drivers/net/ethernet/faraday/ftgmac100.c
+--- linux_org/drivers/net/ethernet/faraday/ftgmac100.c	2021-08-17 11:27:59.901896945 +0800
++++ linux/drivers/net/ethernet/faraday/ftgmac100.c	2021-08-17 11:27:42.566743240 +0800
+@@ -1255,6 +1255,24 @@
+ 	.set_pauseparam		= ftgmac100_set_pauseparam,
+ };
+ 
++extern int register_ethtool_override(struct ethtool_ops *ops , int ethindex);
++
++void register_ftgmac_ethtool(struct net_device *netdev, int ethindex)
++{
++	if (netdev != NULL)
++	{
++		if (ethindex == -1)
++			return;
++
++		netdev->ethtool_ops = &ftgmac100_ethtool_ops;
++
++		register_ethtool_override(&ftgmac100_ethtool_ops , ethindex);	
++	}
++
++	return;	
++}
++EXPORT_SYMBOL(register_ftgmac_ethtool);
++
+ static irqreturn_t ftgmac100_interrupt(int irq, void *dev_id)
+ {
+ 	struct net_device *netdev = dev_id;
+diff -Naur linux_org/drivers/net/ethernet/faraday/ftgmac100.h linux/drivers/net/ethernet/faraday/ftgmac100.h
+--- linux_org/drivers/net/ethernet/faraday/ftgmac100.h	2021-08-17 11:28:01.321827624 +0800
++++ linux/drivers/net/ethernet/faraday/ftgmac100.h	2021-08-17 11:27:44.162665328 +0800
+@@ -271,4 +271,5 @@
+ #define FTGMAC100_RXDES1_UDP_CHKSUM_ERR	(1 << 26)
+ #define FTGMAC100_RXDES1_IP_CHKSUM_ERR	(1 << 27)
+ 
++extern void register_ftgmac_ethtool(struct net_device *netdev, int ethindex);
+ #endif /* __FTGMAC100_H */

@@ -4,15 +4,14 @@ TARGET = acdbafigenerator
 #---------------------- Change according to your files ----------------------------
 SRC += dummy.c
 SRCCPP += main.cpp
-#SRCCPP += HarddiskImgFileReader.cpp
-#SRCCPP += comm.cpp
-#SRCCPP += server.cpp
-#SRC += cdromimagereader.c
-#SRC += harddiskimagereader.c
 
+CFLAGS += -I${SPXINC}/global
+CFLAGS += -I${SPXINC}
+CFLAGS += -I.
 
-
-
+CFLAGS += -DVERSION="1.46"
+CFLAGS += -D'RELEASED=" - SKX \n - CLX \n - CPX \n - ICX "'
+CFLAGS += -D'UNRELEASED=" - SPR \n - ICX-D"'
 LDFLAGS += -lpthread
 
 CFLAGS += -DBUILD_RAW
@@ -38,8 +37,12 @@ CXXFLAGS +=  -Wno-unused-variable
 CXXFLAGS +=  -Wno-write-strings
 CXXFLAGS +=  -Wno-missing-braces
 CXXFLAGS +=  -Wno-ignored-qualifiers
+CXXFLAGS += -Wno-switch-default
+CXXFLAGS += -Wno-psabi
+CXXFLAGS += -Wno-reorder
+CXXFLAGS += -std=gnu++17
+CXXFLAGS += -fstack-protector-all
 CXXFLAGS += -std=c++17
-CXXFLAGS +=  -Wno-switch-default
 CXXFLAGS +=  -Wno-return-type
 
 # Add the Corresponding library
@@ -53,7 +56,7 @@ LIBS+= -lrt
 LIBS+= -ldl
 LIBS +=  -lpthread 
 LIBS +=  -lstdc++
-
+LIBS += -lstdc++fs
 
 include ${TOOLDIR}/rules/Rules.make.apps
 

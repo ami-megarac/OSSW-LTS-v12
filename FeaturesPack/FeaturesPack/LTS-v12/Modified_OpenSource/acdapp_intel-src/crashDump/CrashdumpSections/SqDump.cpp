@@ -29,10 +29,7 @@ extern "C" {
 }
 
 #include "crashdump.hpp"
-
-#ifdef COMPILE_UNIT_TESTS
-#define static
-#endif
+#include "utils.hpp"
 
 /******************************************************************************
  *
@@ -87,7 +84,7 @@ static void sqDumpJson(uint32_t u32CoreNum, SSqDump* psSqDump,
                 (psSqDump->puSqAddrRet[i + 1] != PECI_CC_SUCCESS))
             {
                 cd_snprintf_s(
-                    jsonItemString, SQ_JSON_STRING_LEN, SQ_UA_DF,
+                    jsonItemString, SQ_JSON_STRING_LEN, SQ_UA_DF_CPX,
                     psSqDump->pu8SqAddrCc[i], psSqDump->pu8SqAddrCc[i + 1],
                     psSqDump->puSqAddrRet[i], psSqDump->puSqAddrRet[i + 1]);
                 cJSON_AddStringToObject(sq, jsonItemName, jsonItemString);
@@ -96,7 +93,9 @@ static void sqDumpJson(uint32_t u32CoreNum, SSqDump* psSqDump,
             else if (PECI_CC_UA(psSqDump->pu8SqAddrCc[i]) ||
                      PECI_CC_UA(psSqDump->pu8SqAddrCc[i + 1]))
             {
-                cd_snprintf_s(jsonItemString, SQ_JSON_STRING_LEN, SQ_UA,
+                cd_snprintf_s(jsonItemString, SQ_JSON_STRING_LEN, SQ_UA_CPX,
+                              psSqDump->pu32SqAddrArray[i],
+                              psSqDump->pu32SqAddrArray[i + 1],
                               psSqDump->pu8SqAddrCc[i],
                               psSqDump->pu8SqAddrCc[i + 1]);
                 cJSON_AddStringToObject(sq, jsonItemName, jsonItemString);
@@ -123,7 +122,7 @@ static void sqDumpJson(uint32_t u32CoreNum, SSqDump* psSqDump,
                 (psSqDump->puSqCtrlRet[i + 1] != PECI_CC_SUCCESS))
             {
                 cd_snprintf_s(
-                    jsonItemString, SQ_JSON_STRING_LEN, SQ_UA_DF,
+                    jsonItemString, SQ_JSON_STRING_LEN, SQ_UA_DF_CPX,
                     psSqDump->pu8SqCtrlCc[i], psSqDump->pu8SqCtrlCc[i + 1],
                     psSqDump->puSqCtrlRet[i], psSqDump->puSqCtrlRet[i + 1]);
                 cJSON_AddStringToObject(sq, jsonItemName, jsonItemString);
@@ -132,7 +131,9 @@ static void sqDumpJson(uint32_t u32CoreNum, SSqDump* psSqDump,
             else if ((PECI_CC_UA(psSqDump->pu8SqCtrlCc[i])) ||
                      PECI_CC_UA(psSqDump->pu8SqCtrlCc[i + 1]))
             {
-                cd_snprintf_s(jsonItemString, SQ_JSON_STRING_LEN, SQ_UA,
+                cd_snprintf_s(jsonItemString, SQ_JSON_STRING_LEN, SQ_UA_CPX,
+                              psSqDump->pu32SqCtrlArray[i],
+                              psSqDump->pu32SqCtrlArray[i + 1],
                               psSqDump->pu8SqCtrlCc[i],
                               psSqDump->pu8SqCtrlCc[i + 1]);
                 cJSON_AddStringToObject(sq, jsonItemName, jsonItemString);
@@ -192,7 +193,7 @@ static int sqDump(crashdump::CPUInfo& cpuInfo, uint32_t u32CoreNum,
     ret = peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU,
                                SQ_START_PARAM, sizeof(uint32_t),
                                (uint8_t*)&u32NumReads, peci_fd, &cc);
-    if (ret != PECI_CC_SUCCESS)
+    if (ret != PECI_CC_SUCCESS || (PECI_CC_UA(cc)))
     {
         // SQ dump sequence failed, abort the sequence and go to the next CPU
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
@@ -288,7 +289,7 @@ int logSqDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     for (uint32_t u32CoreNum = 0; (cpuInfo.coreMask >> u32CoreNum) != 0;
          u32CoreNum++)
     {
-        if (!(cpuInfo.coreMask & (1 << u32CoreNum)))
+        if (!CHECK_BIT(cpuInfo.coreMask, u32CoreNum))
         {
             continue;
         }
@@ -370,9 +371,12 @@ int logSqDumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 }
 
 static const SSqDumpVx sSqDumpVx[] = {
-    {crashdump::cpu::clx, logSqDumpCPX1},  {crashdump::cpu::cpx, logSqDumpCPX1},
-    {crashdump::cpu::skx, logSqDumpCPX1},  {crashdump::cpu::icx, logSqDumpICX1},
+    {crashdump::cpu::clx, logSqDumpCPX1},
+    {crashdump::cpu::cpx, logSqDumpCPX1},
+    {crashdump::cpu::skx, logSqDumpCPX1},
+    {crashdump::cpu::icx, logSqDumpICX1},
     {crashdump::cpu::icx2, logSqDumpICX1},
+    {crashdump::cpu::icxd, logSqDumpICX1},
 };
 
 /******************************************************************************

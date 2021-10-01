@@ -168,7 +168,7 @@ static void ooi_unlink(void)
 }
 
 /* Exit if another instance of this program is running. */
-void only_one_instance(char *crashdump_json_dir)
+void only_one_instance(const char *crashdump_json_dir)
 {
         struct flock fl;
         int fd;

@@ -46,6 +46,6 @@ extern void *dl_handle;
 extern int dumpNow;
 
 void parse_arguments( int argc, char **argv );
-void only_one_instance(char *crashdump_json_dir);
+void only_one_instance(const char *crashdump_json_dir);
 
 #endif

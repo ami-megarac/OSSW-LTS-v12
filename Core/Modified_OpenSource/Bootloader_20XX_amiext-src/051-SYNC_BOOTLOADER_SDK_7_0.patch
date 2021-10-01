@@ -1,0 +1,149 @@
+--- uboot/common/image-fit.c	2019-07-23 10:57:53.000000000 +0800
++++ uboot.new/common/image-fit.c	2021-07-13 15:08:06.170618600 +0800
+@@ -984,8 +984,10 @@
+ 	if (external_data) {
+ 		debug("External Data\n");
+ 		ret = fit_image_get_data_size(fit, noffset, &len);
+-		*data = fit + offset;
+-		*size = len;
++		if (!ret) {
++			*data = fit + offset;
++			*size = len;
++		}
+ 	} else {
+ 		ret = fit_image_get_data(fit, noffset, data, size);
+ 	}
+@@ -1462,6 +1464,12 @@
+  */
+ int fit_check_format(const void *fit)
+ {
++	/* A FIT image must be a valid FDT */
++	if (fdt_check_header(fit)) {
++		debug("Wrong FIT format: not a flattened device tree\n");
++		return 0;
++	}
++
+ 	/* mandatory / node 'description' property */
+ 	if (fdt_getprop(fit, 0, FIT_DESC_PROP, NULL) == NULL) {
+ 		debug("Wrong FIT format: no description\n");
+@@ -1868,7 +1876,7 @@
+ 		fit_uname = fit_get_name(fit, noffset, NULL);
+ 	}
+ 	if (noffset < 0) {
+-		puts("Could not find subimage node\n");
++		printf("Could not find subimage node type '%s'\n", prop_name);
+ 		bootstage_error(bootstage_id + BOOTSTAGE_SUB_SUBNODE);
+ 		return -ENOENT;
+ 	}
+--- uboot/common/image-sig.c	2019-07-23 10:57:53.000000000 +0800
++++ uboot.new/common/image-sig.c	2021-07-13 15:07:04.327415083 +0800
+@@ -211,7 +211,7 @@
+ 	info->required_keynode = required_keynode;
+ 	printf("%s:%s", algo_name, info->keyname);
+ 
+-	if (!info->checksum || !info->crypto) {
++	if (!info->checksum || !info->crypto || !info->padding) {
+ 		*err_msgp = "Unknown signature algorithm";
+ 		return -1;
+ 	}
+@@ -330,20 +330,39 @@
+ 	return 0;
+ }
+ 
+-int fit_config_check_sig(const void *fit, int noffset, int required_keynode,
+-			 char **err_msgp)
++/**
++ * fit_config_check_sig() - Check the signature of a config
++ *
++ * @fit: FIT to check
++ * @noffset: Offset of configuration node (e.g. /configurations/conf-1)
++ * @required_keynode:	Offset in the control FDT of the required key node,
++ *			if any. If this is given, then the configuration wil not
++ *			pass verification unless that key is used. If this is
++ *			-1 then any signature will do.
++ * @conf_noffset: Offset of the configuration subnode being checked (e.g.
++ *	 /configurations/conf-1/kernel)
++ * @err_msgp:		In the event of an error, this will be pointed to a
++ *			help error string to display to the user.
++ * @return 0 if all verified ok, <0 on error
++ */
++static int fit_config_check_sig(const void *fit, int noffset,
++				int required_keynode, int conf_noffset,
++				char **err_msgp)
+ {
+ 	char * const exc_prop[] = {"data"};
+ 	const char *prop, *end, *name;
+ 	struct image_sign_info info;
+ 	const uint32_t *strings;
++	const char *config_name;
+ 	uint8_t *fit_value;
+ 	int fit_value_len;
++	bool found_config;
+ 	int max_regions;
+ 	int i, prop_len;
+ 	char path[200];
+ 	int count;
+ 
++	config_name = fit_get_name(fit, conf_noffset, NULL);
+ 	debug("%s: fdt=%p, conf='%s', sig='%s'\n", __func__, gd_fdt_blob(),
+ 	      fit_get_name(fit, noffset, NULL),
+ 	      fit_get_name(gd_fdt_blob(), required_keynode, NULL));
+@@ -384,9 +403,20 @@
+ 	char *node_inc[count];
+ 
+ 	debug("Hash nodes (%d):\n", count);
++	found_config = false;
+ 	for (name = prop, i = 0; name < end; name += strlen(name) + 1, i++) {
+ 		debug("   '%s'\n", name);
+ 		node_inc[i] = (char *)name;
++		if (!strncmp(FIT_CONFS_PATH, name, strlen(FIT_CONFS_PATH)) &&
++		    name[sizeof(FIT_CONFS_PATH) - 1] == '/' &&
++		    !strcmp(name + sizeof(FIT_CONFS_PATH), config_name)) {
++			debug("      (found config node %s)", config_name);
++			found_config = true;
++		}
++	}
++	if (!found_config) {
++		*err_msgp = "Selected config not in hashed nodes";
++		return -1;
+ 	}
+ 
+ 	/*
+@@ -454,7 +484,7 @@
+ 		if (!strncmp(name, FIT_SIG_NODENAME,
+ 			     strlen(FIT_SIG_NODENAME))) {
+ 			ret = fit_config_check_sig(fit, noffset, sig_offset,
+-						   &err_msg);
++						   conf_noffset, &err_msg);
+ 			if (ret) {
+ 				puts("- ");
+ 			} else {
+@@ -470,13 +500,14 @@
+ 		goto error;
+ 	}
+ 
+-	return verified ? 0 : -EPERM;
++	if (verified)
++		return 0;
+ 
+ error:
+ 	printf(" error!\n%s for '%s' hash node in '%s' config node\n",
+ 	       err_msg, fit_get_name(fit, noffset, NULL),
+ 	       fit_get_name(fit, conf_noffset, NULL));
+-	return -1;
++	return -EPERM;
+ }
+ 
+ int fit_config_verify_required_sigs(const void *fit, int conf_noffset,
+--- uboot/tools/image-host.c	2019-07-23 10:57:54.000000000 +0800
++++ uboot.new/tools/image-host.c	2021-07-13 15:03:27.642237541 +0800
+@@ -743,7 +743,8 @@
+ 	if (!cfg_noffset)
+ 		return -1;
+ 
+-	printf("Verifying Hash Integrity ... ");
++	printf("Verifying Hash Integrity for node '%s'... ",
++	       fdt_get_name(fit, cfg_noffset, NULL));
+ 	ret = fit_config_verify(fit, cfg_noffset);
+ 	if (ret)
+ 		return ret;

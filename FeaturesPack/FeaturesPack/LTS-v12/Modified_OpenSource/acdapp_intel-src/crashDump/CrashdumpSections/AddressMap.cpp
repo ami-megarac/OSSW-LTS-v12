@@ -27,6 +27,7 @@ extern "C" {
 }
 
 #include "crashdump.hpp"
+#include "utils.hpp"
 
 /******************************************************************************
  *
@@ -42,11 +43,13 @@ static void addressMapJson(const SAddrMapEntry* sAddrMapEntry,
     char jsonItemString[AM_JSON_STRING_LEN];
     if (u64Data == NULL)
     {
-        cd_snprintf_s(jsonItemString, AM_JSON_STRING_LEN, AM_UA_DF, cc, ret);
+        cd_snprintf_s(jsonItemString, AM_JSON_STRING_LEN, AM_UA_DF_CPX, cc,
+                      ret);
     }
     else if (PECI_CC_UA(cc))
     {
-        cd_snprintf_s(jsonItemString, AM_JSON_STRING_LEN, AM_UA, cc);
+        cd_snprintf_s(jsonItemString, AM_JSON_STRING_LEN, AM_UA_CPX, *u64Data,
+                      cc);
     }
     else
     {
@@ -83,6 +86,7 @@ int logAddressMapEntries(crashdump::CPUInfo& cpuInfo,
     {
         UAddrMapRegValue uValue = {};
         uint64_t* pValue = &uValue.u64;
+        uint8_t ccVal = PECI_DEV_CC_SUCCESS;
         if (sAddrMapEntries[i].u8Size == 8)
         {
             for (uint8_t u8Dword = 0; u8Dword < 2; u8Dword++)
@@ -92,6 +96,10 @@ int logAddressMapEntries(crashdump::CPUInfo& cpuInfo,
                     sAddrMapEntries[i].u8Dev, sAddrMapEntries[i].u8Func,
                     sAddrMapEntries[i].u16Reg + (u8Dword * 4), sizeof(uint32_t),
                     (uint8_t*)&uValue.u32[u8Dword], peci_fd, &cc);
+                if (PECI_CC_UA(cc))
+                {
+                    ccVal = cc;
+                }
                 if (ret != PECI_CC_SUCCESS)
                 {
                     pValue = NULL;
@@ -110,6 +118,10 @@ int logAddressMapEntries(crashdump::CPUInfo& cpuInfo,
             {
                 pValue = NULL;
             }
+        }
+        if (PECI_CC_UA(ccVal))
+        {
+            cc = ccVal;
         }
         addressMapJson(&sAddrMapEntries[i], pValue, pJsonChild, ret, cc);
     }
@@ -413,6 +425,7 @@ int logAddressMapEntriesICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         SAddressMapRegRawData sRegData = {};
         uint8_t cc = 0;
         uint8_t bus = 0;
+        uint8_t ccVal = PECI_DEV_CC_SUCCESS;
 
         // ICX EDS Reference Section: PCI Configuration Space Registers
         // Note that registers located in Bus 30 and 31
@@ -456,6 +469,10 @@ int logAddressMapEntriesICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                         sAddrMapEntriesICX1[i].u16Reg + (u8Dword * 4),
                         sizeof(uint32_t),
                         (uint8_t*)&sRegData.uValue.u32[u8Dword], peci_fd, &cc);
+                    if (PECI_CC_UA(cc))
+                    {
+                        ccVal = cc;
+                    }
                     if (ret != PECI_CC_SUCCESS)
                     {
                         sRegData.bInvalid = true;
@@ -466,6 +483,10 @@ int logAddressMapEntriesICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
             default:
                 sRegData.bInvalid = true;
                 ret = SIZE_FAILURE;
+        }
+        if (PECI_CC_UA(ccVal))
+        {
+            cc = ccVal;
         }
         addressMapJsonICX(sAddrMapEntriesICX1[i].regName, &sRegData, pJsonChild,
                           cc, ret);
@@ -493,6 +514,7 @@ static const SAddrMapVx sAddrMapVx[] = {
     {crashdump::cpu::skx, logAddressMapCPX1},
     {crashdump::cpu::icx, logAddressMapICX1},
     {crashdump::cpu::icx2, logAddressMapICX1},
+    {crashdump::cpu::icxd, logAddressMapICX1},
 };
 
 /******************************************************************************

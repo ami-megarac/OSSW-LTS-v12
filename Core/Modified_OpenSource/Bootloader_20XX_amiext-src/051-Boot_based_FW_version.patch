@@ -1,0 +1,19 @@
+diff -Naur uboot_orig/oem/ami/fmh/cmd_fmh.c uboot/oem/ami/fmh/cmd_fmh.c
+--- uboot_orig/oem/ami/fmh/cmd_fmh.c	2021-07-06 20:13:28.591194606 +0530
++++ uboot/oem/ami/fmh/cmd_fmh.c	2021-07-06 20:13:48.063636793 +0530
+@@ -829,6 +829,15 @@
+ 			{
+ 				if(mod->Module_Type == FIRMWARE_INFO_TYPE)
+ 				{
++					#ifdef CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
++					flash = spi_flash_probe(CONFIG_ENV_SPI_BUS, CONFIG_SPX_FEATURE_SECONDARY_IMAGE_SPI,
++					                        CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
++					if (flash == NULL)
++					{
++					    puts("\nspi_flash_probe failed");
++					    hang();
++					}
++					#endif
+ 					imgIndex++;
+ 				}
+ 			}

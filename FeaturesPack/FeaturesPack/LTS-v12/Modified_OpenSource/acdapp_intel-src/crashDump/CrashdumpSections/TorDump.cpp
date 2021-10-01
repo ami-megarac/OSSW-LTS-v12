@@ -28,6 +28,7 @@ extern "C" {
 }
 
 #include "crashdump.hpp"
+#include "utils.hpp"
 
 /******************************************************************************
  *
@@ -73,24 +74,25 @@ static void torDumpJsonCPX1(uint32_t u32NumReads, uint32_t* pu32TorDump,
                               TD_JSON_SUBINDEX_NAME, u8DwordNum);
                 if (puTorRet[u32TorIndex] != PECI_CC_SUCCESS)
                 {
-                    cd_snprintf_s(jsonItemString, TD_JSON_STRING_LEN, TD_UA_DF,
-                                  pu8TorCc[u32TorIndex], puTorRet[u32TorIndex]);
+                    cd_snprintf_s(jsonItemString, TD_JSON_STRING_LEN,
+                                  TD_UA_DF_CPX, pu8TorCc[u32TorIndex],
+                                  puTorRet[u32TorIndex]);
                     cJSON_AddStringToObject(tor, jsonItemName, jsonItemString);
-                    break;
+                    return;
                 }
                 else if (PECI_CC_UA(pu8TorCc[u32TorIndex]))
                 {
-                    cd_snprintf_s(jsonItemString, TD_JSON_STRING_LEN, TD_UA,
+                    cd_snprintf_s(jsonItemString, TD_JSON_STRING_LEN, TD_UA_CPX,
+                                  pu32TorDump[u32TorIndex],
                                   pu8TorCc[u32TorIndex]);
-                    cJSON_AddStringToObject(tor, jsonItemName, jsonItemString);
-                    break;
                 }
                 else
                 {
                     // Add the DWORD number item to the TOR dump JSON structure
                     cd_snprintf_s(jsonItemString, TD_JSON_STRING_LEN, "0x%x",
-                                  pu32TorDump[u32TorIndex++]);
+                                  pu32TorDump[u32TorIndex]);
                 }
+                u32TorIndex++;
                 cJSON_AddStringToObject(tor, jsonItemName, jsonItemString);
             }
         }
@@ -153,6 +155,7 @@ int logTorDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         // TOR dump sequence failed, abort the sequence
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_TOR_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
+        peci_Unlock(peci_fd);
         return ret;
     }
 
@@ -164,6 +167,7 @@ int logTorDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         // TOR dump sequence failed, abort the sequence
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_TOR_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
+        peci_Unlock(peci_fd);
         return ret;
     }
 
@@ -177,6 +181,7 @@ int logTorDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         // TOR dump sequence failed, abort the sequence
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_TOR_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
+        peci_Unlock(peci_fd);
         return ret;
     }
 
@@ -185,11 +190,12 @@ int logTorDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     ret = peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ,
                                sizeof(uint32_t), (uint8_t*)&u32NumReads,
                                peci_fd, &cc);
-    if (ret != PECI_CC_SUCCESS)
+    if (ret != PECI_CC_SUCCESS || (PECI_CC_UA(cc)))
     {
         // TOR dump sequence failed, abort the sequence
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_TOR_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
+        peci_Unlock(peci_fd);
         return ret;
     }
 
@@ -217,6 +223,7 @@ int logTorDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         // calloc failed, abort the sequence
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_TOR_DUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
+        peci_Unlock(peci_fd);
         return SIZE_FAILURE;
     }
     for (uint32_t i = 0; i < u32NumReads; i++)
@@ -270,7 +277,7 @@ int logTorDumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
 static void torDumpJsonICX2(uint32_t u32Cha, uint32_t u32TorIndex,
                             uint32_t u32TorSubIndex, uint32_t u32PayloadBytes,
                             uint8_t* pu8TorCrashdumpData, cJSON* pJsonChild,
-                            bool bInvalid, uint8_t cc, int ret)
+                            bool bInvalid, uint8_t cc, int ret, bool skipCha)
 {
     cJSON* channel;
     cJSON* tor;
@@ -299,6 +306,12 @@ static void torDumpJsonICX2(uint32_t u32Cha, uint32_t u32TorIndex,
     // Add the SubIndex data to the TOR dump JSON structure
     cd_snprintf_s(jsonItemName, TD_JSON_STRING_LEN, TD_JSON_SUBINDEX_NAME,
                   u32TorSubIndex);
+    if (skipCha)
+    {
+        cd_snprintf_s(jsonItemString, TD_JSON_STRING_LEN, TD_NA);
+        cJSON_AddStringToObject(tor, jsonItemName, jsonItemString);
+        return;
+    }
     if (bInvalid)
     {
         cd_snprintf_s(jsonItemString, TD_JSON_STRING_LEN, TD_UA_DF, cc, ret);
@@ -366,6 +379,9 @@ int logTorDumpICX2(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     uint64_t u64PayloadExp;
     int ret = 0;
     uint8_t cc = 0;
+    bool skipCha = false;
+    bool skipFromInputFile = getTorSkipFromInputFile(
+        cpuInfo, crashdump::sectionNames[crashdump::TOR].name);
 
     // Crashdump Discovery
     // Crashdump Enabled
@@ -441,27 +457,38 @@ int logTorDumpICX2(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                                     u32PayloadBytes);
                     return 1;
                 }
-                ret = peci_CrashDump_GetFrame(
-                    cpuInfo.clientAddr, PECI_CRASHDUMP_TOR, cha,
-                    (u32TorIndex | (u32TorSubIndex << 8)), u32PayloadBytes,
-                    pu8TorCrashdumpData, &cc);
-
-                if (ret != PECI_CC_SUCCESS)
+                if (!skipCha)
                 {
-                    bInvalid = true;
-                    CRASHDUMP_PRINT(ERR, stderr,
-                                    "Error (%d) during GetFrame"
-                                    "(cha:%d index:%d sub-index:%d)\n",
-                                    ret, static_cast<int>(cha), u32TorIndex,
-                                    u32TorSubIndex);
+                    ret = peci_CrashDump_GetFrame(
+                        cpuInfo.clientAddr, PECI_CRASHDUMP_TOR, cha,
+                        (u32TorIndex | (u32TorSubIndex << 8)), u32PayloadBytes,
+                        pu8TorCrashdumpData, &cc);
+
+                    if (ret != PECI_CC_SUCCESS)
+                    {
+                        bInvalid = true;
+                        CRASHDUMP_PRINT(ERR, stderr,
+                                        "Error (%d) during GetFrame"
+                                        "(cha:%d index:%d sub-index:%d)\n",
+                                        ret, static_cast<int>(cha), u32TorIndex,
+                                        u32TorSubIndex);
+                    }
                 }
                 torDumpJsonICX2(cha, u32TorIndex, u32TorSubIndex,
                                 u32PayloadBytes, pu8TorCrashdumpData,
-                                pJsonChild, bInvalid, cc, ret);
+                                pJsonChild, bInvalid, cc, ret, skipCha);
 
                 free(pu8TorCrashdumpData);
+                if (PECI_CC_UA(cc) && !skipCha)
+                {
+                    if (skipFromInputFile)
+                    {
+                        skipCha = true;
+                    }
+                }
             }
         }
+        skipCha = false;
     }
 
     return ret;
@@ -473,6 +500,7 @@ static const STorDumpVx sTorDumpVx[] = {
     {crashdump::cpu::skx, logTorDumpCPX1},
     {crashdump::cpu::icx, logTorDumpICX1},
     {crashdump::cpu::icx2, logTorDumpICX2},
+    {crashdump::cpu::icxd, logTorDumpICX2},
 };
 
 /******************************************************************************

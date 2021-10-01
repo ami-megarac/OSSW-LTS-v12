@@ -38,6 +38,9 @@
 #include <linux/if_arp.h>
 #include <linux/wait.h>
 #include <linux/spinlock.h>
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3,14,17))
+#include <net/bonding.h>
+#endif
 #include "netmon_io.h"
 
 #ifdef HAVE_UNLOCKED_IOCTL
@@ -229,9 +232,31 @@ netmon_netdev_event(struct notifier_block *this, unsigned long event, void *ptr)
 			break;
 #endif
 		case NETDEV_CHANGE:
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(3,14,17))			
+			//Ignore bond slave event
+			if( dev->priv_flags & IFF_BONDING )
+			{								
+				struct slave *slave;
+				
+				slave = bond_slave_get_rcu(dev);
+				if(slave != NULL){
+					if (verbose)
+						printk("NETMON: ignore bond slave %s\n",dev->name);
+					break;
+				}else{					
+					linkdev = dev;
+					linkstate = dev->ethtool_ops->get_link(dev);
+				}					
+			}
+			else{
+				linkdev = dev;
+				linkstate = dev->ethtool_ops->get_link(dev);				
+			}			
+#else
 			linkdev = dev;
 			/* netif_carrier_ok() => 1 (carrier connected) else 0 */
 			linkstate = netif_carrier_ok(dev);
+#endif
 			if (verbose)
 				printk("NETMON: NetDev Link Change (%s) Event for %s\n",linkstate?"UP":"DOWN",dev->name);
 

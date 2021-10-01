@@ -1,0 +1,36 @@
+diff -Naur linux_org/net/ipv6/addrconf.c linux/net/ipv6/addrconf.c
+--- linux_org/net/ipv6/addrconf.c	2021-07-20 14:11:04.895531105 +0800
++++ linux/net/ipv6/addrconf.c	2021-07-20 14:14:08.615853765 +0800
+@@ -2564,9 +2564,6 @@
+ {
+ 	struct inet6_ifaddr *ifp = ipv6_get_ifaddr(net, addr, dev, 1);
+ 	int create = 0, update_lft = 0;
+-	struct file *file = NULL;
+-	loff_t pos=0;
+-	mm_segment_t oldfs = get_fs();
+ 
+ 	if (!ifp && valid_lft) {
+ 		int max_addresses = in6_dev->cnf.max_addresses;
+@@ -2595,21 +2592,7 @@
+ 
+ 		if (IS_ERR_OR_NULL(ifp))
+ 			return -1;
+-
+-		/*Implemented for redfish notification whenever stateless ipv6 is leased*/
+-		set_fs(KERNEL_DS);
+-		file = filp_open("/tmp/autoipv6notify",O_WRONLY|O_CREAT,0644);
+-		if(IS_ERR(file))
+-		{
+-			pr_warn("unable to create /tmp/autoipv6notify\n");
+-		}
+-		else
+-		{
+-			vfs_write(file,"xyz",3,&pos);
+-			filp_close(file,NULL);
+-		}
+-		set_fs(oldfs);
+-
++		
+ 		create = 1;
+ 		spin_lock_bh(&ifp->lock);
+ 		ifp->flags |= IFA_F_MANAGETEMPADDR;

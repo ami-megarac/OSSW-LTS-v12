@@ -1,5 +1,5 @@
---- linux-5.4.41/drivers/net/bonding/bond_main.c	2020-05-14 01:58:30.000000000 -0400
-+++ linux/drivers/net/bonding/bond_main.c	2020-05-17 01:43:52.990964632 -0400
+--- linux-5.4.99/drivers/net/bonding/bond_main.c	2021-02-17 17:35:20.000000000 +0800
++++ linux/drivers/net/bonding/bond_main.c	2021-03-11 11:34:52.576642535 +0800
 @@ -347,6 +347,16 @@
  	bond_for_each_slave(bond, slave, iter) {
  		if (slave->link == BOND_LINK_UP) {
@@ -68,7 +68,7 @@
  			call_netdevice_notifiers(NETDEV_BONDING_FAILOVER, bond->dev);
  			if (should_notify_peers) {
  				bond->send_peer_notif--;
-@@ -1162,6 +1202,14 @@
+@@ -1163,6 +1203,14 @@
  					    struct bonding *bond)
  {
  	if (bond_is_slave_inactive(slave)) {
@@ -83,8 +83,8 @@
  		if (BOND_MODE(bond) == BOND_MODE_ALB &&
  		    skb->pkt_type != PACKET_BROADCAST &&
  		    skb->pkt_type != PACKET_MULTICAST)
---- linux-5.4.41/drivers/net/phy/phy.c	2020-05-14 01:58:30.000000000 -0400
-+++ linux/drivers/net/phy/phy.c	2020-05-16 23:35:12.873461687 -0400
+--- linux-5.4.99/drivers/net/phy/phy.c	2021-02-17 17:35:20.000000000 +0800
++++ linux/drivers/net/phy/phy.c	2021-03-11 11:35:44.374397489 +0800
 @@ -16,6 +16,7 @@
  #include <linux/delay.h>
  #include <linux/netdevice.h>
@@ -117,8 +117,8 @@
  }
  EXPORT_SYMBOL(phy_print_status);
  
---- linux-5.4.41/include/linux/netdevice.h	2020-05-14 01:58:30.000000000 -0400
-+++ linux/include/linux/netdevice.h	2020-05-16 23:39:41.623050612 -0400
+--- linux-5.4.99/include/linux/netdevice.h	2021-02-17 17:35:20.000000000 +0800
++++ linux/include/linux/netdevice.h	2021-03-11 11:36:56.471272640 +0800
 @@ -2489,6 +2489,9 @@
  	NETDEV_CVLAN_FILTER_DROP_INFO,
  	NETDEV_SVLAN_FILTER_PUSH_INFO,
@@ -129,7 +129,7 @@
  };
  const char *netdev_cmd_to_name(enum netdev_cmd cmd);
  
-@@ -4231,6 +4234,9 @@
+@@ -4233,6 +4236,9 @@
  void netdev_state_change(struct net_device *dev);
  void netdev_notify_peers(struct net_device *dev);
  void netdev_features_change(struct net_device *dev);
@@ -139,9 +139,9 @@
  /* Load a device via the kmod */
  void dev_load(struct net *net, const char *name);
  struct rtnl_link_stats64 *dev_get_stats(struct net_device *dev,
---- linux-5.4.41/net/core/dev.c	2020-05-14 01:58:30.000000000 -0400
-+++ linux/net/core/dev.c	2020-05-17 01:40:58.726020688 -0400
-@@ -1518,7 +1518,7 @@
+--- linux-5.4.99/net/core/dev.c	2021-02-17 17:35:20.000000000 +0800
++++ linux/net/core/dev.c	2021-03-11 11:38:49.882357208 +0800
+@@ -1514,7 +1514,7 @@
  	N(UDP_TUNNEL_DROP_INFO) N(CHANGE_TX_QUEUE_LEN)
  	N(CVLAN_FILTER_PUSH_INFO) N(CVLAN_FILTER_DROP_INFO)
  	N(SVLAN_FILTER_PUSH_INFO) N(SVLAN_FILTER_DROP_INFO)
@@ -150,7 +150,7 @@
  	}
  #undef N
  	return "UNKNOWN_NETDEV_EVENT";
-@@ -1974,9 +1974,9 @@
+@@ -1970,9 +1970,9 @@
  
  		if (skb_network_header(skb2) < skb2->data ||
  		    skb_network_header(skb2) > skb_tail_pointer(skb2)) {
@@ -163,7 +163,7 @@
  			skb_reset_network_header(skb2);
  		}
  
-@@ -10227,4 +10227,17 @@
+@@ -10252,4 +10252,17 @@
  	return rc;
  }
  

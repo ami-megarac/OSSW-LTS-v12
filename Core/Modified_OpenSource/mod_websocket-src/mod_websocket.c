@@ -331,7 +331,7 @@ SOCKET WSInitializeClient(u_short PortNo, char *InterfaceName) {
 	SOCKET sock; /* Server Socket */
 
 	/* Create a socket to listening */
-	if ((g_corefeatures.global_ipv6 == ENABLED) && (IsBMCNFSMode() != 1)) {
+	if ((g_corefeatures.global_ipv6 == ENABLED) && (IsBMCNFSMode() != 1) && (isIPv6Enabled() != 0)) {
 		sock = WSInitializeClientv6(PortNo, InterfaceName);
 	} else {
 		sock = WSInitializeClientv4(PortNo, InterfaceName);

@@ -336,8 +336,9 @@ static void connection_handle_errdoc_init(server *srv, connection *con) {
 	buffer *xss_protection = NULL;
 	buffer *referrer_policy = NULL;
 	buffer *csp = NULL;
+	buffer *strict_transport_security = NULL;
 
-	if (404 == con->http_status) {
+	if ((404 == con->http_status) || (403 == con->http_status) || (500 == con->http_status)) {
 		
 		data_string *ds = (data_string *)array_get_element(con->response.headers, "X-Frame-Options");
 		if (NULL != ds) {
@@ -357,6 +358,11 @@ static void connection_handle_errdoc_init(server *srv, connection *con) {
 		if (NULL != ds3) {
 			csp = buffer_init_buffer(ds3->value);
 		}
+		data_string *ds4 = (data_string *)array_get_element(con->response.headers, "Strict-Transport-Security");
+                if (NULL != ds4) {
+                        strict_transport_security = buffer_init_buffer(ds4->value);
+                }
+
 	}
 	
 	
@@ -385,6 +391,10 @@ static void connection_handle_errdoc_init(server *srv, connection *con) {
 		response_header_insert(srv, con, CONST_STR_LEN("Content-Security-Policy"), CONST_BUF_LEN(csp));
 		buffer_free(csp);
 	}
+	if (NULL != strict_transport_security) {
+		response_header_insert(srv, con, CONST_STR_LEN("Strict-Transport-Security"), CONST_BUF_LEN(strict_transport_security));
+                buffer_free(strict_transport_security);
+        }
 }
 
 static int connection_handle_write_prepare(server *srv, connection *con) {

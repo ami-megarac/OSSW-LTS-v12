@@ -42,7 +42,7 @@ diff -Naur u-boot/common/board_r.c u-boot-2019.04/common/board_r.c
  	return 0;
  }
  #endif
-@@ -764,9 +765,9 @@
+@@ -767,9 +767,9 @@
  #ifdef CONFIG_ARCH_MISC_INIT
  	arch_misc_init,		/* miscellaneous arch-dependent init */
  #endif
@@ -51,6 +51,6 @@ diff -Naur u-boot/common/board_r.c u-boot-2019.04/common/board_r.c
  	misc_init_r,		/* miscellaneous platform-dependent init */
 -#endif
 +//#endif
+        misc_init_oem,
  	INIT_FUNC_WATCHDOG_RESET
  #ifdef CONFIG_CMD_KGDB
- 	initr_kgdb,

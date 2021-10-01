@@ -2,7 +2,7 @@
  *
  * INTEL CONFIDENTIAL
  *
- * Copyright 2020 Intel Corporation.
+ * Copyright 2021 Intel Corporation.
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
@@ -21,7 +21,7 @@
 #include <array>
 #include <functional>
 #include <map>
-#include "nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <tuple>
@@ -29,20 +29,21 @@
 #include <vector>
 #include <regex>
 
-#include "aer.hpp"
-#include "mca_defs.hpp"
-#include "utils.hpp"
-#include "tor_purley.hpp"
+#include <aer.hpp>
+#include <mca_defs.hpp>
+#include <utils.hpp>
+#include <tor_purley.hpp>
+#include <cpu.hpp>
 
 using json = nlohmann::json;
 
-class SkxCpu final : public PurleyCpu
+class SkxCpu final : public PurleyCpu, public CpuGeneric
 {
   public:
     // indexes for IERR, MCERR and MCERR source
     std::string ierr_varname = "ubox_ncevents_ierrloggingreg_b0d08f0";
     std::string mcerr_varname = "ubox_ncevents_mcerrloggingreg_b0d08f0";
-    std::string mca_err_src_varname = "pcu_cr_mca_err_src_log";
+    std::string mca_err_src_varname = "mca_err_src_log";
     std::string bdf_ierr_varname = "B00_D08_F0_0xA4";
     std::string bdf_mcerr_varname = "B00_D08_F0_0xA8";
     std::string bdf_mca_err_src_varname = "B01_D1e_F2_0xEC";
@@ -50,7 +51,25 @@ class SkxCpu final : public PurleyCpu
     static const uint32_t unc_spec_err_mask = 0x3FF030;
     static const uint32_t cor_spec_err_mask = 0x31C1;
 
-    [[nodiscard]] UncAer analyzeUncAer(const json& input)
+    [[nodiscard]] virtual std::map<std::string, std::array<uint64_t, 2>>
+        getMemoryMap(const json& input)
+    {
+        return PurleyCpu::getMemoryMap(input);
+    }
+
+    [[nodiscard]] virtual std::map<uint32_t, TscData>
+        getTscData(const json& input)
+    {
+        return {};
+    }
+
+    [[nodiscard]] virtual std::optional<std::map<uint32_t, PackageThermStatus>>
+        getThermData(const json& input)
+    {
+        return {};
+    }
+
+    [[nodiscard]] virtual UncAer analyzeUncAer(const json& input)
     {
         UncAer output;
         if (!input.contains("uncore_status_regs"))
@@ -63,6 +82,10 @@ class SkxCpu final : public PurleyCpu
             if (!input["uncore_status_regs"].contains(socket))
             {
                 return output;
+            }
+            if (!startsWith(socket, "socket"))
+            {
+                continue;
             }
             uint32_t socketId;
             if (!str2uint(socket.substr(6), socketId, decimal))
@@ -127,7 +150,7 @@ class SkxCpu final : public PurleyCpu
         return allUncErrs;
     }
 
-    [[nodiscard]] CorAer analyzeCorAer(const json& input)
+    [[nodiscard]] virtual CorAer analyzeCorAer(const json& input)
     {
         CorAer output;
         if (!input.contains("uncore_status_regs"))
@@ -140,6 +163,10 @@ class SkxCpu final : public PurleyCpu
             if (!input["uncore_status_regs"].contains(socket))
             {
                 return output;
+            }
+            if (!startsWith(socket, "socket"))
+            {
+                continue;
             }
             uint32_t socketId;
             if (!str2uint(socket.substr(6), socketId, decimal))
@@ -204,7 +231,7 @@ class SkxCpu final : public PurleyCpu
         return allCorErrs;
     }
 
-    [[nodiscard]] MCA analyzeMca(const json& input)
+    [[nodiscard]] virtual MCA analyzeMca(const json& input)
     {
         MCA output;
         std::vector<MCAData> allMcs;
@@ -228,7 +255,7 @@ class SkxCpu final : public PurleyCpu
         return output;
     }
 
-    [[nodiscard]] std::optional<SkxTORData> parseTorData(const json& index)
+    [[nodiscard]] std::optional<TORDataGeneric> parseTorData(const json& index)
     {
         if (index.find("DW0") == index.cend())
         {
@@ -238,10 +265,10 @@ class SkxCpu final : public PurleyCpu
         {
             return {};
         }
-        SkxTORData tor;
-        if (!str2uint(index["DW0"], tor.dw0) ||
-            !str2uint(index["DW1"], tor.dw1) ||
-            !str2uint(index["DW2"], tor.dw2))
+        TORDataGeneric tor;
+        if (!str2uint(index["DW0"], tor.subindex0) ||
+            !str2uint(index["DW1"], tor.subindex1) ||
+            !str2uint(index["DW2"], tor.subindex2))
         {
             return {};
         }
@@ -252,10 +279,10 @@ class SkxCpu final : public PurleyCpu
         return tor;
     }
 
-    [[nodiscard]] std::vector<SkxTORData> getTorsData(
+    [[nodiscard]] std::vector<TORDataGeneric> getTorsData(
         const json& input, std::string socket)
     {
-        std::vector<SkxTORData> torsData;
+        std::vector<TORDataGeneric> torsData;
         if (input.find("TOR_dump") == input.cend())
         {
             return torsData;
@@ -273,7 +300,7 @@ class SkxCpu final : public PurleyCpu
             }
             for (const auto& [torDataKey, torDataValue] : chaItemValue.items())
             {
-                std::optional<SkxTORData> tor = parseTorData(torDataValue);
+                std::optional<TORDataGeneric> tor = parseTorData(torDataValue);
                 if (!tor)
                 {
                     continue;
@@ -288,9 +315,9 @@ class SkxCpu final : public PurleyCpu
         return torsData;
     }
 
-    [[nodiscard]] SkxTOR analyze(const json& input)
+    [[nodiscard]] virtual TORData analyze(const json& input)
     {
-        SkxTOR output;
+        TORData output;
         std::vector<std::string> sockets = findSocketsPurley(input);
         for (auto const& socket : sockets)
         {
@@ -301,19 +328,21 @@ class SkxCpu final : public PurleyCpu
                 mca_err_src_varname = "";
             }
 
-            if (input["crashdump"].contains(socket) &&
-             input.contains("uncore_status_regs"))
+            if (input.contains("crashdump") &&
+                 input.contains("uncore_status_regs"))
             {
-                if (input["crashdump"][socket].contains("uncore_regs") &&
-                 input["uncore_status_regs"].contains(socket) &&
-                 input["uncore_status_regs"].contains("status"))
+                if (input["crashdump"].contains(socket))
                 {
-                    ierr_varname = "IERRLOGGINGREG";
-                    mcerr_varname = "MCERRLOGGINGREG";
-                    mca_err_src_varname = "";
+                    if (input["crashdump"][socket].contains("uncore_regs") &&
+                     input["uncore_status_regs"].contains(socket) &&
+                     input["uncore_status_regs"].contains("status"))
+                    {
+                        ierr_varname = "IERRLOGGINGREG";
+                        mcerr_varname = "MCERRLOGGINGREG";
+                    }
                 }
             }
-
+            
             if (input.contains("uncore_status_regs"))
             {
                 if (input["uncore_status_regs"].contains(socket))
@@ -323,14 +352,14 @@ class SkxCpu final : public PurleyCpu
                     {
                         ierr_varname = bdf_ierr_varname;
                         mcerr_varname = bdf_mcerr_varname;
-                        mca_err_src_varname = bdf_mca_err_src_varname;
                     }
                 }
             }
             std::optional ierr = getUncoreData(input, socket, ierr_varname);
             std::optional mcerr = getUncoreData(input, socket, mcerr_varname);
-            std::optional mcerrErrSrc = getUncoreData(input, socket, mca_err_src_varname);
-            std::vector<SkxTORData> tors = getTorsData(input, socket);
+            std::optional mcerrErrSrc =
+                getSysInfoData(input, socket, mca_err_src_varname);
+            std::vector<TORDataGeneric> tors = getTorsData(input, socket);
             uint32_t socketId;
             if (!str2uint(socket.substr(6), socketId, decimal))
             {
@@ -349,7 +378,8 @@ class SkxCpu final : public PurleyCpu
             {
                 ctx.mcerrErr.value = 0;
             }
-            std::pair<SocketCtx, std::vector<SkxTORData>> tempData(ctx, tors);
+            std::pair<SocketCtx, std::vector<TORDataGeneric>>
+                tempData(ctx, tors);
             output.insert({socketId, tempData});
         }
         return output;

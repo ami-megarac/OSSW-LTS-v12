@@ -163,13 +163,63 @@ int fillCoreMask(crashdump::CPUInfo& cpuInfo, char* cSectionName,
 
 /******************************************************************************
  *
- *   fillCPUIdSource
+ *   fillcapid2
  *
- *   This function reads and fills the _CPUID Source of each cpu
+ *   This function reads and fills in the capid2 for CPX
  *
  ******************************************************************************/
-int fillCPUIdSource(crashdump::CPUInfo& cpuInfo, char* cSectionName,
-                    cJSON* pJsonChild)
+int fillcapid2(crashdump::CPUInfo& cpuInfo, char* cSectionName,
+               cJSON* pJsonChild)
+{
+    cJSON* cpu = NULL;
+    int cpuNum = cpuInfo.clientAddr & 0xF;
+    char jsonItemName[SI_JSON_STRING_LEN] = {0};
+    char jsonItemString[SI_JSON_STRING_LEN] = {0};
+    // Add the CPU number object if it doesn't already exist
+    cd_snprintf_s(jsonItemName, SI_JSON_STRING_LEN, SI_JSON_SOCKET_NAME,
+                  cpuNum);
+    if ((cpu = cJSON_GetObjectItemCaseSensitive(pJsonChild, jsonItemName)) ==
+        NULL)
+    {
+        cJSON_AddItemToObject(pJsonChild, jsonItemName,
+                              cpu = cJSON_CreateObject());
+    }
+    if (cpuInfo.model == crashdump::cpu::cpx)
+    {
+        if (cpuInfo.capidRead.capid2Ret != PECI_CC_SUCCESS)
+        {
+            cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA_DF,
+                          cpuInfo.capidRead.capid2Cc,
+                          cpuInfo.capidRead.capid2Ret);
+        }
+        else if (PECI_CC_UA(cpuInfo.capidRead.capid2Cc))
+        {
+            cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_UA,
+                          cpuInfo.capidRead.capid2Cc);
+        }
+        else
+        {
+            cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, "0x%x",
+                          cpuInfo.capidRead.capid2);
+        }
+        cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
+    }
+    else
+    {
+        cJSON_AddStringToObject(cpu, cSectionName, MD_NA);
+    }
+    return 0;
+}
+
+/******************************************************************************
+ *
+ *   fillSource
+ *
+ *   This function Source of each cpu
+ *
+ ******************************************************************************/
+int fillSource(crashdump::CPUInfo& cpuInfo, char* cSectionName,
+               cJSON* pJsonChild, cpuid::cpuidState source)
 {
     cJSON* cpu = NULL;
     int cpuNum = cpuInfo.clientAddr & 0xF;
@@ -185,7 +235,7 @@ int fillCPUIdSource(crashdump::CPUInfo& cpuInfo, char* cSectionName,
         cJSON_AddItemToObject(pJsonChild, jsonItemName,
                               cpu = cJSON_CreateObject());
     }
-    switch (cpuInfo.cpuidRead.source)
+    switch (source)
     {
         case cpuid::STARTUP:
             cd_snprintf_s(jsonItemString, SI_JSON_STRING_LEN, MD_STARTUP);
@@ -204,6 +254,47 @@ int fillCPUIdSource(crashdump::CPUInfo& cpuInfo, char* cSectionName,
     }
     cJSON_AddStringToObject(cpu, cSectionName, jsonItemString);
     return 0;
+}
+
+/******************************************************************************
+ *
+ *   fillCPUIdSource
+ *
+ *   This function reads and fills the CPUId Source of each cpu
+ *
+ ******************************************************************************/
+int fillCPUIdSource(crashdump::CPUInfo& cpuInfo, char* cSectionName,
+                    cJSON* pJsonChild)
+{
+    return fillSource(cpuInfo, cSectionName, pJsonChild,
+                      cpuInfo.cpuidRead.source);
+}
+/******************************************************************************
+ *
+ *   fillCoreMaskSource
+ *
+ *   This function reads and fills the Core Mask Source of each cpu
+ *
+ ******************************************************************************/
+int fillCoreMaskSource(crashdump::CPUInfo& cpuInfo, char* cSectionName,
+                       cJSON* pJsonChild)
+{
+    return fillSource(cpuInfo, cSectionName, pJsonChild,
+                      cpuInfo.coreMaskRead.source);
+}
+
+/******************************************************************************
+ *
+ *   fillChaCountSource
+ *
+ *   This function reads and fills the Cha Count Source of each cpu
+ *
+ ******************************************************************************/
+int fillChaCountSource(crashdump::CPUInfo& cpuInfo, char* cSectionName,
+                       cJSON* pJsonChild)
+{
+    return fillSource(cpuInfo, cSectionName, pJsonChild,
+                      cpuInfo.chaCountRead.source);
 }
 
 /******************************************************************************
@@ -409,7 +500,6 @@ int fillVCodeVersion(crashdump::CPUInfo& cpuInfo, char* cSectionName,
 int fillBmcVersion(char* cSectionName, cJSON* pJsonChild)
 {
     char bmcVersion[SI_BMC_VER_LEN] = {0};
-    crashdump::getBMCVersionDBus(bmcVersion, sizeof(bmcVersion));
     // Fill in BMC Version string
     cJSON_AddStringToObject(pJsonChild, cSectionName, bmcVersion);
     return 0;
@@ -459,15 +549,15 @@ int fillMeVersion(char* cSectionName, cJSON* pJsonChild)
  ******************************************************************************/
 int fillBiosId(char* cSectionName, cJSON* pJsonChild)
 {
-
-    // Fill in as N/A for now
+    char biosVersion[SI_BIOS_ID_LEN] = {0};
+#ifndef SPX_BMC_ACD
+    crashdump::getBIOSVersionDBus(biosVersion, sizeof(biosVersion));
+#else
+   // getBIOSVersionDBus(biosVersion, sizeof(biosVersion));
+#endif
+    // Fill in BIOS Version string
     cJSON_AddStringToObject(pJsonChild, cSectionName, MD_NA);
     return 0;
-//    char biosVersion[SI_BIOS_ID_LEN] = {0};
-//    crashdump::getBIOSVersionDBus(biosVersion, sizeof(biosVersion));
-    // Fill in BIOS Version string
-//    cJSON_AddStringToObject(pJsonChild, cSectionName, biosVersion);
-//    return 0;
 }
 
 /******************************************************************************
@@ -637,6 +727,7 @@ static const SPpinVx sSPpinVx[] = {
     {crashdump::cpu::skx, getPpinDataCPX1},
     {crashdump::cpu::icx, getPpinDataICX1},
     {crashdump::cpu::icx2, getPpinDataICX1},
+    {crashdump::cpu::icxd, getPpinDataICX1},
 };
 
 /******************************************************************************
@@ -777,8 +868,11 @@ static SSysInfoSection sSysInfoTable[] = {
     {"peci_id", fillPECI},
     {"cpuid", fillCPUID},
     {"_cpuid_source", fillCPUIdSource},
+    {"_core_mask_source", fillCoreMaskSource},
+    {"_cha_count_source", fillChaCountSource},
     {"core_mask", fillCoreMask},
     {"cha_count", fillChaCount},
+    {"capid2", fillcapid2},
     {"package_id", fillPackageId},
     {"core_count", fillCoresPerCpu},
     {"ucode_patch_ver", fillUCodeVersion},
@@ -936,4 +1030,34 @@ int logSysInfoInputfile(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild,
         }
     }
     return ret;
+}
+
+/******************************************************************************
+ *
+ *   logResetDetected
+ *
+ *   This function logs the section which was being captured when reset occured
+ *
+ ******************************************************************************/
+int logResetDetected(cJSON* metadata, int cpuNum, int sectionName)
+{
+    char resetSection[SI_JSON_STRING_LEN];
+
+    if (sectionName != DEFAULT_VALUE)
+    {
+        cd_snprintf_s(resetSection, SI_JSON_STRING_LEN, RESET_DETECTED_NAME,
+                      cpuNum, crashdump::sectionNames[sectionName].name);
+
+        CRASHDUMP_PRINT(INFO, stderr, "Reset occured while in section %s\n",
+                        resetSection);
+    }
+    else
+    {
+        cd_snprintf_s(resetSection, SI_JSON_STRING_LEN, "%s",
+                      RESET_DETECTED_DEFAULT);
+    }
+
+    cJSON_AddStringToObject(metadata, "_reset_detected", resetSection);
+
+    return 0;
 }

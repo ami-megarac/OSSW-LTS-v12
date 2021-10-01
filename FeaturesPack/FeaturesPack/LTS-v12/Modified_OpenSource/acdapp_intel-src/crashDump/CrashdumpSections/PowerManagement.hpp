@@ -39,8 +39,10 @@
 
 #define PM_NA "N/A"
 #define PM_UA "UA:0x%x"
+#define PM_UA_CPX "0x%x,UA:0x%x"
 #define PM_DF "DF:0x%x"
 #define PM_UA_DF "UA:0x%x,DF:0x%x"
+#define PM_UA_DF_CPX "0x0,UA:0x%x,DF:0x%x"
 #define PM_UINT32_FMT "0x%" PRIx32 ""
 #define PM_PCS_88 88
 #define JSON_FAILURE 8

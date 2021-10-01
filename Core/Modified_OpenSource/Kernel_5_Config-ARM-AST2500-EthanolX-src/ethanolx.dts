@@ -71,15 +71,6 @@
 
 	};
 };
-&spi1 {
-	status = "okay";
-	flash@0 {
-		status = "okay";
-		m25p,fast-read;
-		label = "pnor";
-		spi-max-frequency = <100000000>;
-	};
-};
 #endif
 
 &spi2 {

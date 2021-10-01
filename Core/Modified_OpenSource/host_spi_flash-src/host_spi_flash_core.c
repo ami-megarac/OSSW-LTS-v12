@@ -134,6 +134,7 @@ static struct host_spi_flash_info_t host_spi_flash_info_tab[] =
     { "AT25DF64",       0x00481F, 64 * 1024,    128,       FL_ERASE_ALL },      // Atmel 8MB
     { "W25Q128FV",      0x1840EF, 64 * 1024,    256,       FL_ERASE_ALL },      // Winbond 16MB
     { "W25Q256FV",      0x1940EF, 64 * 1024,    512,       FL_ERASE_ALL },      // Winbond 32MB
+	{ "W25Q512JV",      0x2040EF, 64 * 1024,    1024,      FL_ERASE_ALL },      // Winbond 64MB
     { "MX25L25635F",    0x1920C2, 64 * 1024,    512,       FL_ERASE_ALL },      // Macronix 32MB
     { "MX25L51245G",    0x1A20C2, 64 * 1024,    1024,      FL_ERASE_ALL },      // Macronix 64MB
     { "MT25QL512AB",    0x20BA20, 64 * 1024,    1024,      FL_ERASE_ALL },      // Micron 64MB

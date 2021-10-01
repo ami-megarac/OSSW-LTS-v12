@@ -106,6 +106,9 @@ enum US_RDIAMSR
 
 #define US_MCA_UNMERGE (1 << 22)
 
+#define US_UA_CPX "0x%llx,UA:0x%x"
+#define US_UA_DF_CPX "0x0,UA:0x%x,DF:0x%x"
+
 /******************************************************************************
  *
  *   ICX1 Defines

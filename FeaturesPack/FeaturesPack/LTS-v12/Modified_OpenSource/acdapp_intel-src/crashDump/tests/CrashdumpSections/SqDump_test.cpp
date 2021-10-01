@@ -16,190 +16,63 @@
  * License.
  *
  ******************************************************************************/
-
-#include "../test_utils.hpp"
+#include "../mock/libpeci_mock.hpp"
 #include "CrashdumpSections/SqDump.hpp"
-#include "crashdump.hpp"
 
 #include <safe_mem_lib.h>
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-using namespace ::testing;
-using ::testing::Return;
 using namespace crashdump;
 
-void sqDumpJson(uint32_t u32CoreNum, SSqDump* psSqDump, cJSON* pJsonChild);
-
-class SqDumpMOCK
+TEST_F(PeciTestFixture, logSqDump_null)
 {
-  public:
-    virtual ~SqDumpMOCK()
-    {
-    }
-};
-
-class SqDumpTestFixture : public Test
-{
-  public:
-    SqDumpTestFixture()
-    {
-        SqDumpMock.reset(new NiceMock<SqDumpMOCK>());
-    }
-
-    ~SqDumpTestFixture()
-    {
-        SqDumpMock.reset();
-    }
-
-    void SetUp() override
-    {
-
-        // Initialize json object
-        root = cJSON_CreateObject();
-    }
-
-    cJSON* root = NULL;
-    char* jsonStr = NULL;
-
-    static std::unique_ptr<SqDumpMOCK> SqDumpMock;
-};
-
-std::unique_ptr<SqDumpMOCK> SqDumpTestFixture::SqDumpMock;
-
-#ifdef MOCK
-
-#endif // MOCK
-
-TEST_F(SqDumpTestFixture, sqDumpJson_ctrl_bigger_addr)
-{
-    SSqDump* psSqDump = NULL;
-    psSqDump = (SSqDump*)malloc(sizeof(SSqDump));
-    psSqDump->pu32SqCtrlArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
-    psSqDump->pu32SqAddrArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
-    psSqDump->pu32SqAddrArray[0] = 0x1d;
-    psSqDump->pu32SqAddrArray[1] = 0x0;
-    psSqDump->pu32SqAddrArray[2] = 0x0;
-    psSqDump->pu32SqAddrArray[3] = 0x0;
-    psSqDump->pu32SqAddrArray[4] = 0xFFFFFFFF;
-    psSqDump->pu32SqAddrArray[5] = 0xEEEEEEEE;
-    psSqDump->pu32SqCtrlArray[0] = 0x400040;
-    psSqDump->pu32SqCtrlArray[1] = 0x400003;
-    psSqDump->pu32SqCtrlArray[2] = 0x400040;
-    psSqDump->pu32SqCtrlArray[3] = 0x400003;
-    psSqDump->pu32SqCtrlArray[4] = 0xAAAAAAAA;
-    psSqDump->pu32SqCtrlArray[5] = 0xCCCCCCCC;
-    psSqDump->pu32SqCtrlArray[6] = 0xCCCCCCCC;
-    psSqDump->u32SqCtrlSize = 6;
-    psSqDump->u32SqAddrSize = 5;
-    uint32_t numcore = 1;
-
-    sqDumpJson(numcore, psSqDump, root);
-    jsonStr = cJSON_Print(root);
-    printf("%s\n", jsonStr);
-    FREE(psSqDump->pu32SqAddrArray);
-    FREE(psSqDump->pu32SqCtrlArray);
-    FREE(psSqDump);
+    cJSON* root = nullptr;
+    CPUInfo cpuInfo = {};
+    int ret = logSqDump(cpuInfo, root);
+    EXPECT_EQ(ret, 1);
 }
 
-TEST_F(SqDumpTestFixture, sqDumpJson_addr_bigger_ctrl)
+TEST_F(PeciTestFixture, cpx_logSqDump)
 {
-    SSqDump* psSqDump = NULL;
-    psSqDump = (SSqDump*)malloc(sizeof(SSqDump));
-    psSqDump->pu32SqCtrlArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
-    psSqDump->pu32SqAddrArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
-    psSqDump->pu32SqAddrArray[0] = 0x1d;
-    psSqDump->pu32SqAddrArray[1] = 0x0;
-    psSqDump->pu32SqAddrArray[2] = 0x0;
-    psSqDump->pu32SqAddrArray[3] = 0x0;
-    psSqDump->pu32SqAddrArray[4] = 0xFFFFFFFF;
-    psSqDump->pu32SqAddrArray[5] = 0xEEEEEEEE;
-    psSqDump->pu32SqCtrlArray[0] = 0x400040;
-    psSqDump->pu32SqCtrlArray[1] = 0x400003;
-    psSqDump->pu32SqCtrlArray[2] = 0x400040;
-    psSqDump->pu32SqCtrlArray[3] = 0x400003;
-    psSqDump->pu32SqCtrlArray[4] = 0xAAAAAAAA;
-    psSqDump->pu32SqCtrlArray[5] = 0xBBBBBBBB;
-    psSqDump->pu32SqCtrlArray[5] = 0xCCCCCCCC;
-    psSqDump->u32SqCtrlSize = 4;
-    psSqDump->u32SqAddrSize = 6;
-    uint32_t numcore = 1;
-
-    sqDumpJson(numcore, psSqDump, root);
-    jsonStr = cJSON_Print(root);
-    printf("%s\n", jsonStr);
-    FREE(psSqDump->pu32SqAddrArray);
-    FREE(psSqDump->pu32SqCtrlArray);
-    FREE(psSqDump);
+    uint8_t Data[4] = {0xef, 0xbe, 0xad, 0xde};
+    EXPECT_CALL(*PeciMock, peci_Lock(_, _))
+        .Times(1)
+        .WillOnce(DoAll(Return(PECI_CC_SUCCESS)));
+    EXPECT_CALL(*PeciMock, peci_WrPkgConfig_seq(_, _, _, _, _, _, _))
+        .Times(6)
+        .WillRepeatedly(DoAll(SetArgPointee<6>(0x40), Return(PECI_CC_SUCCESS)));
+    EXPECT_CALL(*PeciMock, peci_RdPkgConfig_seq(_, _, _, _, _, _, _))
+        .Times(64)
+        .WillRepeatedly(DoAll(SetArrayArgument<4>(Data, Data + 4),
+                              SetArgPointee<6>(0x40), Return(PECI_CC_SUCCESS)));
+    EXPECT_CALL(*PeciMock, peci_RdPkgConfig_seq(_, MBX_INDEX_VCU,
+                                                SQ_START_PARAM, _, _, _, _))
+        .Times(2)
+        .WillRepeatedly(DoAll(SetArgPointee<4>(0x20), SetArgPointee<6>(0x40),
+                              Return(PECI_CC_SUCCESS)));
+    cJSON* root = nullptr;
+    CPUInfo cpuInfo = {};
+    root = cJSON_CreateObject();
+    cpuInfo.model = cpu::cpx;
+    cpuInfo.coreMask = 0x1;
+    int ret = logSqDump(cpuInfo, root);
+    // printJson(root);
+    cJSON* expected = nullptr;
+    expected = cJSON_CreateObject();
+    expected = cJSON_GetObjectItemCaseSensitive(root->child->child, "entry0");
+    ASSERT_NE(expected, nullptr);
+    EXPECT_STREQ(expected->valuestring, "0xdeadbeefdeadbeef");
+    EXPECT_EQ(ret, 0);
 }
 
-TEST_F(SqDumpTestFixture, sqDumpJson_addr_same_ctrl)
+TEST_F(PeciTestFixture, icx_logSqDump)
 {
-    SSqDump* psSqDump = NULL;
-    psSqDump = (SSqDump*)malloc(sizeof(SSqDump));
-    psSqDump->pu32SqCtrlArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
-    psSqDump->pu32SqAddrArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
-    psSqDump->pu32SqAddrArray[0] = 0xAAAAAAAA;
-    psSqDump->pu32SqAddrArray[1] = 0xBBBBBBBB;
-    psSqDump->pu32SqAddrArray[2] = 0xCCCCCCCC;
-    psSqDump->pu32SqAddrArray[3] = 0xDDDDDDDD;
-    psSqDump->pu32SqAddrArray[4] = 0xEEEEEEEE;
-    psSqDump->pu32SqAddrArray[5] = 0xFFFFFFFF;
-    psSqDump->pu32SqAddrArray[6] = 0x99999999;
-    psSqDump->pu32SqCtrlArray[0] = 0x88888888;
-    psSqDump->pu32SqCtrlArray[1] = 0x77777777;
-    psSqDump->pu32SqCtrlArray[2] = 0x66666666;
-    psSqDump->pu32SqCtrlArray[3] = 0x55555555;
-    psSqDump->pu32SqCtrlArray[4] = 0x44444444;
-    psSqDump->pu32SqCtrlArray[5] = 0x33333333;
-    psSqDump->pu32SqCtrlArray[6] = 0x22222222;
-    psSqDump->u32SqCtrlSize = 5;
-    psSqDump->u32SqAddrSize = 5;
-    uint32_t numcore = 1;
-
-    sqDumpJson(numcore, psSqDump, root);
-    jsonStr = cJSON_Print(root);
-    printf("%s\n", jsonStr);
-    FREE(psSqDump->pu32SqAddrArray);
-    FREE(psSqDump->pu32SqCtrlArray);
-    FREE(psSqDump);
-}
-
-TEST_F(SqDumpTestFixture, sqDumpJson_null_addr)
-{
-    SSqDump* psSqDump = NULL;
-    psSqDump = (SSqDump*)malloc(sizeof(SSqDump));
-    psSqDump->pu32SqCtrlArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
-    psSqDump->pu32SqAddrArray = NULL;
-    uint32_t numcore = 1;
-
-    sqDumpJson(numcore, psSqDump, root);
-    jsonStr = cJSON_Print(root);
-    printf("%s\n", jsonStr);
-    FREE(psSqDump->pu32SqAddrArray);
-    FREE(psSqDump);
-}
-
-TEST_F(SqDumpTestFixture, sqDumpJson_null_ctrl)
-{
-    SSqDump* psSqDump = NULL;
-    psSqDump = (SSqDump*)malloc(sizeof(SSqDump));
-    psSqDump->pu32SqCtrlArray = NULL;
-    psSqDump->pu32SqAddrArray = (uint32_t*)malloc(8 * sizeof(uint32_t));
-    psSqDump->pu32SqAddrArray[0] = 0xAAAAAAAA;
-    psSqDump->pu32SqAddrArray[1] = 0xBBBBBBBB;
-    psSqDump->pu32SqAddrArray[2] = 0xCCCCCCCC;
-    psSqDump->pu32SqAddrArray[3] = 0xDDDDDDDD;
-    psSqDump->pu32SqAddrArray[4] = 0xEEEEEEEE;
-    psSqDump->pu32SqAddrArray[5] = 0xFFFFFFFF;
-    psSqDump->pu32SqAddrArray[6] = 0x99999999;
-    psSqDump->u32SqAddrSize = 5;
-    uint32_t numcore = 1;
-
-    sqDumpJson(numcore, psSqDump, root);
-    jsonStr = cJSON_Print(root);
-    printf("%s\n", jsonStr);
-    FREE(psSqDump->pu32SqAddrArray);
-    FREE(psSqDump);
+    cJSON* root = nullptr;
+    CPUInfo cpuInfo = {};
+    root = cJSON_CreateObject();
+    cpuInfo.model = cpu::icx;
+    int ret = logSqDump(cpuInfo, root);
+    EXPECT_EQ(ret, 0);
 }

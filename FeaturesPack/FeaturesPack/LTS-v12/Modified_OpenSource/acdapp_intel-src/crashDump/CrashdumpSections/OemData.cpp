@@ -49,6 +49,7 @@ static const SOemDataVx sOemDataVx[] = {
     {crashdump::cpu::skx, logOemDataCPX1},
     {crashdump::cpu::icx, logOemDataICX1},
     {crashdump::cpu::icx2, logOemDataICX1},
+    {crashdump::cpu::icxd, logOemDataICX1},
 };
 
 /******************************************************************************

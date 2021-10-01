@@ -2,7 +2,7 @@
  *
  * INTEL CONFIDENTIAL
  *
- * Copyright 2020 Intel Corporation.
+ * Copyright 2021 Intel Corporation.
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
@@ -18,7 +18,7 @@
 
 #pragma once
 #include <map>
-#include "nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
 
@@ -60,10 +60,10 @@ struct TscData
 
 struct TscVariablesNames
 {
-    const char* pcu_first_ierr_tsc_lo_cfg_varname;
-    const char* pcu_first_ierr_tsc_hi_cfg_varname;
-    const char* pcu_first_mcerr_tsc_lo_cfg_varname;
-    const char* pcu_first_mcerr_tsc_hi_cfg_varname;
+    std::string pcu_first_ierr_tsc_lo_cfg_varname;
+    std::string pcu_first_ierr_tsc_hi_cfg_varname;
+    std::string pcu_first_mcerr_tsc_lo_cfg_varname;
+    std::string pcu_first_mcerr_tsc_hi_cfg_varname;
 };
 
 using MCA = std::map<uint32_t, std::vector<MCAData>>;

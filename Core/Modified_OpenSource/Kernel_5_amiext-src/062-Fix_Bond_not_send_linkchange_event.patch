@@ -1,0 +1,12 @@
+diff -Naur linux_org/drivers/net/bonding/bond_main.c linux/drivers/net/bonding/bond_main.c
+--- linux_org/drivers/net/bonding/bond_main.c	2021-08-13 13:23:03.326690096 +0800
++++ linux/drivers/net/bonding/bond_main.c	2021-08-13 13:22:49.227382207 +0800
+@@ -870,6 +870,8 @@
+ 		} else {
+ 			if (bond_uses_primary(bond)) {
+ 				slave_info(bond->dev, new_active->dev, "making interface the new active one\n");
++				if (netif_carrier_ok(bond->dev))
++					call_netdevice_notifiers(NETDEV_CHANGE, bond->dev);
+ 			}
+ 		}
+ 	}

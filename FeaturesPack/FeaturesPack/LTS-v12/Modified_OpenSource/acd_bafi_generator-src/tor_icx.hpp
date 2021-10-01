@@ -2,7 +2,7 @@
  *
  * INTEL CONFIDENTIAL
  *
- * Copyright 2020 Intel Corporation.
+ * Copyright 2021 Intel Corporation.
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
@@ -21,22 +21,23 @@
 #include <array>
 #include <functional>
 #include <map>
-#include "nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
 
-#include "aer.hpp"
-#include "mca_defs.hpp"
-#include "tor_defs_icx.hpp"
-#include "utils.hpp"
-#include "tor.hpp"
+#include <aer.hpp>
+#include <mca_defs.hpp>
+#include <tor_defs_icx.hpp>
+#include <utils.hpp>
+#include <tor_whitley.hpp>
+#include <cpu.hpp>
 
 using json = nlohmann::json;
 
-class IcxCpu final : public Cpu
+class IcxCpu final : public WhitleyCpu, public CpuGeneric
 {
   public:
     // indexes for ierr and mcerr tsc information
@@ -51,7 +52,7 @@ class IcxCpu final : public Cpu
     // indexes for IERR, MCERR and MCERR source
     static constexpr const char* ierr_varname = "B30_D00_F0_0xA4";
     static constexpr const char* mcerr_varname = "B30_D00_F0_0xA8";
-    static constexpr const char* mca_err_src_varname = "B31_D30_F2_0xEC";
+    static constexpr const char* mca_err_src_varname = "mca_err_src_log";
     // bigcore MCAs indexes
     static constexpr const char* bigcore_mc0 = "ifu_cr_mc0";
     static constexpr const char* bigcore_mc1 = "dcu_cr_mc1";
@@ -77,26 +78,31 @@ class IcxCpu final : public Cpu
     std::string bigcore_mcas[4] = {bigcore_mc0, bigcore_mc1, bigcore_mc2,
                                    bigcore_mc3};
 
-    [[nodiscard]] std::map<uint32_t, TscData> getTscData(
-        const std::map<std::string, std::reference_wrapper<const json>>
-        cpuSections)
+    [[nodiscard]] virtual std::map<std::string, std::array<uint64_t, 2>>
+        getMemoryMap(const json& input)
     {
+        return WhitleyCpu::getMemoryMap(input);
+    }
+
+    [[nodiscard]] virtual std::map<uint32_t, TscData>
+        getTscData(const json& input)
+    {
+        auto cpuSections = prepareJson(input);
         return getTscDataForProcessorType(cpuSections, tscVariables);
     }
 
-    [[nodiscard]] std::optional<std::map<uint32_t, PackageThermStatus>>
-        getThermData( const std::map<std::string,
-        std::reference_wrapper<const json>> cpuSections)
+    [[nodiscard]] virtual std::optional<std::map<uint32_t, PackageThermStatus>>
+        getThermData(const json& input)
     {
+        auto cpuSections = prepareJson(input);
         return getThermDataForProcessorType(cpuSections,
             package_therm_status_varname);
     }
 
-    [[nodiscard]] UncAer analyzeUncAer(
-        const std::map<std::string, std::reference_wrapper<const json>>
-            cpuSections)
+    [[nodiscard]] virtual UncAer analyzeUncAer(const json& input)
     {
         UncAer output;
+        auto cpuSections = prepareJson(input);
         for (auto const& [cpu, cpuSection] : cpuSections)
         {
             uint32_t socketId;
@@ -113,6 +119,10 @@ class IcxCpu final : public Cpu
     [[nodiscard]] std::vector<UncAerData> parseUncErrSts(const json& input)
     {
         std::vector<UncAerData> allUncErrs;
+        if (input.find("uncore") == input.cend())
+        {
+            return allUncErrs;
+        }
         for (const auto [pciKey, pciVal] : input["uncore"].items())
         {
             uint32_t temp;
@@ -159,11 +169,11 @@ class IcxCpu final : public Cpu
         return allUncErrs;
     }
 
-    [[nodiscard]] CorAer analyzeCorAer(
-        const std::map<std::string, std::reference_wrapper<const json>>
-        cpuSections)
+    [[nodiscard]] virtual CorAer analyzeCorAer(const json& input)
     {
         CorAer output;
+        auto cpuSections = prepareJson(input);
+        
         for (auto const& [cpu, cpuSection] : cpuSections)
         {
             uint32_t socketId;
@@ -172,6 +182,7 @@ class IcxCpu final : public Cpu
                 continue;
             }
             auto allCorErr = parseCorErrSts(cpuSection);
+          
             output.insert({socketId, allCorErr});
         }
         return output;
@@ -180,9 +191,16 @@ class IcxCpu final : public Cpu
     [[nodiscard]] std::vector<CorAerData> parseCorErrSts(const json& input)
     {
         std::vector<CorAerData> allCorErrs;
+       
+        if (input.find("uncore") == input.cend())
+        {
+            return allCorErrs;
+        }
+       
         for (const auto [pciKey, pciVal] : input["uncore"].items())
         {
             uint32_t temp;
+      
             if (checkInproperValue(pciVal) || pciVal == "0x0")
             {
                 continue;
@@ -195,6 +213,7 @@ class IcxCpu final : public Cpu
             }
             else if (pciKey == cor_spec_err_index)
             {
+ 
                 if (!str2uint(pciVal, temp))
                 {
                     continue;
@@ -225,11 +244,10 @@ class IcxCpu final : public Cpu
         return allCorErrs;
     }
 
-    [[nodiscard]] MCA analyzeMca(
-        const std::map<std::string, std::reference_wrapper<const json>>
-        cpuSections)
+    [[nodiscard]] virtual MCA analyzeMca(const json& input)
     {
         MCA output;
+        auto cpuSections = prepareJson(input);
         std::vector<MCAData> allMcs;
         for (auto const& [cpu, cpuSection] : cpuSections)
         {
@@ -276,7 +294,7 @@ class IcxCpu final : public Cpu
         return std::make_tuple(tordumpParsed0, tordumpParsed1, tordumpParsed2);
     }
 
-    [[nodiscard]] std::optional<IcxTORData> parseTorData(const json& index)
+    [[nodiscard]] std::optional<TORDataGeneric> parseTorData(const json& index)
     {
         if (index.find("subindex0") == index.cend())
         {
@@ -286,10 +304,10 @@ class IcxCpu final : public Cpu
         {
             return {};
         }
-        IcxTORData tor;
+        TORDataGeneric tor;
         std::tie(tor.tordump0_subindex0, tor.tordump1_subindex0,
             tor.tordump2_subindex0) = divideTordumps(index["subindex0"]);
-        if (!tor.valid)
+        if (!tor.valid1)
         {
             return {};
         }
@@ -311,9 +329,9 @@ class IcxCpu final : public Cpu
         return tor;
     }
 
-    [[nodiscard]] std::vector<IcxTORData> getTorsData(const json& input)
+    [[nodiscard]] std::vector<TORDataGeneric> getTorsData(const json& input)
     {
-        std::vector<IcxTORData> torsData;
+        std::vector<TORDataGeneric> torsData;
         if (input.find("TOR") == input.cend())
         {
             return torsData;
@@ -327,7 +345,7 @@ class IcxCpu final : public Cpu
             for (const auto& [indexDataKey, indexDataValue] :
                     chaItemValue.items())
             {
-                std::optional<IcxTORData> tor = parseTorData(indexDataValue);
+                std::optional<TORDataGeneric> tor = parseTorData(indexDataValue);
                 if (!tor)
                 {
                     continue;
@@ -342,18 +360,17 @@ class IcxCpu final : public Cpu
         return torsData;
     }
 
-    [[nodiscard]] IcxTOR analyze(
-        const std::map<std::string, std::reference_wrapper<const json>>
-        cpuSections)
+    [[nodiscard]] virtual TORData analyze(const json& input)
     {
-        IcxTOR output;
+        TORData output;
+        auto cpuSections = prepareJson(input);
         for (auto const& [cpu, cpuSection] : cpuSections)
         {
             std::optional ierr = getUncoreData(cpuSection, ierr_varname);
             std::optional mcerr = getUncoreData(cpuSection, mcerr_varname);
             std::optional mcerrErrSrc =
-                getUncoreData(cpuSection, mca_err_src_varname);
-            std::vector<IcxTORData> tors = getTorsData(cpuSection);
+                getSysInfoData(input, cpu, mca_err_src_varname);
+            std::vector<TORDataGeneric> tors = getTorsData(cpuSection);
             uint32_t socketId;
             if (!str2uint(cpu.substr(3), socketId, decimal))
             {
@@ -372,7 +389,8 @@ class IcxCpu final : public Cpu
             {
                 ctx.mcerrErr.value = 0;
             }
-            std::pair<SocketCtx, std::vector<IcxTORData>> tempData(ctx, tors);
+            std::pair<SocketCtx, std::vector<TORDataGeneric>>
+                tempData(ctx, tors);
             output.insert({socketId, tempData});
         }
         return output;

@@ -320,26 +320,25 @@ diff -Naur u-boot/arch/arm/mach-aspeed/board.c u-boot-2019.04/arch/arm/mach-aspe
  
  int dram_init(void)
  {
-diff -Naur u-boot/common/board_r.c u-boot-2019.04/common/board_r.c
---- u-boot/common/board_r.c	2019-10-01 17:51:13.905789826 +0530
-+++ u-boot-2019.04/common/board_r.c	2019-10-01 17:58:34.452479160 +0530
-@@ -559,6 +559,7 @@
- 	debug("Reset Ethernet PHY\n");
- 	reset_phy();
+--- uboot/common/board_r.c      2021-07-15 13:54:48.391474784 +0800
++++ uboot.new/common/board_r.c  2021-07-15 13:51:56.977437961 +0800
+@@ -560,6 +560,7 @@
+        debug("Reset Ethernet PHY\n");
+        reset_phy();
  #endif
-+	*((volatile ulong*) 0x1e6e2000) = 0;   /* lock SCU */
- 	return 0;
++       *((volatile ulong*) 0x1e6e2000) = 0;   /* lock SCU */
+        return 0;
  }
  #endif
-@@ -764,9 +765,9 @@
+@@ -766,9 +767,9 @@
  #ifdef CONFIG_ARCH_MISC_INIT
- 	arch_misc_init,		/* miscellaneous arch-dependent init */
+        arch_misc_init,         /* miscellaneous arch-dependent init */
  #endif
 -#ifdef CONFIG_MISC_INIT_R
 +//#ifdef CONFIG_MISC_INIT_R
- 	misc_init_r,		/* miscellaneous platform-dependent init */
+        misc_init_r,            /* miscellaneous platform-dependent init */
 -#endif
 +//#endif
- 	INIT_FUNC_WATCHDOG_RESET
+        misc_init_oem,
+        INIT_FUNC_WATCHDOG_RESET
  #ifdef CONFIG_CMD_KGDB
- 	initr_kgdb,

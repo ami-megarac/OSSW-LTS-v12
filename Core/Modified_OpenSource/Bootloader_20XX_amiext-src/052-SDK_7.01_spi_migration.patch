@@ -1,0 +1,516 @@
+diff -Naur uboot_old/drivers/mtd/spi/spi-nor-core.c uboot/drivers/mtd/spi/spi-nor-core.c
+--- uboot_old/drivers/mtd/spi/spi-nor-core.c	2021-09-09 16:35:14.646093592 +0800
++++ uboot/drivers/mtd/spi/spi-nor-core.c	2021-09-10 13:54:41.764481554 +0800
+@@ -164,6 +164,20 @@
+ 	return val;
+ }
+ 
++static int read_winbond_sr2(struct spi_nor *nor)
++{
++	int ret;
++	u8 val;
++
++	ret = nor->read_reg(nor, SPINOR_OP_WINBOND_RDSR2, &val, 1);
++	if (ret < 0) {
++		pr_debug("error %d reading SR2\n", (int)ret);
++		return ret;
++	}
++
++	return val;
++}
++
+ /*
+  * Read the flag status register, returning its value in the location
+  * Return the status register value.
+@@ -214,6 +228,12 @@
+ 	return nor->write_reg(nor, SPINOR_OP_WRSR, nor->cmd_buf, 1);
+ }
+ 
++static int write_winbond_sr2(struct spi_nor *nor, u8 val)
++{
++	nor->cmd_buf[0] = val;
++	return nor->write_reg(nor, SPINOR_OP_WINBOND_WRSR2, nor->cmd_buf, 1);
++}
++
+ /*
+  * Set write enable latch with Write Enable command.
+  * Returns negative if error occurred.
+@@ -298,6 +318,7 @@
+ 	/* Do some manufacturer fixups first */
+ 	switch (JEDEC_MFR(info)) {
+ 	case SNOR_MFR_SPANSION:
++	case SNOR_MFR_CYPRESS:
+ 		/* No small sector erase for 4-byte command set */
+ 		nor->erase_opcode = SPINOR_OP_SE;
+ 		nor->mtd.erasesize = info->sector_size;
+@@ -329,6 +350,8 @@
+ 	case SNOR_MFR_MACRONIX:
+ 	case SNOR_MFR_WINBOND:
+ 	case SNOR_MFR_GIGADEVICE:
++	case SNOR_MFR_ISSI:
++	case SNOR_MFR_CYPRESS:
+ 		if (need_wren)
+ 			write_enable(nor);
+ 
+@@ -592,6 +615,143 @@
+ 	return ret;
+ }
+ 
++static int micron_read_nvcr(struct spi_nor *nor)
++{
++	int ret;
++	int val;
++
++	ret = nor->read_reg(nor, SPINOR_OP_MICRON_RDNVCR, (u8 *)&val, 2);
++	if (ret < 0) {
++		dev_err(nor->dev, "[Micron] error %d reading NVCR\n", ret);
++		return ret;
++	}
++
++	return val;
++}
++
++static int micron_write_nvcr(struct spi_nor *nor, int val)
++{
++	int ret;
++
++	write_enable(nor);
++
++	nor->cmd_buf[0] = val & 0xff;
++	nor->cmd_buf[1] = (val >> 8) & 0xff;
++
++	ret = nor->write_reg(nor, SPINOR_OP_MICRON_WRNVCR, nor->cmd_buf, 2);
++	if (ret < 0) {
++		dev_err(nor->dev,
++			"[Micron] error while writing configuration register\n");
++		return -EINVAL;
++	}
++
++	ret = spi_nor_wait_till_ready(nor);
++	if (ret) {
++		dev_err(nor->dev,
++			"[Micron] timeout while writing configuration register\n");
++		return ret;
++	}
++
++	return 0;
++}
++
++static int micron_read_cr_quad_enable(struct spi_nor *nor)
++{
++	int ret;
++
++	/* Check current Quad Enable bit value. */
++	ret = micron_read_nvcr(nor);
++	if (ret < 0) {
++		dev_err(dev, "[Micron] error while reading nonvolatile configuration register\n");
++		return -EINVAL;
++	}
++
++	if ((ret & MICRON_RST_HOLD_CTRL) == 0)
++		return 0;
++
++	ret &= ~MICRON_RST_HOLD_CTRL;
++
++	/* Keep the current value of the Status Register. */
++	ret = micron_write_nvcr(nor, ret);
++	if (ret < 0) {
++		dev_err(dev, "[Micron] error while writing nonvolatile configuration register\n");
++		return -EINVAL;
++	}
++
++	ret = micron_read_nvcr(nor);
++	if (ret > 0 && (ret & MICRON_RST_HOLD_CTRL)) {
++		dev_err(nor->dev, "[Micron] Quad bit not set\n");
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++#ifdef CONFIG_SPI_FLASH_SPANSION
++/*
++ * Erase for Spansion/Cypress Flash devices that has overlaid 4KB sectors at
++ * the top and/or bottom.
++ */
++static int spansion_overlaid_erase(struct mtd_info *mtd,
++				   struct erase_info *instr)
++{
++	struct spi_nor *nor = mtd_to_spi_nor(mtd);
++	struct erase_info instr_4k;
++	u8 opcode;
++	u32 erasesize;
++	int ret;
++
++	/* Perform default erase operation (non-overlaid portion is erased) */
++	ret = spi_nor_erase(mtd, instr);
++	if (ret)
++		return ret;
++
++	/* Backup default erase opcode and size */
++	opcode = nor->erase_opcode;
++	erasesize = mtd->erasesize;
++
++	/*
++	 * Erase 4KB sectors. Use the possible max length of 4KB sector region.
++	 * The Flash just ignores the command if the address is not configured
++	 * as 4KB sector and reports ready status immediately.
++	 */
++	instr_4k.len = SZ_128K;
++	nor->erase_opcode = SPINOR_OP_BE_4K_4B;
++	mtd->erasesize = SZ_4K;
++	if (instr->addr == 0) {
++		instr_4k.addr = 0;
++		ret = spi_nor_erase(mtd, &instr_4k);
++	}
++	if (!ret && instr->addr + instr->len == mtd->size) {
++		instr_4k.addr = mtd->size - instr_4k.len;
++		ret = spi_nor_erase(mtd, &instr_4k);
++	}
++
++	/* Restore erase opcode and size */
++	nor->erase_opcode = opcode;
++	mtd->erasesize = erasesize;
++
++	return ret;
++}
++#endif
++
++static bool cypress_s25hx_t(const struct flash_info *info)
++{
++	if (JEDEC_MFR(info) == SNOR_MFR_CYPRESS) {
++		switch (info->id[1]) {
++		case 0x2a: /* S25HL (QSPI, 3.3V) */
++		case 0x2b: /* S25HS (QSPI, 1.8V) */
++			return true;
++			break;
++
++		default:
++			break;
++		}
++	}
++
++	return false;
++}
++
+ #if defined(CONFIG_SPI_FLASH_STMICRO) || defined(CONFIG_SPI_FLASH_SST)
+ /* Write status register and ensure bits in mask match written values */
+ static int write_sr_and_check(struct spi_nor *nor, u8 status_new, u8 mask)
+@@ -1238,6 +1398,56 @@
+ 	return 0;
+ }
+ 
++/**
++ * sr2_bit1_quad_enable() - set QE bit in Status Register 2.
++ * @nor:	pointer to a 'struct spi_nor'
++ *
++ * Set the Quad Enable (QE) bit in the Status Register 2.
++ *
++ * Return: 0 on success, -errno otherwise.
++ */
++static int winbond_sr2_bit1_quad_enable(struct spi_nor *nor)
++{
++	u8 sr2 = 0;
++	int ret;
++
++	/* Check current Quad Enable bit value. */
++	ret = read_winbond_sr2(nor);
++	if (ret < 0) {
++		dev_err(nor->dev, "error while reading status register 2\n");
++		return -EINVAL;
++	}
++
++	if (ret & SR2_QUAD_EN_BIT1)
++		return 0;
++
++	/* Update the Quad Enable bit. */
++	sr2 = (u8)(ret | SR2_QUAD_EN_BIT1);
++
++	write_enable(nor);
++
++	ret = write_winbond_sr2(nor, sr2);
++	if (ret < 0) {
++		dev_err(nor->dev, "error while writing status register 2\n");
++		return -EINVAL;
++	}
++
++	ret = spi_nor_wait_till_ready(nor);
++	if (ret < 0) {
++		dev_err(nor->dev, "timeout while writing status register 2\n");
++		return ret;
++	}
++
++	/* Read back and check it. */
++	ret = read_winbond_sr2(nor);
++	if (ret < 0 || !(ret & SR2_QUAD_EN_BIT1)) {
++		dev_err(nor->dev, "SR2 Quad bit not set\n");
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
+ #if CONFIG_IS_ENABLED(SPI_FLASH_SFDP_SUPPORT)
+ /**
+  * spansion_no_read_cr_quad_enable() - set QE bit in Configuration Register.
+@@ -1337,6 +1547,62 @@
+ 	int (*quad_enable)(struct spi_nor *nor);
+ };
+ 
++#ifdef CONFIG_SPI_FLASH_SPANSION
++/**
++ * spansion_quad_enable_volatile() - enable Quad I/O mode in volatile register.
++ * @nor:	pointer to a 'struct spi_nor'
++ *
++ * It is recommended to update volatile registers in the field application due
++ * to a risk of the non-volatile registers corruption by power interrupt. This
++ * function sets Quad Enable bit in CFR1 volatile.
++ *
++ * Return: 0 on success, -errno otherwise.
++ */
++static int spansion_quad_enable_volatile(struct spi_nor *nor)
++{
++	struct spi_mem_op op =
++			SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_WRAR, 1),
++				   SPI_MEM_OP_ADDR(nor->addr_width,
++						   SPINOR_REG_ADDR_CFR1V, 1),
++				   SPI_MEM_OP_NO_DUMMY,
++				   SPI_MEM_OP_DATA_OUT(1, NULL, 1));
++	u8 cr;
++	int ret;
++
++	/* Check current Quad Enable bit value. */
++	ret = read_cr(nor);
++	if (ret < 0) {
++		dev_dbg(nor->dev,
++			"error while reading configuration register\n");
++		return -EINVAL;
++	}
++
++	if (ret & CR_QUAD_EN_SPAN)
++		return 0;
++
++	cr = ret | CR_QUAD_EN_SPAN;
++
++	write_enable(nor);
++
++	ret = spi_nor_read_write_reg(nor, &op, &cr);
++
++	if (ret < 0) {
++		dev_dbg(nor->dev,
++			"error while writing configuration register\n");
++		return -EINVAL;
++	}
++
++	/* Read back and check it. */
++	ret = read_cr(nor);
++	if (!(ret > 0 && (ret & CR_QUAD_EN_SPAN))) {
++		dev_dbg(nor->dev, "Spansion Quad bit not set\n");
++		return -EINVAL;
++	}
++
++	return 0;
++}
++#endif
++
+ static void
+ spi_nor_set_read_settings(struct spi_nor_read_command *read,
+ 			  u8 num_mode_clocks,
+@@ -1381,13 +1647,16 @@
+ 			     size_t len, void *buf)
+ {
+ 	u8 addr_width, read_opcode, read_dummy;
++	enum spi_nor_protocol	read_proto;
+ 	int ret;
+ 
+ 	read_opcode = nor->read_opcode;
+ 	addr_width = nor->addr_width;
+ 	read_dummy = nor->read_dummy;
++	read_proto = nor->read_proto;
+ 
+ 	nor->read_opcode = SPINOR_OP_RDSFDP;
++	nor->read_proto = SNOR_PROTO_1_1_1;
+ 	nor->addr_width = 3;
+ 	nor->read_dummy = 8;
+ 
+@@ -1410,6 +1679,7 @@
+ 	nor->read_opcode = read_opcode;
+ 	nor->addr_width = addr_width;
+ 	nor->read_dummy = read_dummy;
++	nor->read_proto = read_proto;
+ 
+ 	return ret;
+ }
+@@ -1948,6 +2218,10 @@
+ 		spi_nor_set_read_settings(&params->reads[SNOR_CMD_READ_FAST],
+ 					  0, 8, SPINOR_OP_READ_FAST,
+ 					  SNOR_PROTO_1_1_1);
++#ifdef CONFIG_SPI_FLASH_SPANSION
++		if (cypress_s25hx_t(info))
++			params->reads[SNOR_CMD_READ_FAST].num_mode_clocks = 8;
++#endif
+ 	}
+ 
+ 	if (info->flags & SPI_NOR_DUAL_READ) {
+@@ -1986,7 +2260,15 @@
+ #endif
+ 		case SNOR_MFR_ST:
+ 		case SNOR_MFR_MICRON:
++		case SNOR_MFR_ISSI:
++			break;
++#ifdef CONFIG_SPI_FLASH_SPANSION
++		case SNOR_MFR_CYPRESS:
++			if (info->id[1] == 0x2a || info->id[1] == 0x2b) {
++				params->quad_enable = spansion_quad_enable_volatile;
++			}
+ 			break;
++#endif
+ 
+ 		default:
+ #if defined(CONFIG_SPI_FLASH_SPANSION) || defined(CONFIG_SPI_FLASH_WINBOND)
+@@ -2010,7 +2292,28 @@
+ 			nor->mtd.erasesize = 0;
+ 		} else {
+ 			memcpy(params, &sfdp_params, sizeof(*params));
++#ifdef CONFIG_SPI_FLASH_SPANSION
++			if (cypress_s25hx_t(info)) {
++				/* Default page size is 256-byte, but BFPT reports 512-byte */
++				params->page_size = 256;
++				/* Reset erase size in case it is set to 4K from BFPT */
++				nor->mtd.erasesize = info->sector_size ;
++				/* READ_FAST_4B (0Ch) requires mode cycles*/
++				params->reads[SNOR_CMD_READ_FAST].num_mode_clocks = 8;
++				/* PP_1_1_4 is not supported */
++				params->hwcaps.mask &= ~SNOR_HWCAPS_PP_1_1_4;
++				/* Use volatile register to enable quad */
++				params->quad_enable = spansion_quad_enable_volatile;
++			}
++#endif
+ 		}
++
++		/* need to disable hold/reset pin feature */
++		if (JEDEC_MFR(info) == SNOR_MFR_ST)
++			params->quad_enable = micron_read_cr_quad_enable;
++
++		if (JEDEC_MFR(info) == SNOR_MFR_GIGADEVICE)
++			params->quad_enable = winbond_sr2_bit1_quad_enable;
+ 	}
+ 
+ 	return 0;
+@@ -2160,9 +2463,15 @@
+ 	shared_mask = hwcaps->mask & params->hwcaps.mask;
+ 
+ 	/* SPI n-n-n protocols are not supported yet. */
+-	ignored_mask = (SNOR_HWCAPS_READ_2_2_2 |
++	ignored_mask = (SNOR_HWCAPS_READ_1_1_1_DTR |
++			SNOR_HWCAPS_READ_1_2_2 |
++			SNOR_HWCAPS_READ_1_2_2_DTR |
++			SNOR_HWCAPS_READ_2_2_2 |
++			SNOR_HWCAPS_READ_1_4_4 |
++			SNOR_HWCAPS_READ_1_4_4_DTR |
+ 			SNOR_HWCAPS_READ_4_4_4 |
+ 			SNOR_HWCAPS_READ_8_8_8 |
++			SNOR_HWCAPS_PP_1_4_4 |
+ 			SNOR_HWCAPS_PP_4_4_4 |
+ 			SNOR_HWCAPS_PP_8_8_8);
+ 	if (shared_mask & ignored_mask) {
+@@ -2233,6 +2542,7 @@
+ 
+ 	if (nor->addr_width == 4 &&
+ 	    (JEDEC_MFR(nor->info) != SNOR_MFR_SPANSION)) {
++
+ 		/*
+ 		 * If the RESET# pin isn't hooked up properly, or the system
+ 		 * otherwise doesn't perform a reset command in the boot
+@@ -2337,6 +2647,24 @@
+ 	nor->page_size = params.page_size;
+ 	mtd->writebufsize = nor->page_size;
+ 
++#ifdef CONFIG_SPI_FLASH_SPANSION
++	if (cypress_s25hx_t(info)) {
++		/*
++		 * The Cypress Semper family has transparent ECC. To preserve
++		 * ECC enabled, multi-pass programming within the same 16-byte
++		 * ECC data unit needs to be avoided. Set writesize to the page
++		 * size and remove the MTD_BIT_WRITEABLE flag in mtd_info to
++		 * prevent multi-pass programming.
++		 */
++		nor->mtd.writesize = params.page_size;
++		nor->mtd.flags &= ~MTD_BIT_WRITEABLE;
++
++		/* Emulate uniform sector architecure by this erase hook*/
++		nor->mtd._erase = spansion_overlaid_erase;
++		set_4byte(nor, info, true);
++	}
++#endif
++
+ 	/* Some devices cannot do fast-read, no matter what DT tells us */
+ 	if ((info->flags & SPI_NOR_NO_FR) || (spi->mode & SPI_RX_SLOW))
+ 		params.hwcaps.mask &= ~SNOR_HWCAPS_READ_FAST;
+@@ -2364,11 +2692,11 @@
+ 		    info->flags & SPI_NOR_4B_OPCODES)
+ 			spi_nor_set_4byte_opcodes(nor, info);
+ #else
+-	/* Configure the BAR - discover bank cmds and read current bank */
+-	nor->addr_width = 3;
+-	ret = read_bar(nor, info);
+-	if (ret < 0)
+-		return ret;
++		/* Configure the BAR - discover bank cmds and read current bank */
++		nor->addr_width = 3;
++		ret = read_bar(nor, info);
++		if (ret < 0)
++			return ret;
+ #endif
+ 	} else {
+ 		nor->addr_width = 3;
+diff -Naur uboot_old/include/linux/mtd/spi-nor.h uboot/include/linux/mtd/spi-nor.h
+--- uboot_old/include/linux/mtd/spi-nor.h	2019-07-23 10:57:54.000000000 +0800
++++ uboot/include/linux/mtd/spi-nor.h	2021-09-10 13:59:16.992487617 +0800
+@@ -26,6 +26,8 @@
+ #define SNOR_MFR_SPANSION	CFI_MFR_AMD
+ #define SNOR_MFR_SST		CFI_MFR_SST
+ #define SNOR_MFR_WINBOND	0xef /* Also used by some Spansion */
++#define SNOR_MFR_ISSI		0x9d
++#define SNOR_MFR_CYPRESS	0x34
+ 
+ /*
+  * Note on opcode nomenclature: some opcodes have a format like
+@@ -103,14 +105,21 @@
+ #define SPINOR_OP_EN4B		0xb7	/* Enter 4-byte mode */
+ #define SPINOR_OP_EX4B		0xe9	/* Exit 4-byte mode */
+ 
++#define SPINOR_OP_WINBOND_RDSR2		0x35
++#define SPINOR_OP_WINBOND_WRSR2		0x31
++
+ /* Used for Spansion flashes only. */
+ #define SPINOR_OP_BRWR		0x17	/* Bank register write */
+ #define SPINOR_OP_BRRD		0x16	/* Bank register read */
+ #define SPINOR_OP_CLSR		0x30	/* Clear status register 1 */
++#define SPINOR_OP_WRAR		0x71	/* Write any register */
++#define SPINOR_REG_ADDR_CFR1V	0x00800002
+ 
+ /* Used for Micron flashes only. */
+ #define SPINOR_OP_RD_EVCR      0x65    /* Read EVCR register */
+ #define SPINOR_OP_WD_EVCR      0x61    /* Write EVCR register */
++#define SPINOR_OP_MICRON_RDNVCR 0xB5   /* Read nonvolatile configuration register */
++#define SPINOR_OP_MICRON_WRNVCR 0xB1   /* Write nonvolatile configuration register */
+ 
+ /* Status Register bits. */
+ #define SR_WIP			BIT(0)	/* Write in progress */
+@@ -129,6 +138,7 @@
+ 
+ /* Enhanced Volatile Configuration Register bits */
+ #define EVCR_QUAD_EN_MICRON	BIT(7)	/* Micron Quad I/O */
++#define MICRON_RST_HOLD_CTRL BIT(4)
+ 
+ /* Flag Status Register bits */
+ #define FSR_READY		BIT(7)	/* Device status, 0 = Busy, 1 = Ready */
+@@ -141,6 +151,7 @@
+ 
+ /* Status Register 2 bits. */
+ #define SR2_QUAD_EN_BIT7	BIT(7)
++#define SR2_QUAD_EN_BIT1	BIT(1)
+ 
+ /* Supported SPI protocols */
+ #define SNOR_PROTO_INST_MASK	GENMASK(23, 16)

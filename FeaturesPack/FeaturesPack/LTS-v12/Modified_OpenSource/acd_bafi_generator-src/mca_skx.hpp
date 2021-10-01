@@ -2,7 +2,7 @@
  *
  * INTEL CONFIDENTIAL
  *
- * Copyright 2020 Intel Corporation.
+ * Copyright 2021 Intel Corporation.
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
@@ -18,13 +18,14 @@
 
 #pragma once
 #include <map>
-#include "nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <sstream>
 
-#include "mca_defs.hpp"
-#include "utils.hpp"
+#include <mca_defs.hpp>
+#include <tor_defs_skx.hpp>
+#include <utils.hpp>
 
 using json = nlohmann::json;
 
@@ -43,7 +44,7 @@ class SkxMcaDecoder : public McaDecoder
         entry["Address"] = int_to_hex(static_cast<uint64_t>(mca.address));
         entry["Misc"] = int_to_hex(static_cast<uint64_t>(mca.misc));
         entry["CTL"] = int_to_hex(static_cast<uint64_t>(mca.ctl));
-        entry["Status.decoded"] = decode_status();
+        entry["Status_decoded"] = decode_status();
 
         return entry;
     }
@@ -354,14 +355,20 @@ class SkxMcaDecoder : public McaDecoder
     std::string decodeBankName(uint32_t mcaBank)
     {
         std::stringstream ss;
-        ss << mcaBank;
-        auto bankNameDecoded =
-            getDecoded(BankNames, static_cast<uint8_t>(mcaBank));
-        if (bankNameDecoded)
+        if (mca.cbo)
         {
-            ss << " (" << *bankNameDecoded << ")";
+            ss << "CHA" << mca.bank;
         }
-
+        else
+        {
+            ss << mca.bank;
+            auto bankNameDecoded =
+                getDecoded(BankNames, static_cast<uint8_t>(mca.bank));
+            if (bankNameDecoded)
+            {
+                ss << " (" << *bankNameDecoded << ")";
+            }
+        }
         return ss.str();
     }
 };
@@ -414,25 +421,25 @@ class SkxMcaBankIfu final : public SkxMcaDecoder
             static_cast<uint8_t>(status_decoded.corr_err_status_ind));
         if (corrErrStsIndDecoded)
         {
-            entry["CORR_ERR_STATUS_IND.decoded"] = *corrErrStsIndDecoded;
+            entry["CORR_ERR_STATUS_IND_decoded"] = *corrErrStsIndDecoded;
         }
 
         auto mscodDecoded = getDecoded(decodeMscod,
             static_cast<uint16_t>(status_decoded.mscod));
         if (mscodDecoded)
         {
-            entry["MSCOD.decoded"] = *mscodDecoded;
+            entry["MSCOD_decoded"] = *mscodDecoded;
         }
 
         auto mcacodDecoded = getDecoded(decodeMcacod,
             static_cast<uint16_t>(status_decoded.mcacod));
         if (mcacodDecoded)
         {
-            entry["MCACOD.decoded"] = *mcacodDecoded;
+            entry["MCACOD_decoded"] = *mcacodDecoded;
         }
         else
         {
-            entry["MCACOD.decoded"] =
+            entry["MCACOD_decoded"] =
                decodeMcacodGeneric1(status_decoded.mcacod);
         }
     }
@@ -487,7 +494,7 @@ class SkxMcaBankDcu final : public SkxMcaDecoder
 
       const std::map<uint32_t, const char*> decodeMscod = {
         {0x0, "Non-APIC Error"},
-        {0x10, "WBINVD orPoison SRAR Error based on MCACOD values"},
+        {0x10, "WBINVD or Poison SRAR Error based on MCACOD values"},
         {0x20, "APIC Error"},
       };
 
@@ -508,25 +515,25 @@ class SkxMcaBankDcu final : public SkxMcaDecoder
             static_cast<uint8_t>(status_decoded.corr_err_status_ind));
         if (corrErrStsIndDecoded)
         {
-            entry["CORR_ERR_STS_IND.decoded"] = *corrErrStsIndDecoded;
+            entry["CORR_ERR_STS_IND_decoded"] = *corrErrStsIndDecoded;
         }
 
         auto mscodDecoded = getDecoded(
             decodeMscod, static_cast<uint32_t>(status_decoded.mscod));
         if (mscodDecoded)
         {
-            entry["MSCOD.decoded"] = *mscodDecoded;
+            entry["MSCOD_decoded"] = *mscodDecoded;
         }
 
         auto mcacodDecoded = getDecoded(
             decodeMcacod, static_cast<uint16_t>(status_decoded.mcacod));
         if (mcacodDecoded)
         {
-            entry["MCACOD.decoded"] = *mcacodDecoded;
+            entry["MCACOD_decoded"] = *mcacodDecoded;
         }
         else
         {
-            entry["MCACOD.decoded"] =
+            entry["MCACOD_decoded"] =
                 decodeMcacodGeneric1(status_decoded.mcacod);
         }
     }
@@ -644,18 +651,18 @@ private:
             static_cast<uint16_t>(status_decoded.mscod));
         if (mscodDecoded)
         {
-            entry["MSCOD.decoded"] = *mscodDecoded;
+            entry["MSCOD_decoded"] = *mscodDecoded;
         }
 
         auto mcacodDecoded = getDecoded(decodeMcacod,
             static_cast<uint16_t>(status_decoded.mcacod));
         if (mcacodDecoded)
         {
-            entry["MCACOD.decoded"] = *mcacodDecoded;
+            entry["MCACOD_decoded"] = *mcacodDecoded;
         }
         else
         {
-            entry["MCACOD.decoded"] = decodedMcacod(status_decoded.mcacod);
+            entry["MCACOD_decoded"] = decodedMcacod(status_decoded.mcacod);
         }
     }
 
@@ -733,25 +740,25 @@ class SkxMcaBankMlc final : public SkxMcaDecoder
             static_cast<uint8_t>(status_decoded.corr_err_status_ind));
         if (corrErrStsIndDecoded)
         {
-            entry["CORR_ERR_STATUS_IND.decoded"] = *corrErrStsIndDecoded;
+            entry["CORR_ERR_STATUS_IND_decoded"] = *corrErrStsIndDecoded;
         }
 
         auto mscodDecoded = getDecoded(
             decodeMscod, static_cast<uint16_t>(status_decoded.mscod));
         if (mscodDecoded)
         {
-            entry["MSCOD.decoded"] = *mscodDecoded;
+            entry["MSCOD_decoded"] = *mscodDecoded;
         }
 
         auto mcacodDecoded = getDecoded(
             decodeMcacod, static_cast<uint16_t>(status_decoded.mcacod));
         if (mcacodDecoded)
         {
-            entry["MCACOD.decoded"] = *mcacodDecoded;
+            entry["MCACOD_decoded"] = *mcacodDecoded;
         }
         else
         {
-            entry["MCACOD.decoded"] =
+            entry["MCACOD_decoded"] =
                 decodeMcacodGeneric1(status_decoded.mcacod);
         }
     }
@@ -878,39 +885,46 @@ class SkxMcaBankPcu final : public SkxMcaDecoder
             static_cast<uint8_t>(status_decoded.corr_err_status_ind));
         if (corrErrStsIndDecoded)
         {
-            entry["CORR_ERR_STATUS_IND.decoded"] = *corrErrStsIndDecoded;
+            entry["CORR_ERR_STATUS_IND_decoded"] = *corrErrStsIndDecoded;
         }
 
+        std::stringstream ss;
         auto mscod1619Decoded = getDecoded(
             decodeMscod1619, static_cast<uint8_t>(status_decoded.mscod_16_19));
         if (mscod1619Decoded)
         {
-            entry["MSCOD_16_19.decoded"] = *mscod1619Decoded;
+            entry["MSCOD_16_19_decoded"] = *mscod1619Decoded;
+            ss << *mscod1619Decoded << " | ";
         }
 
         auto mscod2023Decoded = getDecoded(
             decodeMscod2023, static_cast<uint8_t>(status_decoded.mscod_20_23));
         if (mscod2023Decoded)
         {
-            entry["MSCOD_20_23.decoded"] = *mscod2023Decoded;
+            entry["MSCOD_20_23_decoded"] = *mscod2023Decoded;
+            ss << *mscod2023Decoded << " | ";
         }
 
         auto mscod2431Decoded = getDecoded(
             decodeMscod2431, static_cast<uint8_t>(status_decoded.mscod_24_31));
         if (mscod2431Decoded)
         {
-            entry["MSCOD_24_31.decoded"] = *mscod2431Decoded;
+            entry["MSCOD_24_31_decoded"] = *mscod2431Decoded;
+            ss << *mscod2431Decoded;
         }
         else
         {
-            entry["MSCOD_24_31.decoded"] = "Internal error";
+            entry["MSCOD_24_31_decoded"] = "Internal error";
+            ss << "Internal error";
         }
+
+        entry["MSCOD_decoded"] = ss.str();
 
         auto mcacod = getDecoded(
             decodeMcacod, static_cast<uint16_t>(status_decoded.mcacod));
         if (mcacod)
         {
-            entry["MCACOD.decoded"] = *mcacod;
+            entry["MCACOD_decoded"] = *mcacod;
         }
     }
 
@@ -1057,18 +1071,18 @@ class SkxMcaBankUpi final : public SkxMcaDecoder
             static_cast<uint8_t>(status_decoded.corr_err_status_ind));
         if (corrErrStsIndDecoded)
         {
-            entry["CORR_ERR_STATUS_IND.decoded"] = *corrErrStsIndDecoded;
+            entry["CORR_ERR_STATUS_IND_decoded"] = *corrErrStsIndDecoded;
         }
 
         auto mcacodDecoded = getDecoded(
             Mcacod, static_cast<uint16_t>(status_decoded.mcacod));
         if (mcacodDecoded)
         {
-            entry["MCACOD.decoded"] = *mcacodDecoded;
+            entry["MCACOD_decoded"] = *mcacodDecoded;
         }
         else
         {
-            entry["MCACOD.decoded"] =
+            entry["MCACOD_decoded"] =
                 decodeMcacodGeneric4(status_decoded.mcacod);
         }
 
@@ -1076,10 +1090,10 @@ class SkxMcaBankUpi final : public SkxMcaDecoder
             static_cast<uint8_t>(status_decoded.mscod));
         if (mscod)
         {
-            entry["MSCOD.decoded"] = *mscod;
+            entry["MSCOD_decoded"] = *mscod;
         }
 
-        entry["MSCOD_SPARE.decoded"] =
+        entry["MSCOD_SPARE_decoded"] =
             decodeMscodSpare(status_decoded.mscod_spare);
     }
 
@@ -1133,6 +1147,16 @@ class SkxMcaBankIio final : public SkxMcaDecoder
         uint64_t mc_status;
     };
 
+    union MC_MISC
+    {
+        struct
+        {
+            uint64_t reserved0 : 8, segment_log : 8, function_log : 3,
+                device_log : 5, bus_log : 8, reserved1 : 32;
+        };
+        uint64_t mc_misc;
+    };
+
     const std::map<uint16_t, const char*> decodeMscod = {
         {0x0, "This value is always 0"},
     };
@@ -1143,6 +1167,7 @@ class SkxMcaBankIio final : public SkxMcaDecoder
     };
 
     MC_STATUS status_decoded;
+    MC_MISC misc_decoded;
     json entry;
 
     void decodeKnownFields()
@@ -1152,21 +1177,36 @@ class SkxMcaBankIio final : public SkxMcaDecoder
             static_cast<uint8_t>(status_decoded.corr_err_status_ind));
         if (corrErrStsIndDecoded)
         {
-            entry["CORR_ERR_STATUS_IND.decoded"] = *corrErrStsIndDecoded;
+            entry["CORR_ERR_STATUS_IND_decoded"] = *corrErrStsIndDecoded;
         }
 
         auto mscodDecoded = getDecoded(
             decodeMscod, static_cast<uint16_t>(status_decoded.mscod));
         if (mscodDecoded)
         {
-            entry["MSCOD.decoded"] = *mscodDecoded;
+            entry["MSCOD_decoded"] = *mscodDecoded;
         }
 
         auto mcacodDecoded = getDecoded(
             decodeMcacod, static_cast<uint16_t>(status_decoded.mcacod));
+
         if (mcacodDecoded)
         {
-            entry["MCACOD.decoded"] = *mcacodDecoded;
+            std::stringstream ss;
+            ss << *mcacodDecoded;
+            if (status_decoded.miscv == 1)
+            {
+                ss << " on Bus["
+                   << int_to_hex(static_cast<uint8_t>(misc_decoded.bus_log))
+                   << "] Device["
+                   << int_to_hex(static_cast<uint8_t>(misc_decoded.device_log))
+                   << "] Function["
+                   << int_to_hex(static_cast<uint8_t>(misc_decoded.function_log))
+                   << "] from Segment["
+                   << int_to_hex(static_cast<uint8_t>(misc_decoded.segment_log))
+                   << "]";
+            }
+            entry["MCACOD_decoded"] = ss.str();
         }
     }
 
@@ -1174,6 +1214,7 @@ class SkxMcaBankIio final : public SkxMcaDecoder
     SkxMcaBankIio(const MCAData& mca) : SkxMcaDecoder(mca)
     {
         status_decoded.mc_status = mca.mc_status;
+        misc_decoded.mc_misc = mca.misc;
     }
 
     json decode_status() override
@@ -1310,53 +1351,53 @@ class SkxMcaBankM2m final : public SkxMcaDecoder
             static_cast<uint8_t>(status_decoded.mscodddrtype));
         if (mscodDdrType)
         {
-            entry["MSCODDDRTYPE.decoded"] = *mscodDdrType;
+            entry["MSCODDDRTYPE_decoded"] = *mscodDdrType;
         }
 
         auto corrErrStsIndDecoded = getDecoded(CorrErrStsInd,
             static_cast<uint8_t>(status_decoded.corr_err_status_ind));
         if (corrErrStsIndDecoded)
         {
-            entry["CORR_ERR_STS_IND.decoded"] = *corrErrStsIndDecoded;
+            entry["CORR_ERR_STS_IND_decoded"] = *corrErrStsIndDecoded;
         }
 
         if (status_decoded.mscoddatarderr == 1)
         {
-            entry["MSCODDATARDERR.decoded"] = "MC read data error";
+            entry["MSCODDATARDERR_decoded"] = "MC read data error";
         }
 
         if (status_decoded.mscodptlwrerr == 1)
         {
-            entry["MSCODPTLWRERR.decoded"] = "MC partial write data error";
+            entry["MSCODPTLWRERR_decoded"] = "MC partial write data error";
         }
 
         if (status_decoded.mscodfullwrerr == 1)
         {
-            entry["MSCODFULLWRERR.decoded"] = "Full write data error";
+            entry["MSCODFULLWRERR_decoded"] = "Full write data error";
         }
 
         if (status_decoded.mscodbgferr == 1)
         {
-            entry["MSCODBGFERR.decoded"] = "M2M clock-domain-crossing buffer "
+            entry["MSCODBGFERR_decoded"] = "M2M clock-domain-crossing buffer "
                 "(BGF) error";
         }
 
         if (status_decoded.mscodtimeout == 1)
         {
-            entry["MSCODTIMEOUT.decoded"] = "M2M timeout";
+            entry["MSCODTIMEOUT_decoded"] = "M2M timeout";
         }
 
         if (status_decoded.mscodparerr == 1)
         {
-            entry["MSCODPARERR.decoded"] = "M2M tracker parity error";
+            entry["MSCODPARERR_decoded"] = "M2M tracker parity error";
         }
 
         if (status_decoded.mscodbucket1err == 1)
         {
-            entry["MSCODBUCKET1ERR.decoded"] = "Bucket1 error";
+            entry["MSCODBUCKET1ERR_decoded"] = "Bucket1 error";
         }
 
-        entry["MCACOD.decoded"] =
+        entry["MCACOD_decoded"] =
             decodeMcacod(static_cast<uint16_t>(status_decoded.mcacod));
     }
 
@@ -1422,7 +1463,18 @@ class SkxMcaBankCha final : public SkxMcaDecoder
         uint64_t mc_status;
     };
 
+    union MC_MISC
+    {
+        struct
+        {
+            uint64_t reserved: 39, torid: 5, origreq: 10,
+            reserved2: 10;
+        };
+        uint64_t mc_misc;
+    };
+
     MC_STATUS status_decoded;
+    MC_MISC misc_decoded;
     json entry;
 
     void decodeKnownFields()
@@ -1431,25 +1483,35 @@ class SkxMcaBankCha final : public SkxMcaDecoder
             static_cast<uint8_t>(status_decoded.corr_err_status_ind));
         if (corrErrStsIndDecoded)
         {
-            entry["CORR_ERR_STATUS_IND.decoded"] = *corrErrStsIndDecoded;
+            entry["CORR_ERR_STATUS_IND_decoded"] = *corrErrStsIndDecoded;
         }
 
         auto mscodDecoded = getDecoded(MscodGeneric1,
             static_cast<uint16_t>(status_decoded.mscod));
         if (mscodDecoded)
         {
-            entry["MSCOD.decoded"] = *mscodDecoded;
+            std::stringstream ss;
+            ss << *mscodDecoded;
+            auto origreqDecoded = getDecoded(SkxOpCodeDecode,
+            static_cast<uint32_t>(misc_decoded.origreq));
+            if (origreqDecoded)
+            {
+                ss << "_OriginalReq[" + *origreqDecoded + "]_TorID[" +
+                    std::to_string(misc_decoded.torid) + "]";
+            }
+
+            entry["MSCOD_decoded"] = ss.str();
         }
 
         auto mcacodDecoded = getDecoded(McacodGeneric1,
             static_cast<uint16_t>(status_decoded.mcacod));
         if (mcacodDecoded)
         {
-            entry["MCACOD.decoded"] = *mcacodDecoded;
+            entry["MCACOD_decoded"] = *mcacodDecoded;
         }
         else
         {
-            entry["MCACOD.decoded"] =
+            entry["MCACOD_decoded"] =
                 decodeMcacodGeneric1(status_decoded.mcacod);
         }
     }
@@ -1458,6 +1520,7 @@ class SkxMcaBankCha final : public SkxMcaDecoder
     SkxMcaBankCha(const MCAData& mca) : SkxMcaDecoder(mca)
     {
         status_decoded.mc_status = mca.mc_status;
+        misc_decoded.mc_misc = mca.misc;
     }
 
     json decode_status() override
@@ -1511,17 +1574,17 @@ class SkxMcaBankImc final : public SkxMcaDecoder
             static_cast<uint8_t>(status_decoded.corr_err_status_ind));
         if (corrErrStsIndDecoded)
         {
-            entry["CORR_ERR_STATUS_IND.decoded"] = *corrErrStsIndDecoded;
+            entry["CORR_ERR_STATUS_IND_decoded"] = *corrErrStsIndDecoded;
         }
 
         auto mscodDecoded = getDecoded(MscodGeneric2,
             static_cast<uint16_t>(status_decoded.mscod));
         if (mscodDecoded)
         {
-            entry["MSCOD.decoded"] = *mscodDecoded;
+            entry["MSCOD_decoded"] = *mscodDecoded;
         }
 
-        entry["MCACOD.decoded"] = decodeMcacodGeneric3(status_decoded.mcacod);
+        entry["MCACOD_decoded"] = decodeMcacodGeneric3(status_decoded.mcacod);
     }
 
     public:
@@ -1542,6 +1605,154 @@ class SkxMcaBankImc final : public SkxMcaDecoder
             static_cast<uint16_t>(status_decoded.corrected_err_cnt));
         entry["CORR_ERR_STATUS_IND"] = int_to_hex(
             static_cast<uint8_t>(status_decoded.corr_err_status_ind));
+        entry["AR"] = int_to_hex(static_cast<bool>(status_decoded.ar));
+        entry["S"] = int_to_hex(static_cast<bool>(status_decoded.s));
+        entry["PCC"] = int_to_hex(static_cast<bool>(status_decoded.pcc));
+        entry["ADDRV"] = int_to_hex(static_cast<bool>(status_decoded.addrv));
+        entry["MISCV"] = int_to_hex(static_cast<bool>(status_decoded.miscv));
+        entry["EN"] = int_to_hex(static_cast<bool>(status_decoded.en));
+        entry["UC"] = int_to_hex(static_cast<bool>(status_decoded.uc));
+        entry["OVERFLOW"] =
+            int_to_hex(static_cast<bool>(status_decoded.overflow));
+        entry["VALID"] = int_to_hex(static_cast<bool>(status_decoded.valid));
+        decodeKnownFields();
+
+        return entry;
+    }
+};
+
+class SkxMcaBankCbo final : public SkxMcaDecoder
+{
+  private:
+    union MC_STATUS
+    {
+        struct
+        {
+            uint64_t mcacod : 16, mscod : 16, other_info : 6,
+                corrected_error_count : 15, corr_err_sts_ind : 2, ar : 1, s : 1,
+                pcc : 1, addrv : 1, miscv : 1, en : 1, uc : 1, overflow : 1,
+                valid : 1;
+        };
+        uint64_t mc_status;
+    };
+
+    union MC_MISC
+    {
+        struct
+        {
+            uint64_t reserved: 39, torid: 5, origreq: 10,
+            reserved2: 10;
+        };
+        uint64_t mc_misc;
+    };
+
+    const std::map<uint16_t, const char*> decodeMscod = {
+        {0x0001, "UNCORRECTABLE_DATA_ERROR"},
+        {0x0002, "UNCORRECTABLE_TAG_ERROR"},
+        {0x0003, "SAD_ERR_WB_TO_MMIO"},
+        {0x0004, "SAD_ERR_IA_ACCESS_TO_GSM"},
+        {0x0005, "SAD_ERR_CORRUPTING_OTHER"},
+        {0x0006, "SAD_ERR_NON_CORRUPTING_OTHER"},
+        {0x0007, "CORRECTABLE_DATA_ERROR"},
+        {0x0008, "MEM_POISON_DATA_ERROR"},
+        {0x000A, "PARITY_DATA_ERROR"},
+        {0x000B, "CORE_WB_MISS_LLC"},
+        {0x000C, "TOR_TIMEOUT"},
+        {0x000D, "Internal Error"},
+        {0x000E, "Internal Error"},
+        {0x000F, "Internal Error"},
+        {0x0011, "LLC_TAG_CORR_ERR"},
+        {0x0012, "LLC_STATE_CORR_ERR"},
+        {0x0013, "LLC_STATE_UNCORR_ERR"},
+        {0x0014, "LLC_CV_CORR_ERR"},
+        {0x0015, "LLC_CV_UNCORR_ERR"},
+        {0x0016, "Internal Protocol Error"},
+        {0x0017, "MULT_LLC_WAY_TAG_MATCH"},
+        {0x0018, "BL_REQ_RTID_TABLE_MISS"},
+        {0x0019, "AK_REQ_RTID_TABLE_MISS"},
+        {0x001C, "IDI_JITTER_ERROR"},
+        {0x001D, "Internal Parity Error"},
+        {0x001E, "Internal Parity Error"},
+        {0x001F, "Internal Parity Error"},
+        {0x0021, "UNCORRECTABLE_SnoopFilter_TAG_ERROR"},
+        {0x0022, "SnoopFilter_TAG_CORR_ERR"},
+        {0x0023, "SnoopFilter_STATE_CORR_ERR"},
+        {0x0024, "SnoopFilter_STATE_UNCORR_ERR"},
+        {0x0025, "SnoopFilter_CV_CORR_ERR"},
+        {0x0026, "SnoopFilter_CV_UNCORR_ERR"},
+        {0x0027, "SAD_ERR_LTMEMLOCK"},
+        {0x0028, "LLC_TWOLM_CORR_ERR"},
+        {0x0029, "LLC_TWOLM_UNCORR_ERR"},
+        {0x002A, "ISMQ_UNEXP_RSP"},
+        {0x002B, "TWOLM_MULT_HIT"},
+        {0x002C, "HA_UNEXP_RSP"},
+        {0x002D, "SAD_ERR_RRQWBQ_TO_NONHOM"},
+        {0x002E, "SAD_ERR_IIOTONONHOM"},
+    };
+
+    MC_STATUS status_decoded;
+    MC_MISC misc_decoded;
+    json entry;
+
+    void decodeKnownFields()
+    {
+        auto corrErrStsIndDecoded =
+            getDecoded(CorrErrStsInd,
+                        static_cast<uint8_t>(status_decoded.corr_err_sts_ind));
+        if (corrErrStsIndDecoded)
+        {
+            entry["CORR_ERR_STS_IND_decoded"] = *corrErrStsIndDecoded;
+        }
+
+        auto mscod = getDecoded(decodeMscod,
+                                  static_cast<uint16_t>(status_decoded.mscod));
+        if (mscod)
+        {
+            std::stringstream ss;
+            ss << *mscod;
+            auto origreqDecoded = getDecoded(SkxOpCodeDecode,
+            static_cast<uint32_t>(misc_decoded.origreq));
+            if (origreqDecoded)
+            {
+                ss << "_OriginalReq[" + *origreqDecoded + "]_TorID[" +
+                    std::to_string(misc_decoded.torid) + "]";
+            }
+
+            entry["MSCOD_decoded"] = ss.str();
+        }
+
+        auto mcacod = getDecoded(
+            McacodGeneric1, static_cast<uint16_t>(status_decoded.mcacod));
+        if (mcacod)
+        {
+            entry["MCACOD_decoded"] = *mcacod;
+        }
+        else
+        {
+            entry["MCACOD_decoded"] =
+                decodeMcacodGeneric1(status_decoded.mcacod);
+        }
+    }
+
+  public:
+    SkxMcaBankCbo(const MCAData& mca) : SkxMcaDecoder(mca)
+    {
+        status_decoded.mc_status = mca.mc_status;
+        misc_decoded.mc_misc = mca.misc;
+    }
+
+    json decode_status() override
+    {
+        entry["MCACOD"] =
+            int_to_hex(static_cast<uint16_t>(status_decoded.mcacod));
+        entry["MSCOD"] =
+            int_to_hex(static_cast<uint16_t>(status_decoded.mscod));
+        entry["OTHER_INFO"] =
+            int_to_hex(static_cast<uint8_t>(status_decoded.other_info));
+        entry["CORRECTED_ERROR_COUNT"] = int_to_hex(
+            static_cast<uint16_t>(status_decoded.corrected_error_count));
+        entry["CORR_ERR_STS_IND"] =
+            int_to_hex(static_cast<uint8_t>(status_decoded.corr_err_sts_ind));
         entry["AR"] = int_to_hex(static_cast<bool>(status_decoded.ar));
         entry["S"] = int_to_hex(static_cast<bool>(status_decoded.s));
         entry["PCC"] = int_to_hex(static_cast<bool>(status_decoded.pcc));

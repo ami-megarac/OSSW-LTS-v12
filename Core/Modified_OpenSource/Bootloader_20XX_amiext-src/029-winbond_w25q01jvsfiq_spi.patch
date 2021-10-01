@@ -1,0 +1,11 @@
+--- uboot/drivers/mtd/spi/spi-nor-ids.c	2021-07-06 14:20:03.218375957 +0800
++++ uboot.new/drivers/mtd/spi/spi-nor-ids.c	2021-07-06 15:04:19.711124099 +0800
+@@ -336,7 +336,7 @@
+                         SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB)
+         },
+ 	{
+-		INFO("W25Q01JV", 0xef4021, 0, 64 * 1024, 2048,
++		INFO("w25q01jvsfiq", 0xef4021, 0, 64 * 1024, 2048,
+ 			SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ |
+ 			SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB)
+ 	},

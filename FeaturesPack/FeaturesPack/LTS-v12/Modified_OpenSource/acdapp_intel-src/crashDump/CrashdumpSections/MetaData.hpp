@@ -41,7 +41,7 @@
 
 #define SI_CPU_NAME_LEN 8
 #define SI_CRASHDUMP_VER_LEN 8
-#define SI_CRASHDUMP_VER "BMC_0.9"
+#define SI_CRASHDUMP_VER "BMC_1.0.6"
 
 #define SI_PECI_PPIN_IDX 19
 #define SI_PECI_PPIN_LOWER 0x01
@@ -55,6 +55,8 @@
 #define MD_EVENT "EVENT"
 #define MD_OVERWRITTEN "OVERWRITTEN"
 #define MD_INVALID "INVALID"
+
+#define RESET_DETECTED_DEFAULT "NONE"
 
 /******************************************************************************
  *
@@ -93,3 +95,4 @@ int logSysInfo(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild);
 int logSysInfoCommon(cJSON* pJsonChild);
 int logSysInfoInputfile(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild,
                         crashdump::InputFileInfo* inputFileInfo);
+int logResetDetected(cJSON* metadata, int cpuNum, int sectionName);

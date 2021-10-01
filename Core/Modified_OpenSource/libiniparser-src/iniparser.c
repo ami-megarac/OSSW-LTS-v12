@@ -24,6 +24,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "strlib.h"
 #include "iniparser.h"
 #if !defined (_WIN32) && !defined (WIN64)
@@ -36,6 +38,23 @@
 // MIND the dependency about cross platform development.
 #define strdup          _strdup
 #endif
+
+#define ABORT_ON_AC_LOST_VOID                         \
+do {                                           \
+    struct stat buff;                          \
+    if(stat("/var/AC_Lost",&buff) != -1)       \
+    {                                          \
+        return;                              \
+    }                                          \
+}while(0);
+#define ABORT_ON_AC_LOST                         \
+do {                                           \
+    struct stat buff;                          \
+    if(stat("/var/AC_Lost",&buff) != -1)       \
+    {                                          \
+        return NULL;                              \
+    }                                          \
+}while(0);
 
 /* Function Name: hasher31
  *
@@ -87,6 +106,8 @@ INIHandler*  iniparser_loaddef(const char * def_ininame, const char * ininame)
     char        tmp_buf[ASCIILINESZ+1] = {0};
     int lwc_count = 0;
 #endif
+
+    ABORT_ON_AC_LOST;
     
     if(def_ininame != NULL)
         def_ini = fopen(def_ininame, "r") ;
@@ -223,6 +244,7 @@ INIHandler*  iniparser_loaddef(const char * def_ininame, const char * ininame)
 void iniparser_close(INIHandler *handler)
 {
     int i;
+    ABORT_ON_AC_LOST_VOID;
     if(!handler)
         return;
     for (i = 0; i <  HASH_TABLE_SIZE; i++) {

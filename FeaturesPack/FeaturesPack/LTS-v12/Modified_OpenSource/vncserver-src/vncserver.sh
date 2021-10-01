@@ -5,6 +5,7 @@ ACTION=$1
 
 
 test -f /usr/local/bin/vncserver || exit 0
+test -f /var/tmp/licstat/adviserd_nolicense && ACTION=stop
 
 # Options for start/restart the daemon
 

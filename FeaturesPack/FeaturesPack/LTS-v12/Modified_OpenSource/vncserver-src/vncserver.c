@@ -548,6 +548,7 @@ void* updateVideo()
 	struct sysinfo incoming,current;
 	unsigned int bCounter = 0;//Blank screen counter
 	double timedout = 0;
+	int no_signal_frame_cnt = 0;
 
 	struct rectUpdate_t recUpdate[RECT_UPDATE_SIZE];
 	struct timespec tv;
@@ -757,8 +758,11 @@ void* updateVideo()
 				}
 #endif
 				else if(VIDEO_NO_SIGNAL== capture){
-					if(g_prv_capture_status != capture){
+					// If this condition persists for more than 50 captures
+					// Then, we delay the capture further on, until status changes
+					if((g_prv_capture_status != capture)|| (no_signal_frame_cnt > 50)){
 						showBlankScreen(EMPTY_STRING,VNC_MIN_RESX/2,VNC_MIN_RESY/2);
+						no_signal_frame_cnt = 0;
 #if defined(SOC_AST2400) || defined(SOC_AST2500)
 						i = rfbGetClientIteratorWithClosed(rfbScreen);
 						cl = rfbClientIteratorHead(i);
@@ -770,6 +774,7 @@ void* updateVideo()
 						rfbReleaseClientIterator(i);
 #endif
 					}
+					no_signal_frame_cnt++;
 				}
 				
 				if( g_prv_capture_status == VIDEO_NO_SIGNAL && ( capture != VIDEO_NO_SIGNAL && capture != RESOLUTION_CHANGED ) ) {

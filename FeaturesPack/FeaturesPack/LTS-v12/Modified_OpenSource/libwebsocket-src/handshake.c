@@ -29,7 +29,47 @@ SOFTWARE.
 #include <limits.h>
 
 #define QDECODER_LIB "/usr/local/lib/libqdecoder.so"
-#define MAX_LINEBUF 1024
+#define MAX_LINE_BUF 1024
+#define QSESSION_KEY "QSESSIONID"
+#define CSRFTOKEN_KEY "garc"
+
+#define AUTH_SUCCESS 0
+#define ERROR_BUFFER_OVERFLOW -1
+#define ERROR_INVALID_AUTH -2
+#define ERROR_INTERNAL_ERROR -3
+
+static int GetAuthTokenInCookie(char *token, char *key, char *value) {
+    char temp[MAX_LINE_BUF];
+    int tempret = snprintf(temp, MAX_LINE_BUF, "%s", token);
+    if (tempret < 0 || tempret >= MAX_LINE_BUF) {
+        return ERROR_BUFFER_OVERFLOW;
+    }
+
+    char *start = strstr(temp, key);
+    if (start == NULL) {
+        return ERROR_INVALID_AUTH;
+    } else {
+        char *query = start, *p;
+        char **tokens = &query;
+
+        // Assume value contains no as same special character as below delimiter
+        p = strsep(tokens, ";");
+        char *val = p, *var;
+        if ((var = strsep(&val, "="))) {
+            if (strncasecmp(key, var, strnlen(key, MAX_LINE_BUF)) == 0) {
+                tempret = snprintf(value, MAX_LINE_BUF, "%s", val);
+                if (tempret < 0 || tempret >= MAX_LINE_BUF) {
+                    return ERROR_BUFFER_OVERFLOW;
+                }
+            } else {
+                return ERROR_INTERNAL_ERROR;
+            }
+        } else {
+            return ERROR_INVALID_AUTH;
+        }
+    }
+    return AUTH_SUCCESS;
+}
 
 /**
  * Returns whether x is a integral multiple of y.
@@ -47,21 +87,21 @@ uint32_t isIntergralMultiple(long x, int y) {
 }
 
 uint32_t generateKey(char *key, int length) {
-	char result[length]; /*Fortify [Integer Overflow] :: False Positive*/
-	/* Reason for False Positive – length is not accepting from user*/
+	char result[length]; /*Fortify [Integer Overflow] :: False Positive */
+	/* Reason for False Positive – length is not accepting from user */
 	char temp[length+1];
 	char chr[2];
 	int i, spaces = 0;
 
-	memset(temp, '\0', length+1); /*Fortify [Buffer Overflow] :: False Positive*/
-	/* Reason for False Positive – length to memset is passing from code itself so buffer overflow wont occur*/
+	memset(temp, '\0', length+1); /* Fortify [Buffer Overflow] :: False Positive */
+	/* Reason for False Positive – length to memset is passing from code itself so buffer overflow wont occur */
 	for(i = 0; i < length; i++) {
 		if ( isdigit((unsigned char) key[i]) != 0 ) {	
 			memset(chr, '\0', 2);
 			snprintf(chr,sizeof(chr),"%c",key[i]);
 
-			strcat(temp, chr); /*Fortify [Buffer Overflow] :: False Positive*/
-			/* Reason for False Positive - Destination is capable of holding the more size than source*/
+			strcat(temp, chr); /* Fortify [Buffer Overflow] :: False Positive */
+			/* Reason for False Positive - Destination is capable of holding the more size than source */
 		} else if (isblank((unsigned char) key[i]) != 0 && key[i] != '\t') {
 			spaces++;	
 		}
@@ -74,7 +114,7 @@ uint32_t generateKey(char *key, int length) {
 	memcpy(result, temp, length);
 
 	return isIntergralMultiple(strtol(result, (char **) NULL, 10), spaces);/* Fortify [String Termination Error]:: False Positive */
-    /* Reason for False Positive – taking care of return value for proper string termination*/
+	/* Reason for False Positive – taking care of return value for proper string termination */
 }
 
 void concate(uint32_t key1, uint32_t key2, char *key3, char *result){
@@ -82,14 +122,14 @@ void concate(uint32_t key1, uint32_t key2, char *key3, char *result){
 	memcpy(result, (unsigned char *) &key1, sizeof(uint32_t));
 	memcpy(result+sizeof(uint32_t), (unsigned char *) &key2, sizeof(uint32_t));
 
-	memcpy(result+(2*sizeof(uint32_t)), key3, sizeof(uint64_t)); /*Fortify [Buffer Overflow] :: False Positive*/
-	/* Reason for False Positive -  make copy length matches the buffer size to avoid buffer overflow*/
+	memcpy(result+(2*sizeof(uint32_t)), key3, sizeof(uint64_t)); /* Fortify [Buffer Overflow] :: False Positive */
+	/* Reason for False Positive -  make copy length matches the buffer size to avoid buffer overflow */
 }
 
 char *getMemory(char *token, int length) {
-	char *temp = (char *) malloc(length);  /*Fortify [Integer Overflow] :: False Positive*/
-	/* Reason for False Positive – length is not accepting from user*/
-	if (temp == NULL) {	
+	char *temp = (char *) malloc(length);  /* Fortify [Integer Overflow] :: False Positive */
+	/* Reason for False Positive – length is not accepting from user */
+	if (temp == NULL) {
 		return NULL;
 	}
 
@@ -160,17 +200,17 @@ int isNeedleInHaystack(char *needle, char *file_name, int port){
 	char *err = NULL, *file = NULL, *tok = NULL;
 
 	file = read_file(file_name);/* Fortify [Memory Leak]:: False Positive */
-    /* Reason for False Positive - Once use done successful free the memory*/
+	/* Reason for False Positive - Once use done successful free the memory */
 
 	if (file != NULL) {
-		tok	= strtok(file, "\r\n");/* Fortify [String Termination Error]:: False Positive */
-	    /* Reason for False Positive – taking care of return value for proper string termination*/
+		tok = strtok(file, "\r\n");/* Fortify [String Termination Error]:: False Positive */
+		/* Reason for False Positive – taking care of return value for proper string termination */
 		if(tok == NULL)
 		{
 			return ok;
 		}
 		amount = strtol(tok, &err, 10);/* Fortify [String Termination Error]:: False Positive */
-	    /* Reason for False Positive – taking care of return value for proper string termination*/
+		/* Reason for False Positive – taking care of return value for proper string termination */
 		if(amount == LONG_MAX || amount == LONG_MIN)
 		{
 			return ok;
@@ -180,13 +220,14 @@ int isNeedleInHaystack(char *needle, char *file_name, int port){
 			char *haystack[amount];
 			for(i = amount-1; i > -1; i--) {
 				tok = strtok(NULL, "\r\n");	/* Fortify [String Termination Error]:: False Positive */
-				/* Reason for False Positive – taking care of return value for proper string termination*/
+				/* Reason for False Positive – taking care of return value for proper string termination */
 				if (tok == NULL) {
-					return ok;
+					return ok; /* SCA Fix [Resource leaks]:: False Positive */
+					/* Reason for False Positive - Can not free the Resource , need the Resource for further operation use */
 				} else {
 					haystack[i] = (char *) malloc(string_len(tok) + sizeof(port) + 
 							sizeof(char) + 1); /* Fortify [Fail to free]:: False Positive */
-					/*Reason for False Positive – Successfully free the haystack in below for loop using free(haystack[i])*/
+					/*Reason for False Positive – Successfully free the haystack in below for loop using free(haystack[i]) */
 					if (haystack[i] == NULL) {
 						return ok;	
 					}
@@ -217,7 +258,8 @@ int isNeedleInHaystack(char *needle, char *file_name, int port){
 			}
 
 		} else {
-			return ok;
+			return ok; /* SCA Fix [Resource leaks]:: False Positive */
+			/* Reason for False Positive - Can not free the Resource , need the Resource for further operation use */
 		}
 	}	
 
@@ -228,18 +270,17 @@ int isNeedleInHaystack(char *needle, char *file_name, int port){
 
 int parseHeaders(char *string, ws_client *n, int port){
 	ws_header *h = n->headers;
-	char qsession[MAX_LINEBUF] = {0}, csrftoken[MAX_LINEBUF] = {0};
+	char qsession[MAX_LINE_BUF] = {0}, csrftoken[MAX_LINE_BUF] = {0};
 	char *token = strtok(string, "\r\n");/* Fortify [String Termination Error]:: False Positive */
-    /* Reason for False Positive – taking care of return value for proper string termination*/
+	/* Reason for False Positive – taking care of return value for proper string termination */
 	if(token == NULL)
 	{
 		return -1;
 	}
 	char *resource;
-	int i, tempret = 0;
+	int i, rc = 0;
 
 	void *dl_handle = NULL;
-	int (*get_auth_str)(char *, int, char *);
 	int (*is_valid_authorization)(char *, char *);
 
 	/**
@@ -252,41 +293,24 @@ int parseHeaders(char *string, ws_client *n, int port){
 
 		if ( strncasecmp("GET /", h->get, 5) != 0 || 
 				strncasecmp(" HTTP/1.1", h->get+(h->get_len-9), 9) != 0 ) {
-			handshake_error("The headerline of the request was invalid.", ERROR_BAD, 
-					n);
+			if(n != NULL)
+			{
+				handshake_error("The headerline of the request was invalid.", ERROR_BAD, 
+						n);
+			}
 			return -1;
 		}
 		
 		resource = (char *) getMemory(h->get+4, h->get_len-12);/* Fortify [Memory Leak]:: False Positive */
-	    /* Reason for False Positive - Once use done successful free the memory*/
+		/* Reason for False Positive - Once use done successful free the memory */
 		if (resource == NULL) {
-			handshake_error("Couldn't allocate memory.", ERROR_INTERNAL, n);
+			if(n != NULL)
+			{
+				handshake_error("Couldn't allocate memory.", ERROR_INTERNAL, n);
+			}
 			return -1;
 		}
 		resource[h->get_len-13] = '\0';
-		dl_handle = dlopen(QDECODER_LIB, RTLD_NOW | RTLD_NODELETE); /* Fortify [Path Manipulation]:: False Positive */
-		/*Reason for False Positive – “dlopen” is not accepting argument from the end user or runtime, file path in                      “dlopen” is filled inside the source code itself, so there is no chance of path manipulation from attacker. */
-		if(dl_handle == NULL)
-		{    
-			handshake_error("Library not found.", ERROR_INTERNAL, n);
-			return -1;
-		}    
-
-		get_auth_str = dlsym(dl_handle,"get_auth_str");
-
-		if(get_auth_str)
-		{    
-			get_auth_str(resource, h->get_len-13 +1 /* increment for NULL terminator */, csrftoken);
-			if(csrftoken == NULL) /* Fortify [Dead Code]:: False Positive */
-			/*Reason for False Positive – if get_auth_str is returning csrftoken as NULL then need through the error                          to avoid NULL pointer derefrencing */
-			{
-				handshake_error("Invalid Authentication.", ERROR_NOT_AUTH, n);
-				dlclose(dl_handle);
-				return -1;	
-			}
-		}    
-
-		dlclose(dl_handle);
 
 		h->resourcename = resource;
 		h->resourcename_len = string_len(h->resourcename);
@@ -294,7 +318,7 @@ int parseHeaders(char *string, ws_client *n, int port){
 		while ( token != NULL ) {
 			if ( strncasecmp("Sec-WebSocket-Version: ", token, 23) == 0 ) {
 				h->version = strtol(token + 23, (char **) NULL, 10);/* Fortify [String Termination Error]:: False Positive */
-			    /* Reason for False Positive – taking care of return value for proper string termination*/
+				/* Reason for False Positive – taking care of return value for proper string termination */
 				if(h->version == LONG_MAX || h->version == LONG_MIN)
 				{
 					return -1;
@@ -317,26 +341,26 @@ int parseHeaders(char *string, ws_client *n, int port){
 			} else if ( strncasecmp("Sec-WebSocket-Protocol: ", token, 
 						24) == 0 ) {
 				if ( strstr(token+24, "chat") != NULL ) /* Fortify [Buffer Overflow]:: False Positive */
-				/* Reason for False Positive – Verifying the return value of strstr to avoid buffer overflow*/
+				/* Reason for False Positive – Verifying the return value of strstr to avoid buffer overflow */
 				{
 					h->protocol = CHAT;	
 					h->protocol_string = (char *) getMemory("chat", 5);
 					if (h->protocol_string == NULL) {
 						handshake_error("Couldn't allocate memory.", 
 								ERROR_INTERNAL, n);
-						return -1;					
+						return -1;
 					}
 					h->protocol_len = string_len(h->protocol_string);
 				}
 				else if ( strstr(token+24, "echo") != NULL ) /* Fortify [Buffer Overflow]:: False Positive */
-                                /* Reason for False Positive – Verifying the return value of strstr to avoid buffer overflow*/
+					/* Reason for False Positive – Verifying the return value of strstr to avoid buffer overflow */
 				{
 					h->protocol = ECHO_t;
 					h->protocol_string = (char *) getMemory("echo", 5);
 					if (h->protocol_string == NULL) {
 						handshake_error("Couldn't allocate memory.", 
 								ERROR_INTERNAL, n);
-						return -1;					
+						return -1;
 					}
 					h->protocol_len = string_len(h->protocol_string);
 				}
@@ -355,8 +379,10 @@ int parseHeaders(char *string, ws_client *n, int port){
 				h->host_len = string_len(h->host);
 			} else if ( strncasecmp("WebSocket-Protocol: ", token, 20) == 0 ) {
 				h->type = HIXIE75;
-				if ( strstr(token+20, "chat") != NULL ) /* Fortify [Buffer Overflow]:: False Positive */
-                                /* Reason for False Positive – Verifying the return value of strstr to avoid buffer overflow*/
+				if (strstr(token + 20, "chat") !=
+					NULL) /* Fortify [Buffer Overflow]:: False Positive */
+					/* Reason for False Positive – Verifying the return value of strstr to
+					avoid buffer overflow */
 				{
 					h->protocol = CHAT;	
 					h->protocol_string = (char *) getMemory("chat", 5);
@@ -366,16 +392,17 @@ int parseHeaders(char *string, ws_client *n, int port){
 						return -1;					
 					}
 					h->protocol_len = string_len(h->protocol_string);
-				}
-				else if ( strstr(token+20, "echo") != NULL ) /* Fortify [Buffer Overflow]:: False Positive */
-                                /* Reason for False Positive – Verifying the return value of strstr to avoid buffer overflow*/
+				} else if (strstr(token + 20, "echo") !=
+					NULL) /* Fortify [Buffer Overflow]:: False Positive */
+					/* Reason for False Positive – Verifying the return value of strstr to
+					avoid buffer overflow */
 				{
 					h->protocol = ECHO_t;
 					h->protocol_string = (char *) getMemory("echo", 5);
 					if (h->protocol_string == NULL) {
 						handshake_error("Couldn't allocate memory.", 
 								ERROR_INTERNAL, n);
-						return -1;					
+						return -1;
 					}
 					h->protocol_len = string_len(h->protocol_string);
 				}
@@ -385,45 +412,46 @@ int parseHeaders(char *string, ws_client *n, int port){
 			} else if ( strncasecmp("Sec-WebSocket-Key2: ", token, 20) == 0 ) {
 				h->type = HYBI00;
 				h->key2 = token + 20;
-			} else if ( strncasecmp("Cookie: ", token, 8) == 0 ) { // we check cookie here instead of query string parameter because our cookie is with httponly flag
-				char temp[MAX_LINEBUF];
-				tempret = snprintf(temp, MAX_LINEBUF, "%s", token);/*Fortify [Buffer Overflow]::False Positive*/
-	/* Reason for False Positive – Destination is filled according to destination size using snprintf() which ensures there             is no buffer overflow, also checking the return value of snprintf() in error case. */
-				if(tempret < 0 || tempret >= MAX_LINEBUF)
+			} else if ( strncasecmp("Cookie: ", token, 8) == 0 ) {
+				rc = GetAuthTokenInCookie(token, QSESSION_KEY, qsession);
+				if (rc != AUTH_SUCCESS) {
+					switch (rc) {
+						case ERROR_BUFFER_OVERFLOW:
+							handshake_error("Buffer Overflow.", ERROR_NOT_AUTH, n);
+							break;
+						case ERROR_INVALID_AUTH:
+							handshake_error("Invalid Authentication.", ERROR_NOT_AUTH, n);
+							break;
+						case ERROR_INTERNAL_ERROR:
+							handshake_error("Internal Error.", ERROR_NOT_AUTH, n);
+							break;
+						default:
+							handshake_error("Internal Error.", ERROR_NOT_AUTH, n);
+							break;
+					}
 					return -1;
-				char *start = strstr(temp, "QSESSIONID");  /* Fortify [Buffer Overflow]:: False Positive */
-                                /* Reason for False Positive – Verifying the return value of strstr to avoid buffer overflow*/
-				if(start == NULL)
-				{
-					handshake_error("Invalid Authentication.", ERROR_NOT_AUTH, n);
-					return -1;	
 				}
-				else
-				{
-					char *query = start, *p=NULL;
-					char **tokens = &query;
-
-					// Assume value contains no as same special character as below delimiter
-					p = strsep (tokens, ";");
-					if(p==NULL)
-					{
-						return -1;
+				// we ignore the prefix and only parse "garc"
+				rc = GetAuthTokenInCookie(token, CSRFTOKEN_KEY, csrftoken);
+				if (rc != 0) {
+					switch (rc) {
+						case ERROR_BUFFER_OVERFLOW:
+							handshake_error("Buffer Overflow.", ERROR_NOT_AUTH, n);
+								break;
+						case ERROR_INVALID_AUTH:
+							handshake_error("Invalid Authentication.", ERROR_NOT_AUTH, n);
+							break;
+						case ERROR_INTERNAL_ERROR:
+							handshake_error("Internal Error.", ERROR_NOT_AUTH, n);
+							break;
+						default:
+							handshake_error("Internal Error.", ERROR_NOT_AUTH, n);
+							break;
 					}
-					char *val=p, *var;
-					if ((var = strsep(&val, "=")))
-					{
-						if(strncasecmp("QSESSIONID", var, 10) == 0)
-						{
-							tempret = snprintf(qsession, MAX_LINEBUF, "%s", val);
-							if(tempret < 0 || tempret >= MAX_LINEBUF)
-							{
-								handshake_error("Invalid Authentication.", ERROR_NOT_AUTH, n);
-								return -1; 
-							}
-						}
-					}
+					return -1;
 				}
 			}
+
 			char *temp = strtok(NULL, "\r\n"); /* Fortify [Return Value check]:: False Positive */
 			/* Reason for False Positive – Taking care of return value check*/
 			if ( temp == NULL && h->type == HYBI00) {
@@ -439,7 +467,7 @@ int parseHeaders(char *string, ws_client *n, int port){
 	}
 
 	dl_handle = dlopen(QDECODER_LIB, RTLD_NOW | RTLD_NODELETE); /* Fortify [Path Manipulation]:: False Positive */
-	/* Reason for False Positive – “dlopen” is not accepting argument from the end user or runtime, file path in “dlopen” is           filled inside the source code itself, so there is no chance of path manipulation from attacker. */
+	/* Reason for False Positive – “dlopen” is not accepting argument from the end user or runtime, file path in “dlopen” is filled inside the source code itself, so there is no chance of path manipulation from attacker. */
 	if(dl_handle == NULL)
 	{    
 		handshake_error("Library not found.", ERROR_INTERNAL, n);
@@ -538,7 +566,7 @@ int parseHeaders(char *string, ws_client *n, int port){
 	}
 
 	if (strstr(h->connection, "Upgrade") == NULL) /* Fortify [Buffer Overflow]:: False Positive */
-        /* Reason for False Positive – Verifying the return value of strstr to avoid buffer overflow*/
+        /* Reason for False Positive – Verifying the return value of strstr to avoid buffer overflow */
 	{
 		handshake_error("Unknown connection value.", ERROR_BAD, n);
 		return -1;
@@ -570,7 +598,7 @@ int parseHeaders(char *string, ws_client *n, int port){
 			unsigned char hashedKey[KEYSIZE];
 			concate(key1, key2, h->key3, unhashedKey);	
 			MD5_CTX ctx; /* Fortify [Weak cryptographic hash]:: False Positive */
-			/* Reason for False Positive – Algorithm is used inside the application only so, external attacker can                             not able to attack from outside*/
+			/* Reason for False Positive – Algorithm is used inside the application only so, external attacker can not able to attack from outside*/
 			MD5_Init(&ctx);
 			MD5_Update(&ctx,unhashedKey,KEYSIZE);
 			MD5_Final(hashedKey,&ctx);
@@ -608,15 +636,15 @@ int parseHeaders(char *string, ws_client *n, int port){
 		char *acceptKey=NULL;
 		acceptKey = (char *)malloc (B64_BUFF_LEN);
 
-		memset(key, '\0', length); /*False Positive [Buffer Overflow]*/
-		/* Reason for False Positive – length is fixed not accepting from user*/
+		memset(key, '\0', length); /* False Positive [Buffer Overflow] */
+		/* Reason for False Positive – length is fixed not accepting from user */
 		memset(sha1Key, '\0', 20);
 
-		memcpy(key, h->key, (length-magic_len));/*False Positive [Buffer Overflow]*/
-                /* Reason for False Positive – length is fixed not accepting from user*/
+		memcpy(key, h->key, (length-magic_len));/* False Positive [Buffer Overflow] */
+                /* Reason for False Positive – length is fixed not accepting from user */
 		memcpy(key+(length-magic_len), magic, magic_len);
 		SHA1_Init(&stx); /* Fortify [Weak cryptographic hash]:: False Positive */
-		/* Reason for False Positive – Algorithm is used inside the application only so, external attacker can                             not able to attack from outside*/
+		/* Reason for False Positive – Algorithm is used inside the application only so, external attacker can not able to attack from outside */
 		SHA1_Update(&stx,(const unsigned char*) key,length);
 		SHA1_Final(sha1Key,&stx);
 
@@ -673,8 +701,8 @@ int sendHandshake(ws_client *n) {
 		memcpy(response + memlen, ACCEPT_UPGRADE, ACCEPT_UPGRADE_LEN);
 		memlen += ACCEPT_UPGRADE_LEN;
 
-		memcpy(response + memlen, n->headers->upgrade, n->headers->upgrade_len);/*Fortify [Buffer Overflow] :: False                                                                                             Positive*/
-        /* Reason for False Positive -  make copy length matches the buffer size to avoid buffer overflow*/
+		memcpy(response + memlen, n->headers->upgrade, n->headers->upgrade_len);/* Fortify [Buffer Overflow] :: False Positive */
+		/* Reason for False Positive - make copy length matches the buffer size to avoid buffer overflow */
 		memlen += n->headers->upgrade_len;
 
 		memcpy(response + memlen, "\r\n", 2);
@@ -704,8 +732,11 @@ int sendHandshake(ws_client *n) {
 		memcpy(response + memlen, "\r\n\r\n", 4);
 		memlen += 4;
 
-		printf("Server responds with the following headers:\n%s\n", response);
-		fflush(stdout);
+		if(response != NULL)
+		{
+			printf("Server responds with the following headers:\n%s\n", response);
+			fflush(stdout);
+		}
 
 		if (memlen != length) {
 			free(response);
@@ -885,8 +916,11 @@ int sendHandshake(ws_client *n) {
 		memcpy(response + memlen, "\r\n", 2);
 		memlen += 2;
 
-		printf("Server responds with the following headers:\n%s\n", response);
-		fflush(stdout);
+		if(response != NULL)
+		{
+			printf("Server responds with the following headers:\n%s\n", response);
+			fflush(stdout);
+		}
 
 		if (memlen != length) {
 			free(response);
@@ -895,9 +929,9 @@ int sendHandshake(ws_client *n) {
 		}
 	}
 
-	ret=send(n->socket_id, response, length, 0);
-	if(ret==-1)
-	{
+	ret = send(n->socket_id, response, length, 0);
+	if (ret == -1) {
+		printf("Error in send function\n");
 		if (response != NULL) {
 			free(response);
 		}

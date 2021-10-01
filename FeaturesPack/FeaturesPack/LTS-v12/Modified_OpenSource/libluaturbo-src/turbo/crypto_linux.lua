@@ -26,6 +26,9 @@ local crypto = {} -- crypto namespace
 local lssl = ffi.load(os.getenv("TURBO_LIBSSL") or "ssl")
 local libtffi = util.load_libtffi()
 
+local EWOULDBLOCK, EINPROGRESS, ECONNRESET =
+   socket.EWOULDBLOCK, socket.EINPROGRESS, socket.ECONNRESET
+
 crypto.X509_FILETYPE_PEM =          1
 crypto.X509_FILETYPE_ASN1 =         2
 crypto.X509_FILETYPE_DEFAULT =      3
@@ -73,12 +76,12 @@ end
 -- already loaded it will pass.
 function crypto.ssl_init()
     if not _G._TURBO_SSL_INITED then
-        _TURBO_SSL_INITED = true
-        if platform.__OPENSSL_1_1__ ~= true then
-            lssl.SSL_load_error_strings()
-            lssl.SSL_library_init()
-            lssl.OPENSSL_add_all_algorithms_noconf()
-        end
+       _TURBO_SSL_INITED = true
+	    if platform.__OPENSSL_1_1__ ~= true then
+			lssl.SSL_load_error_strings()
+			lssl.SSL_library_init()
+			lssl.OPENSSL_add_all_algorithms_noconf()
+		end
     end
 end
 if _G.TURBO_SSL then
@@ -154,12 +157,14 @@ end
 --- Create a server type SSL context.
 -- @param cert_file Certificate file (public key)
 -- @param prv_file Key file (private key)
+-- @param ca_cert_path (optional) Path to CA certificates, or the system
+-- wide in /etc/ssl/certs/ca-certificates.crt will be used.
 -- @param sslv (optional) SSL version to use.
 -- @return Return code. 0 if successfull, else a OpenSSL error
 -- code and a SSL
 -- error string, or -1 and a error string.
 -- @return Allocated SSL_CTX *. Must not be freed. It is garbage collected.
-function crypto.ssl_create_server_context(cert_file, prv_file, sslv)
+function crypto.ssl_create_server_context(cert_file, prv_file, ca_cert_path, sslv)
     local meth
     local ctx
     local err = 0
@@ -169,11 +174,12 @@ function crypto.ssl_create_server_context(cert_file, prv_file, sslv)
     elseif not prv_file then
         return -1, "No priv file given in arguments";
     end
-    if platform.__OPENSSL_1_1__ == true then
+	if platform.__OPENSSL_1_1__ == true then
         meth = sslv or lssl.TLS_server_method()
     else
         meth = sslv or lssl.SSLv23_server_method()
     end
+
     if meth == nil then
         err = lssl.ERR_peek_error()
         lssl.ERR_clear_error()
@@ -189,6 +195,11 @@ function crypto.ssl_create_server_context(cert_file, prv_file, sslv)
     end
     if lssl.SSL_CTX_use_certificate_file(ctx, cert_file,
         crypto.SSL_FILETYPE_PEM) <= 0 then
+        err = lssl.ERR_peek_error()
+        lssl.ERR_clear_error()
+        return err, crypto.ERR_error_string(err)
+    end
+    if lssl.SSL_CTX_use_certificate_chain_file(ctx, cert_file) <= 0 then
         err = lssl.ERR_peek_error()
         lssl.ERR_clear_error()
         return err, crypto.ERR_error_string(err)
@@ -268,6 +279,9 @@ function crypto.ssl_do_handshake(SSLIOStream)
             -- Error on socket.
             errno = ffi.errno()
             if errno == EWOULDBLOCK or errno == EINPROGRESS then
+                return false
+            elseif errno == ECONNRESET then
+                SSLIOStream:close()
                 return false
             elseif errno ~= 0 then
                 local fd = SSLIOStream.socket

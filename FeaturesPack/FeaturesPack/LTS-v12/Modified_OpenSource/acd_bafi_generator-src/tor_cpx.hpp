@@ -2,7 +2,7 @@
  *
  * INTEL CONFIDENTIAL
  *
- * Copyright 2020 Intel Corporation.
+ * Copyright 2021 Intel Corporation.
  *
  * This software and the related documents are Intel copyrighted materials, and
  * your use of them is governed by the express license under which they were
@@ -21,22 +21,23 @@
 #include <array>
 #include <functional>
 #include <map>
-#include "nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <tuple>
 #include <utility>
 #include <vector>
 
-#include "aer.hpp"
-#include "mca_defs.hpp"
-#include "tor_defs_cpx.hpp"
-#include "utils.hpp"
-#include "tor.hpp"
+#include <aer.hpp>
+#include <mca_defs.hpp>
+#include <tor_defs_cpx.hpp>
+#include <utils.hpp>
+#include <tor_whitley.hpp>
+#include <cpu.hpp>
 
 using json = nlohmann::json;
 
-class CpxCpu final : public Cpu
+class CpxCpu final : public WhitleyCpu, public CpuGeneric
 {
   public:
     // indexes for ierr and mcerr tsc information
@@ -49,7 +50,7 @@ class CpxCpu final : public Cpu
     // indexes for IERR, MCERR and MCERR source
     static constexpr const char* ierr_varname = "B00_D08_F0_0xA4";
     static constexpr const char* mcerr_varname = "B00_D08_F0_0xA8";
-    static constexpr const char* mca_err_src_varname = "B01_D30_F2_0xEC";
+    static constexpr const char* mca_err_src_varname = "mca_err_src_log";
     // indexes and bitmasks of uncorectable and corectable AER errors to decode
     static constexpr const char* unc_err_index = "0x14C";
     static const uint32_t unc_spec_err_mask = 0x3FF030;
@@ -61,18 +62,29 @@ class CpxCpu final : public Cpu
     static constexpr const char* decode_only_index_3 = "_D02_";
     static constexpr const char* decode_only_index_4 = "_D03_";
 
-    [[nodiscard]] std::map<uint32_t, TscData> getTscData(
-        const std::map<std::string, std::reference_wrapper<const json>>
-        cpuSections)
+    [[nodiscard]] virtual std::map<std::string, std::array<uint64_t, 2>>
+        getMemoryMap(const json& input)
     {
+        return WhitleyCpu::getMemoryMap(input);
+    }
+
+    [[nodiscard]] virtual std::map<uint32_t, TscData>
+        getTscData(const json& input)
+    {
+        auto cpuSections = prepareJson(input);
         return getTscDataForProcessorType(cpuSections, tscVariables);
     }
 
-    [[nodiscard]] UncAer analyzeUncAer(
-        const std::map<std::string, std::reference_wrapper<const json>>
-        cpuSections)
+    [[nodiscard]] virtual std::optional<std::map<uint32_t, PackageThermStatus>>
+        getThermData(const json& input)
+    {
+        return {};
+    }
+
+    [[nodiscard]] virtual UncAer analyzeUncAer(const json& input)
     {
         UncAer output;
+        auto cpuSections = prepareJson(input);
         for (auto const& [cpu, cpuSection] : cpuSections)
         {
             uint32_t socketId;
@@ -127,19 +139,21 @@ class CpxCpu final : public Cpu
         return allUncErrs;
     }
 
-    [[nodiscard]] CorAer analyzeCorAer(
-        const std::map<std::string, std::reference_wrapper<const json>>
-        cpuSections)
+    [[nodiscard]] virtual CorAer analyzeCorAer(const json& input)
     {
         CorAer output;
+        auto cpuSections = prepareJson(input);
+
         for (auto const& [cpu, cpuSection] : cpuSections)
         {
             uint32_t socketId;
+
             if (!str2uint(cpu.substr(3), socketId, decimal))
             {
                 continue;
             }
             auto allCorErr = parseCorErrSts(cpuSection);
+            
             output.insert({socketId, allCorErr});
         }
         return output;
@@ -187,11 +201,10 @@ class CpxCpu final : public Cpu
         return allCorErrs;
     }
 
-    [[nodiscard]] MCA analyzeMca(
-        const std::map<std::string, std::reference_wrapper<const json>>
-        cpuSections)
+    [[nodiscard]] virtual MCA analyzeMca(const json& input)
     {
         MCA output;
+        auto cpuSections = prepareJson(input);
         std::vector<MCAData> allMcs;
         for (auto const& [cpu, cpuSection] : cpuSections)
         {
@@ -212,7 +225,7 @@ class CpxCpu final : public Cpu
         return output;
     }
 
-    [[nodiscard]] std::optional<CpxTORData> parseTorData(const json& index)
+    [[nodiscard]] std::optional<TORDataGeneric> parseTorData(const json& index)
     {
         if (index.find("subindex0") == index.cend())
         {
@@ -222,7 +235,7 @@ class CpxCpu final : public Cpu
         {
             return {};
         }
-        CpxTORData tor;
+        TORDataGeneric tor;
         if (!str2uint(index["subindex0"], tor.subindex0) ||
             !str2uint(index["subindex1"], tor.subindex1) ||
             !str2uint(index["subindex2"], tor.subindex2))
@@ -236,9 +249,9 @@ class CpxCpu final : public Cpu
         return tor;
     }
 
-    [[nodiscard]] std::vector<CpxTORData> getTorsData(const json& input)
+    [[nodiscard]] std::vector<TORDataGeneric> getTorsData(const json& input)
     {
-        std::vector<CpxTORData> torsData;
+        std::vector<TORDataGeneric> torsData;
         if (input.find("TOR") == input.cend())
         {
             return torsData;
@@ -252,7 +265,8 @@ class CpxCpu final : public Cpu
             for (const auto& [indexDataKey, indexDataValue] :
                     chaItemValue.items())
             {
-                std::optional<CpxTORData> tor = parseTorData(indexDataValue);
+                std::optional<TORDataGeneric> tor =
+                    parseTorData(indexDataValue);
                 if (!tor)
                 {
                     continue;
@@ -267,18 +281,17 @@ class CpxCpu final : public Cpu
         return torsData;
     }
 
-    [[nodiscard]] CpxTOR analyze(
-        const std::map<std::string, std::reference_wrapper<const json>>
-        cpuSections)
+    [[nodiscard]] virtual TORData analyze(const json& input)
     {
-        CpxTOR output;
+        TORData output;
+        auto cpuSections = prepareJson(input);
         for (auto const& [cpu, cpuSection] : cpuSections)
         {
             std::optional ierr = getUncoreData(cpuSection, ierr_varname);
             std::optional mcerr = getUncoreData(cpuSection, mcerr_varname);
             std::optional mcerrErrSrc =
-                getUncoreData(cpuSection, mca_err_src_varname);
-            std::vector<CpxTORData> tors = getTorsData(cpuSection);
+                getSysInfoData(input, cpu, mca_err_src_varname);
+            std::vector<TORDataGeneric> tors = getTorsData(cpuSection);
             uint32_t socketId;
             if (!str2uint(cpu.substr(3), socketId, decimal))
             {
@@ -297,7 +310,8 @@ class CpxCpu final : public Cpu
             {
                 ctx.mcerrErr.value = 0;
             }
-            std::pair<SocketCtx, std::vector<CpxTORData>> tempData(ctx, tors);
+            std::pair<SocketCtx, std::vector<TORDataGeneric>>
+                tempData(ctx, tors);
             output.insert({socketId, tempData});
         }
         return output;

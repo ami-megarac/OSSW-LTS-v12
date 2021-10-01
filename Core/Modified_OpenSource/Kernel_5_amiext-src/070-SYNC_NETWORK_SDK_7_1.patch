@@ -1,0 +1,283 @@
+diff -Naur linux_org/drivers/net/geneve.c linux/drivers/net/geneve.c
+--- linux_org/drivers/net/geneve.c	2021-09-17 10:11:58.377800750 +0800
++++ linux/drivers/net/geneve.c	2021-09-17 10:12:24.361685336 +0800
+@@ -891,6 +891,9 @@
+ 	__be16 sport;
+ 	int err;
+ 
++	if (!pskb_inet_may_pull(skb))
++		return -EINVAL;
++
+ 	sport = udp_flow_src_port(geneve->net, skb, 1, USHRT_MAX, true);
+ 	rt = geneve_get_v4_rt(skb, dev, gs4, &fl4, info,
+ 			      geneve->info.key.tp_dst, sport);
+@@ -954,6 +957,9 @@
+ 	__be16 sport;
+ 	int err;
+ 
++	if (!pskb_inet_may_pull(skb))
++		return -EINVAL;
++	
+ 	sport = udp_flow_src_port(geneve->net, skb, 1, USHRT_MAX, true);
+ 	dst = geneve_get_v6_dst(skb, dev, gs6, &fl6, info,
+ 				geneve->info.key.tp_dst, sport);
+diff -Naur linux_org/drivers/net/phy/broadcom.c linux/drivers/net/phy/broadcom.c
+--- linux_org/drivers/net/phy/broadcom.c	2021-09-17 10:11:58.397800702 +0800
++++ linux/drivers/net/phy/broadcom.c	2021-09-17 10:12:24.377685232 +0800
+@@ -39,6 +39,16 @@
+ 		val |= CTL1000_AS_MASTER | CTL1000_ENABLE_MASTER;
+ 		phy_write(phydev, MII_CTRL1000, val);
+ 	}
++	
++	/* select top-misc register 00h */
++	val = bcm_phy_read_exp(phydev, BCM_54210E_TOP_MISC_MII_BUF_CNTL_0);
++
++	/* Disable problematic EEE mode */
++	val &= ~BCM_54210E_AUTOGR_EEE_EN;
++	bcm_phy_write_exp(phydev, BCM_54210E_TOP_MISC_MII_BUF_CNTL_0, val);
++
++	/* restore default exp register value */
++	phy_write(phydev, MII_BCM54XX_EXP_SEL, 0);
+ 
+ 	return 0;
+ }
+@@ -213,7 +223,8 @@
+ 	/* Abort if we are using an untested phy. */
+ 	if (BRCM_PHY_MODEL(phydev) != PHY_ID_BCM57780 &&
+ 	    BRCM_PHY_MODEL(phydev) != PHY_ID_BCM50610 &&
+-	    BRCM_PHY_MODEL(phydev) != PHY_ID_BCM50610M)
++		BRCM_PHY_MODEL(phydev) != PHY_ID_BCM50610M &&
++	    BRCM_PHY_MODEL(phydev) != PHY_ID_BCM54210E)
+ 		return;
+ 
+ 	val = bcm_phy_read_shadow(phydev, BCM54XX_SHD_SCR3);
+@@ -243,8 +254,12 @@
+ 	else
+ 		val |= BCM54XX_SHD_SCR3_DLLAPD_DIS;
+ 
+-	if (phydev->dev_flags & PHY_BRCM_DIS_TXCRXC_NOENRGY)
+-		val |= BCM54XX_SHD_SCR3_TRDDAPD;
++	if (phydev->dev_flags & PHY_BRCM_DIS_TXCRXC_NOENRGY) {
++		if (BRCM_PHY_MODEL(phydev) == PHY_ID_BCM54210E)
++			val |= BCM54XX_SHD_SCR3_RXCTXC_DIS;
++		else
++			val |= BCM54XX_SHD_SCR3_TRDDAPD;
++	}
+ 
+ 	if (orig != val)
+ 		bcm_phy_write_shadow(phydev, BCM54XX_SHD_SCR3, val);
+diff -Naur linux_org/drivers/net/phy/realtek.c linux/drivers/net/phy/realtek.c
+--- linux_org/drivers/net/phy/realtek.c	2021-09-17 10:11:58.401800693 +0800
++++ linux/drivers/net/phy/realtek.c	2021-09-17 10:12:24.381685206 +0800
+@@ -547,6 +547,16 @@
+ 		.read_page	= rtl821x_read_page,
+ 		.write_page	= rtl821x_write_page,
+ 	}, {
++		PHY_ID_MATCH_EXACT(0x001cc859),
++		.name		= "RTL8211FD-VX Gigabit Ethernet",
++		.config_init	= &rtl8211f_config_init,
++		.ack_interrupt	= &rtl8211f_ack_interrupt,
++		.config_intr	= &rtl8211f_config_intr,
++		.suspend	= genphy_suspend,
++		.resume		= genphy_resume,
++		.read_page	= rtl821x_read_page,
++		.write_page	= rtl821x_write_page,
++	}, {		
+ 		.name		= "Generic FE-GE Realtek PHY",
+ 		.match_phy_device = rtlgen_match_phy_device,
+ 		.suspend	= genphy_suspend,
+diff -Naur linux_org/include/linux/brcmphy.h linux/include/linux/brcmphy.h
+--- linux_org/include/linux/brcmphy.h	2021-09-17 10:11:58.405800684 +0800
++++ linux/include/linux/brcmphy.h	2021-09-17 10:12:24.941681572 +0800
+@@ -183,6 +183,7 @@
+ #define  BCM54XX_SHD_SCR3_DEF_CLK125	0x0001
+ #define  BCM54XX_SHD_SCR3_DLLAPD_DIS	0x0002
+ #define  BCM54XX_SHD_SCR3_TRDDAPD	0x0004
++#define  BCM54XX_SHD_SCR3_RXCTXC_DIS	0x0100
+ 
+ /* 01010: Auto Power-Down */
+ #define BCM54XX_SHD_APD			0x0a
+@@ -224,6 +225,12 @@
+ #define  MII_BCM54XX_EXP_EXP97_MYST		0x0c0c
+ 
+ /*
++ * BCM54210E TOP-MISC REGISTERS
++ */
++#define BCM_54210E_TOP_MISC_MII_BUF_CNTL_0	(MII_BCM54XX_EXP_SEL_ETC + 0x0)
++#define  BCM_54210E_AUTOGR_EEE_EN		BIT(0)
++
++/*
+  * BCM5482: Secondary SerDes registers
+  */
+ #define BCM5482_SSD_1000BX_CTL		0x00	/* 1000BASE-X Control */
+diff -Naur linux_org/include/net/addrconf.h linux/include/net/addrconf.h
+--- linux_org/include/net/addrconf.h	2021-09-17 10:11:58.381800741 +0800
++++ linux/include/net/addrconf.h	2021-09-17 10:12:24.365685310 +0800
+@@ -229,7 +229,6 @@
+ void ipv6_mc_remap(struct inet6_dev *idev);
+ void ipv6_mc_init_dev(struct inet6_dev *idev);
+ void ipv6_mc_destroy_dev(struct inet6_dev *idev);
+-int ipv6_mc_check_icmpv6(struct sk_buff *skb);
+ int ipv6_mc_check_mld(struct sk_buff *skb);
+ void addrconf_dad_failure(struct sk_buff *skb, struct inet6_ifaddr *ifp);
+ 
+diff -Naur linux_org/net/bridge/br_multicast.c linux/net/bridge/br_multicast.c
+--- linux_org/net/bridge/br_multicast.c	2021-09-17 10:11:58.385800732 +0800
++++ linux/net/bridge/br_multicast.c	2021-09-17 10:12:24.369685284 +0800
+@@ -1647,25 +1647,14 @@
+ }
+ 
+ #if IS_ENABLED(CONFIG_IPV6)
+-static int br_ip6_multicast_mrd_rcv(struct net_bridge *br,
+-				    struct net_bridge_port *port,
+-				    struct sk_buff *skb)
++static void br_ip6_multicast_mrd_rcv(struct net_bridge *br,
++				     struct net_bridge_port *port,
++				     struct sk_buff *skb)
+ {
+-	int ret;
+-
+-	if (ipv6_hdr(skb)->nexthdr != IPPROTO_ICMPV6)
+-		return -ENOMSG;
+-
+-	ret = ipv6_mc_check_icmpv6(skb);
+-	if (ret < 0)
+-		return ret;
+-
+ 	if (icmp6_hdr(skb)->icmp6_type != ICMPV6_MRDISC_ADV)
+-		return -ENOMSG;
++		return;
+ 
+ 	br_multicast_mark_router(br, port);
+-
+-	return 0;
+ }
+ 
+ static int br_multicast_ipv6_rcv(struct net_bridge *br,
+@@ -1679,18 +1668,13 @@
+ 
+ 	err = ipv6_mc_check_mld(skb);
+ 
+-	if (err == -ENOMSG) {
++	if (err == -ENOMSG || err == -ENODATA) {
+ 		if (!ipv6_addr_is_ll_all_nodes(&ipv6_hdr(skb)->daddr))
+ 			BR_INPUT_SKB_CB(skb)->mrouters_only = 1;
+ 
+-		if (ipv6_addr_is_all_snoopers(&ipv6_hdr(skb)->daddr)) {
+-			err = br_ip6_multicast_mrd_rcv(br, port, skb);
+-
+-			if (err < 0 && err != -ENOMSG) {
+-				br_multicast_err_count(br, port, skb->protocol);
+-				return err;
+-			}
+-		}
++		if (err == -ENODATA &&
++		    ipv6_addr_is_all_snoopers(&ipv6_hdr(skb)->daddr))
++			br_ip6_multicast_mrd_rcv(br, port, skb);
+ 
+ 		return 0;
+ 	} else if (err < 0) {
+diff -Naur linux_org/net/core/dev.c linux/net/core/dev.c
+--- linux_org/net/core/dev.c	2021-09-17 10:11:58.369800769 +0800
++++ linux/net/core/dev.c	2021-09-17 10:12:24.353685388 +0800
+@@ -5395,7 +5395,7 @@
+ 	return head;
+ }
+ 
+-static void skb_gro_reset_offset(struct sk_buff *skb)
++static inline void skb_gro_reset_offset(struct sk_buff *skb, u32 nhoff)
+ {
+ 	const struct skb_shared_info *pinfo = skb_shinfo(skb);
+ 	const skb_frag_t *frag0 = &pinfo->frags[0];
+@@ -5406,7 +5406,8 @@
+ 
+ 	if (skb_mac_header(skb) == skb_tail_pointer(skb) &&
+ 	    pinfo->nr_frags &&
+-	    !PageHighMem(skb_frag_page(frag0))) {
++	    !PageHighMem(skb_frag_page(frag0)) &&
++		(!NET_IP_ALIGN || !((skb_frag_off(frag0) + nhoff) & 3))) {
+ 		NAPI_GRO_CB(skb)->frag0 = skb_frag_address(frag0);
+ 		NAPI_GRO_CB(skb)->frag0_len = min_t(unsigned int,
+ 						    skb_frag_size(frag0),
+@@ -5639,7 +5640,7 @@
+ 	skb_mark_napi_id(skb, napi);
+ 	trace_napi_gro_receive_entry(skb);
+ 
+-	skb_gro_reset_offset(skb);
++	skb_gro_reset_offset(skb, 0);
+ 
+ 	ret = napi_skb_finish(napi, skb, dev_gro_receive(napi, skb));
+ 	trace_napi_gro_receive_exit(ret);
+@@ -5732,7 +5733,7 @@
+ 	napi->skb = NULL;
+ 
+ 	skb_reset_mac_header(skb);
+-	skb_gro_reset_offset(skb);
++	skb_gro_reset_offset(skb, hlen);
+ 
+ 	if (unlikely(skb_gro_header_hard(skb, hlen))) {
+ 		eth = skb_gro_header_slow(skb, hlen, 0);
+diff -Naur linux_org/net/ipv4/tcp_cong.c linux/net/ipv4/tcp_cong.c
+--- linux_org/net/ipv4/tcp_cong.c	2021-09-17 10:11:58.393800713 +0800
++++ linux/net/ipv4/tcp_cong.c	2021-09-17 10:12:24.373685258 +0800
+@@ -229,6 +229,10 @@
+ 		ret = -ENOENT;
+ 	} else if (!try_module_get(ca->owner)) {
+ 		ret = -EBUSY;
++	} else if (!net_eq(net, &init_net) &&
++			!(ca->flags & TCP_CONG_NON_RESTRICTED)) {
++		/* Only init netns can set default to a restricted algorithm */
++		ret = -EPERM;		
+ 	} else {
+ 		prev = xchg(&net->ipv4.tcp_congestion_control, ca);
+ 		if (prev)
+diff -Naur linux_org/net/ipv6/mcast_snoop.c linux/net/ipv6/mcast_snoop.c
+--- linux_org/net/ipv6/mcast_snoop.c	2021-09-17 10:11:58.389800721 +0800
++++ linux/net/ipv6/mcast_snoop.c	2021-09-17 10:12:24.373685258 +0800
+@@ -88,7 +88,7 @@
+ 
+ 		len = skb_transport_offset(skb) + sizeof(struct mld2_query);
+ 		if (!ipv6_mc_may_pull(skb, len))
+-			return -EINVAL;
++			return -ENODATA;
+ 	}
+ 
+ 	mld = (struct mld_msg *)skb_transport_header(skb);
+@@ -122,7 +122,7 @@
+ 	case ICMPV6_MGM_QUERY:
+ 		return ipv6_mc_check_mld_query(skb);
+ 	default:
+-		return -ENOMSG;
++		return -ENODATA;
+ 	}
+ }
+ 
+@@ -131,7 +131,7 @@
+ 	return skb_checksum_validate(skb, IPPROTO_ICMPV6, ip6_compute_pseudo);
+ }
+ 
+-int ipv6_mc_check_icmpv6(struct sk_buff *skb)
++static int ipv6_mc_check_icmpv6(struct sk_buff *skb)
+ {
+ 	unsigned int len = skb_transport_offset(skb) + sizeof(struct icmp6hdr);
+ 	unsigned int transport_len = ipv6_transport_len(skb);
+@@ -150,7 +150,6 @@
+ 
+ 	return 0;
+ }
+-EXPORT_SYMBOL(ipv6_mc_check_icmpv6);
+ 
+ /**
+  * ipv6_mc_check_mld - checks whether this is a sane MLD packet
+@@ -161,7 +160,10 @@
+  *
+  * -EINVAL: A broken packet was detected, i.e. it violates some internet
+  *  standard
+- * -ENOMSG: IP header validation succeeded but it is not an MLD packet.
++ * -ENOMSG: IP header validation succeeded but it is not an ICMPv6 packet
++ *  with a hop-by-hop option.
++ * -ENODATA: IP+ICMPv6 header with hop-by-hop option validation succeeded
++ *  but it is not an MLD packet. 
+  * -ENOMEM: A memory allocation failure happened.
+  *
+  * Caller needs to set the skb network header and free any returned skb if it

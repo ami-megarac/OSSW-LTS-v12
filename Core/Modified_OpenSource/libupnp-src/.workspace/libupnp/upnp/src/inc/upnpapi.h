@@ -41,9 +41,7 @@
 
 
 #include "client_table.h"
-#include "upnp.h"
 #include "VirtualDir.h"		/* for struct VirtualDirCallbacks */
-
 
 #define MAX_INTERFACES 256
 
@@ -63,7 +61,12 @@ extern size_t g_maxContentLength;
 /* 30-second timeout */
 #define UPNP_TIMEOUT	30
 
-typedef enum {HND_INVALID=-1,HND_CLIENT,HND_DEVICE} Upnp_Handle_Type;
+typedef enum
+{
+	HND_INVALID = -1,
+	HND_CLIENT,
+	HND_DEVICE
+} Upnp_Handle_Type;
 
 /* Data to be stored in handle table for */
 struct Handle_Info
@@ -312,9 +315,17 @@ int PrintHandleInfo(
 	/*! [in] Handle index. */
 	UpnpClient_Handle Hnd);
 
-
+/*! */
 extern WebServerState bWebServerState;
 
+/*! */
+extern WebCallback_HostValidate gWebCallback_HostValidate;
+
+/*! */
+extern void *gWebCallback_HostValidateCookie;
+
+/*! */
+extern int gAllowLiteralHostRedirection;
 
 #endif /* UPNPAPI_H */
 

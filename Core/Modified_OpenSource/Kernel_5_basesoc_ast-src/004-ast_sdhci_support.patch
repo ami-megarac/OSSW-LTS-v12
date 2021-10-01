@@ -1,5 +1,5 @@
---- linux-5.4.41/drivers/mmc/host/Kconfig	2020-05-14 01:58:30.000000000 -0400
-+++ linux/drivers/mmc/host/Kconfig	2020-05-17 02:14:41.529330284 -0400
+--- linux-5.4.99/drivers/mmc/host/Kconfig	2021-02-17 17:35:20.000000000 +0800
++++ linux/drivers/mmc/host/Kconfig	2021-07-01 18:29:33.914615806 +0800
 @@ -909,6 +909,12 @@
  	  Say Y here to include driver code to support SD/MMC card interface
  	  of Realtek PCI-E card reader
@@ -13,8 +13,8 @@
  config MMC_REALTEK_USB
  	tristate "Realtek USB SD/MMC Card Interface Driver"
  	depends on MISC_RTSX_USB
---- linux-5.4.41/drivers/mmc/host/Makefile	2020-05-14 01:58:30.000000000 -0400
-+++ linux/drivers/mmc/host/Makefile	2020-05-17 02:16:24.005881317 -0400
+--- linux-5.4.99/drivers/mmc/host/Makefile	2021-02-17 17:35:20.000000000 +0800
++++ linux/drivers/mmc/host/Makefile	2021-07-01 18:29:51.306486769 +0800
 @@ -74,6 +74,11 @@
  obj-$(CONFIG_MMC_TOSHIBA_PCI)	+= toshsd.o
  obj-$(CONFIG_MMC_BCM2835)	+= bcm2835.o
@@ -27,9 +27,9 @@
  obj-$(CONFIG_MMC_REALTEK_PCI)	+= rtsx_pci_sdmmc.o
  obj-$(CONFIG_MMC_REALTEK_USB)	+= rtsx_usb_sdmmc.o
  
---- linux-5.4.41/drivers/mmc/host/sdhci-ast.c	2020-05-17 18:24:13.820193135 -0400
-+++ linux/drivers/mmc/host/sdhci-ast.c	2020-05-17 02:17:26.026217787 -0400
-@@ -0,0 +1,437 @@
+--- linux-5.4.99/drivers/mmc/host/sdhci-ast.c	2021-07-01 18:31:02.146000579 +0800
++++ linux/drivers/mmc/host/sdhci-ast.c	2021-07-01 19:03:26.101285878 +0800
+@@ -0,0 +1,460 @@
 +#include <linux/version.h>
 +#include <linux/delay.h>
 +#include <linux/highmem.h>
@@ -46,6 +46,7 @@
 +#include <linux/of_irq.h>
 +#include "sdhci-ast.h"
 +#include "sdhci.h"
++
 +
 +static int  ast_sd_remove(struct platform_device *pdev);
 +
@@ -80,7 +81,6 @@
 +	return AST_SD_MIN_CLOCK;
 +}
 +
-+
 +static struct sdhci_ops ast_sd_ops = {
 +	/* Define the max and min clock */
 +	.get_max_clock = ast_get_max_clk,
@@ -90,6 +90,9 @@
 +	.set_clock = sdhci_set_clock,
 +	.set_power = sdhci_set_power,
 +	.set_bus_width = sdhci_set_bus_width,
++#if defined(EMMC_8BITS)
++        .platform_bus_width = ast_platform_bus_width,
++#endif
 +	.set_uhs_signaling = sdhci_set_uhs_signaling,
 +	.adma_write_desc = sdhci_adma_write_desc,
 +	/* Remaining elements in this structure is intentionally left blank,
@@ -267,7 +270,7 @@
 +	 * not to get clock info from capability registers */
 +	host->quirks |= SDHCI_QUIRK_CAP_CLOCK_BASE_BROKEN;
 +
-+#if defined(CONFIG_SOC_AST3200)
++#if defined(SOC_AST3200)
 +	/* Added following quirks to allow write operation
 +	 * support on the SD card, with this the value
 +	 * returned by "Write protection switch pin" will
@@ -281,16 +284,20 @@
 +	host->quirks |= SDHCI_QUIRK_BROKEN_TIMEOUT_VAL;
 +#endif
 +
-+#if defined(CONFIG_SOC_AST2500) || defined(CONFIG_SOC_AST2530) || defined(CONFIG_SOC_AST3200)
++#if defined(EMMC_8BITS)
 +	/* Timeout clock frequency is not reported in
 +	 * capabilities register, so added following
 +	 * quirk to get it from other means */
 +	host->quirks |= SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK;
++
++	if((ast_sdhc_port1_enabled + ast_sdhc_port2_enabled) >= 2)
++		host->mmc->caps |= MMC_CAP_4_BIT_DATA;
++	else
++		host->mmc->caps |= MMC_CAP_8_BIT_DATA;//Start Trace From MMC 8 Bits Transfer Mode
 +#endif
 +
 +	return 0;
 +}
-+
 +static int  ast_sd_remove(struct platform_device *pdev)
 +{
 +	struct mmc_host *mmc = platform_get_drvdata(pdev);
@@ -350,11 +357,10 @@
 +
 +static int __init ast_sd_init(void)
 +{
-+	uint32_t reg;
-+	
++	uint32_t reg, i;
++
 +	/* Unlock SCU */
 +	iowrite32(SCU_UNLOCK_MAGIC, (void __iomem*)SCU_KEY_CONTROL_REG);
-+
 +	/* Enable reset of SDHC */
 +	reg = ioread32((void __iomem*)SCU_SYS_RESET_REG);
 +	reg |= SD_RESET_BIT;
@@ -403,14 +409,31 @@
 +
 +	/* Set debounce value */
 +	iowrite32(0x1000, (void __iomem*)AST_SDHC_VA_BASE + AST_SDHC_DEBOUNCE);
++	/* enable multifucntion for SDHC */	
++	if(NO_OF_SDHCS != 0)
++	{
++		reg = ioread32(SCU_MISC_MULTI_PIN5_REG);
++		for(i=1; i <= NO_OF_SDHCS; i++)
++		{
++			if(i == SDHC0)
++				reg |= AST_SCU_MULTI_PIN_SDHC0;
 +
++			if(i == SDHC1)
++				reg |= AST_SCU_MULTI_PIN_SDHC1;
++
++			if(i > SDHC1)
++				break;
++		}
++		iowrite32(reg, SCU_MISC_MULTI_PIN5_REG);		
++	}
++	mdelay(10);
 +	/* Read SCU90 to check if SD is enabled */
 +	if ((ast_scu_sdhc1_enabled == 0) && (ast_scu_sdhc2_enabled == 0))
 +	{
 +		reg = ioread32((void __iomem*)AST_SCU_VA_BASE + 0x90);
-+		if (reg & AST_SCU_MULTI_PIN_SDHC1)
++		if (reg & AST_SCU_MULTI_PIN_SDHC0)
 +			ast_scu_sdhc1_enabled = 1;
-+		if (reg & AST_SCU_MULTI_PIN_SDHC2)
++		if (reg & AST_SCU_MULTI_PIN_SDHC1)
 +			ast_scu_sdhc2_enabled = 1;
 +	}
 +
@@ -467,24 +490,36 @@
 +MODULE_AUTHOR("American Megatrends Inc.");
 +MODULE_LICENSE("GPL");
 +MODULE_DESCRIPTION("SD/MMC driver for AST SoC Board");
---- linux-5.4.41/drivers/mmc/host/sdhci-ast.h	2020-05-17 18:22:19.115454543 -0400
-+++ linux/drivers/mmc/host/sdhci-ast.h	2020-05-17 02:18:05.710434111 -0400
-@@ -0,0 +1,45 @@
+--- linux-5.4.99/drivers/mmc/host/sdhci-ast.h	2021-07-01 18:31:07.137968564 +0800
++++ linux/drivers/mmc/host/sdhci-ast.h	2021-07-01 19:13:21.650573759 +0800
+@@ -0,0 +1,57 @@
 +#ifdef CONFIG_SPX_FEATURE_MMC_OEM_PLATFORM
 +#include "../../../../../../Build/include/projdef.h"
 +#endif
++//#define EMMC_8BITS
++#define IO_BASE         0xF0000000                 // VA of IO
++#define IO_ADDRESS(x)   ((x&0x0fffffff)+IO_BASE)
 +/* AST SoC SD/MMC related register address and values */
 +
 +#define AST_SDHC_VA_BASE                IO_ADDRESS(0x1E740000)
-+
++#define SCU_UNLOCK_MAGIC                0x1688A8A8
 +#define AST_SDHC_SLOT1_ADDR             0x1E740100
 +#define AST_SDHC_SLOT2_ADDR             0x1E740200
-+
-+#define SCU_UNLOCK_MAGIC                0x1688A8A8
++#define AST_SCU_BASE                    0x1E6E2000
++#define AST_SCU_VA_BASE                 IO_ADDRESS(AST_SCU_BASE)
++#define SCU_MISC_MULTI_PIN5_REG	        (AST_SCU_VA_BASE +  0x90)
++#define AST_MDMA_BASE                   0x1E740000
++#define AST_MDMA_VA_BASE                IO_ADDRESS(AST_MDMA_BASE)
 +
 +#define SD_CLOCK_BIT                    (1 << 27)
 +#define SD_CLOCK_RUN                    (1 << 15)
 +#define SD_RESET_BIT                    (1 << 16)
++#define AST_SCU_MULTI_PIN_ENABLE_8_BITS_MODE 0x00000008 /* bit 3 */
++#define AST_SCU_MULTI_PIN_SDHC1 0x00000002 /* bit 1 */
++#define AST_SCU_MULTI_PIN_SDHC0 0x00000001 /* bit 0 */
++#define NO_OF_SDHCS		(CONFIG_SPX_FEATURE_GLOBAL_SD_SLOT_COUNT + CONFIG_SPX_FEATURE_GLOBAL_EMMC_FLASH_COUNT)	//Numbers of SDIO
++#define SDHC0			1
++#define SDHC1			2
 +
 +#define SD_CLOCK_DIVIDER_MASK           (7 << 12) /* bits[14:12] */
 +#define SD_CLOCK_DIVIDER_SELECTION      1 /* SDCLK = H-PLL / 4 */
@@ -501,8 +536,8 @@
 +#define AST_INT_STATUSEN2_REG           0x234
 +#define AST_INT_ENABLE2_REG             0x238
 +
-+#define AST_SCU_MULTI_PIN_SDHC1         0x01
-+#define AST_SCU_MULTI_PIN_SDHC2         0x02
++//#define AST_SCU_MULTI_PIN_SDHC1         0x01
++//#define AST_SCU_MULTI_PIN_SDHC2         0x02
 +
 +#define AST_SDHC_IRQ_NUM                26
 +

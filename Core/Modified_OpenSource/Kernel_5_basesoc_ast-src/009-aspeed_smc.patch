@@ -1,5 +1,5 @@
---- linux_old/drivers/mtd/spi-nor/aspeed-smc.c	2021-03-16 16:41:48.396660098 +0800
-+++ linux/drivers/mtd/spi-nor/aspeed-smc.c	2021-03-16 16:38:43.394378498 +0800
+--- linux-5.4.99/drivers/mtd/spi-nor/aspeed-smc.c	2021-02-17 17:35:20.000000000 +0800
++++ linux/drivers/mtd/spi-nor/aspeed-smc.c	2021-07-01 19:00:18.394014998 +0800
 @@ -6,6 +6,7 @@
   */
  

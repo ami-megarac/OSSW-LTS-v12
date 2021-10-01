@@ -1,5 +1,5 @@
 .. image:: https://raw.github.com/kernelsauce/turbo/master/doc/design/turbo.png
-   :target: http://turbolua.org
+   :target: https://turbo.readthedocs.io
 
 Turbo is a framework built for LuaJIT 2 to simplify the task of building fast and scalable network applications. It uses a event-driven, non-blocking, no thread design to deliver excellent performance and minimal footprint to high-load applications while also providing excellent support for embedded uses. The toolkit can be used for HTTP REST API's, traditional dynamic web pages through templating, open connections like WebSockets, or just as high level building blocks for native speed network applications.
 
@@ -9,7 +9,7 @@ Keep in mind that running this with LuaJIT provides you with roughly the speed o
 
 LuaJIT 2 is REQUIRED, PUC-RIO Lua is unsupported.
 
-API Documentation is available at http://turbolua.org, or it can be built from source with ``make html`` from /doc in the source tree.
+API Documentation is available at https://turbo.readthedocs.io, or it can be built from source with ``make html`` from /doc in the source tree.
 
 It's main features and design principles are:
 
@@ -50,7 +50,7 @@ If installation fails make sure that you have these required pacakages:
 ``apt-get install luajit luarocks git build-essential libssl-dev``
 
 For Windows run the included install.bat file.
-This will install all dependencies: Visual Studio, git, mingw, gnuwin, openssl using Chocolatey. LuaJIT, the LuaRocks package manager and Turbo will be installed at C:\turbo.lua. It will also install LuaSocket and LuaFileSystem with LuaRocks. The Windows environment will be ready to use upon success.
+This will install all dependencies: Visual Studio, git, mingw, gnuwin, openssl using Chocolatey. LuaJIT, the LuaRocks package manager and Turbo will be installed at C:\\turbo.lua. It will also install LuaSocket and LuaFileSystem with LuaRocks. The Windows environment will be ready to use upon success.
 
 Try: ``luajit C:\turbo.lua\src\turbo\examples\helloworld.lua``
 
@@ -95,7 +95,7 @@ OpenSSL is required for SSL support. It is possible to run without this feature,
 
 License
 -------
-Copyright 2011 - 2015 John Abrahamsen
+Copyright 2011 - 2016 John Abrahamsen
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.

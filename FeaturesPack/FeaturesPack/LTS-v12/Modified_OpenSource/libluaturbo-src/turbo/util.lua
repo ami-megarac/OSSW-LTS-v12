@@ -32,11 +32,10 @@ if platform.__LINUX__ and not _G.__TURBO_USE_LUASOCKET__ then
 end
 
 local util = {}
-
-
 --*************** String library extensions ***************
 
 --- Extends the standard string library with a split method.
+-- This function is deprecated in turbo 2.13 varsion. Added for backward compatibility
 function string:split(sep, max, pattern)
     assert(sep ~= '', "Separator is not a string or a empty string.")
     assert(max == nil or max >= 1, "Max is 0 or a negative number.")
@@ -59,9 +58,32 @@ function string:split(sep, max, pattern)
     return record
 end
 
--- strip white space from sides of a string
-function string:strip()
-    return self:match("^%s*(.-)%s*$")
+--- Split string into table.
+function util.strsplit(str, sep, max, pattern)
+    assert(sep ~= '', "Separator is not a string or a empty string.")
+    assert(max == nil or max >= 1, "Max is 0 or a negative number.")
+
+    local record = {}
+    if str:len() > 0 then
+        local plain = not pattern
+        max = max or -1
+        local field, start = 1, 1
+        local first, last = str:find(sep, start, plain)
+        while first and max ~= 0 do
+            record[field] = str:sub(start, first-1)
+            field = field+1
+            start = last+1
+            first, last = str:find(sep, start, plain)
+            max = max-1
+        end
+        record[field] = str:sub(start)
+    end
+    return record
+end
+
+-- Strip white space from sides of a string
+function util.strstrip(str)
+    return str:match("^%s*(.-)%s*$")
 end
 
 --- Create substring from.
@@ -69,14 +91,14 @@ end
 -- @param from From index, can be nil to indicate start.
 -- @param to To index, can be nil to indicate end.
 -- @return string
-function string:substr(from, to)
-    local len = self:len()
+function util.strsubstr(str, from, to)
+    local len = str:len()
     from = from or 0
     to = to or len
     assert(from < len, "From out of range.")
     assert(to <= len, "To out of range.")
     assert(from < to, "From greater than to.")
-    local ptr = ffi.cast("char *", self)
+    local ptr = ffi.cast("char *", str)
     return ffi.string(ptr + from, to - from)
 end
 

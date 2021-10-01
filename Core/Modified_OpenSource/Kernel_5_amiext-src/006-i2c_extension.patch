@@ -1,5 +1,5 @@
---- linux-5.4.41/drivers/i2c/i2c-core-base.c	2020-05-14 01:58:30.000000000 -0400
-+++ linux/drivers/i2c/i2c-core-base.c	2020-05-17 00:18:36.899960226 -0400
+--- linux-5.4.99/drivers/i2c/i2c-core-base.c	2021-02-17 17:35:20.000000000 +0800
++++ linux/drivers/i2c/i2c-core-base.c	2021-03-11 11:45:31.424953961 +0800
 @@ -40,6 +40,7 @@
  #include <linux/slab.h>
  
@@ -8,7 +8,7 @@
  
  #define CREATE_TRACE_POINTS
  #include <trace/events/i2c.h>
-@@ -2401,6 +2402,132 @@
+@@ -2411,6 +2412,132 @@
  }
  EXPORT_SYMBOL_GPL(i2c_put_dma_safe_msg_buf);
  
@@ -141,9 +141,9 @@
  MODULE_AUTHOR("Simon G. Vogl <simon@tk.uni-linz.ac.at>");
  MODULE_DESCRIPTION("I2C-Bus main module");
  MODULE_LICENSE("GPL");
---- linux-5.4.41/drivers/i2c/i2c-dev.c	2020-05-14 01:58:30.000000000 -0400
-+++ linux/drivers/i2c/i2c-dev.c	2020-05-17 01:18:33.593539745 -0400
-@@ -378,13 +378,37 @@
+--- linux-5.4.99/drivers/i2c/i2c-dev.c	2021-02-17 17:35:20.000000000 +0800
++++ linux/drivers/i2c/i2c-dev.c	2021-03-11 11:48:43.364635257 +0800
+@@ -380,13 +380,37 @@
  	}
  	res = i2c_smbus_xfer(client->adapter, client->addr, client->flags,
  	      read_write, command, size, &temp);
@@ -181,7 +181,7 @@
  }
  
  static long i2cdev_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
-@@ -478,12 +502,10 @@
+@@ -480,12 +504,10 @@
  		client->adapter->timeout = msecs_to_jiffies(arg * 10);
  		break;
  	default:
@@ -198,21 +198,21 @@
  	}
  	return 0;
  }
---- linux-5.4.41/drivers/i2c/Makefile	2020-05-14 01:58:30.000000000 -0400
-+++ linux/drivers/i2c/Makefile	2020-05-17 00:21:43.722609699 -0400
+--- linux-5.4.99/drivers/i2c/Makefile	2021-02-17 17:35:20.000000000 +0800
++++ linux/drivers/i2c/Makefile	2021-03-11 11:49:02.743795364 +0800
 @@ -18,3 +18,4 @@
  obj-$(CONFIG_I2C_SLAVE_EEPROM)	+= i2c-slave-eeprom.o
  
  ccflags-$(CONFIG_I2C_DEBUG_CORE) := -DDEBUG
 +ccflags-y += -DI2C_BUS_RECOVERY
---- linux-5.4.41/include/linux/i2c.h	2020-05-14 01:58:30.000000000 -0400
-+++ linux/include/linux/i2c.h	2020-05-17 00:30:27.486604663 -0400
+--- linux-5.4.99/include/linux/i2c.h	2021-02-17 17:35:20.000000000 +0800
++++ linux/include/linux/i2c.h	2021-03-11 11:51:29.565432105 +0800
 @@ -21,6 +21,10 @@
  #include <linux/swab.h>		/* for swab16 */
  #include <uapi/linux/i2c.h>
  
 +
-+#define MAX_IPMB_MSG_SIZE  128
++#define MAX_IPMB_MSG_SIZE  136
 +#define MAX_I2C_ADAPTERS   16
 +
  extern struct bus_type i2c_bus_type;
@@ -289,8 +289,8 @@
 +/**************************************************/
 +
  #endif /* _LINUX_I2C_H */
---- linux-5.4.41/include/uapi/linux/i2c-dev.h	2020-05-14 01:58:30.000000000 -0400
-+++ linux/include/uapi/linux/i2c-dev.h	2020-05-17 00:32:52.771959910 -0400
+--- linux-5.4.99/include/uapi/linux/i2c-dev.h	2021-02-17 17:35:20.000000000 +0800
++++ linux/include/uapi/linux/i2c-dev.h	2021-03-11 11:43:33.654058228 +0800
 @@ -53,6 +53,26 @@
  #define I2C_SMBUS	0x0720	/* SMBus transfer */
  
@@ -318,8 +318,8 @@
  /* This is the structure as used in the I2C_SMBUS ioctl call */
  struct i2c_smbus_ioctl_data {
  	__u8 read_write;
---- linux-5.4.41/include/uapi/linux/i2c.h	2020-05-14 01:58:30.000000000 -0400
-+++ linux/include/uapi/linux/i2c.h	2020-05-17 00:35:26.078954516 -0400
+--- linux-5.4.99/include/uapi/linux/i2c.h	2021-02-17 17:35:20.000000000 +0800
++++ linux/include/uapi/linux/i2c.h	2021-03-11 11:43:48.709405716 +0800
 @@ -131,7 +131,9 @@
  /*
   * Data for SMBus Messages

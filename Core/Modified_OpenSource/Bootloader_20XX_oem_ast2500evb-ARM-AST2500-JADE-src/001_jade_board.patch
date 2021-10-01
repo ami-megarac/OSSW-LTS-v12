@@ -80,17 +80,9 @@
  
  int dram_init(void)
  {
---- uboot/common/board_r.c	2019-07-23 08:27:53.000000000 +0530
-+++ uboot_new/common/board_r.c	2020-07-29 13:22:29.026124775 +0530
-@@ -559,6 +559,7 @@
- 	debug("Reset Ethernet PHY\n");
- 	reset_phy();
- #endif
-+	*((volatile ulong*) 0x1e6e2000) = 0;
- 	return 0;
- }
- #endif
-@@ -764,9 +765,9 @@
+--- uboot/common/board_r.c	2021-07-26 14:57:17.704302168 +0530
++++ uboot_new/common/board_r.c	2021-07-27 18:11:03.180538822 +0530
+@@ -766,13 +766,12 @@
  #ifdef CONFIG_ARCH_MISC_INIT
  	arch_misc_init,		/* miscellaneous arch-dependent init */
  #endif
@@ -99,6 +91,11 @@
  	misc_init_r,		/* miscellaneous platform-dependent init */
 -#endif
 +//#endif
+        misc_init_oem,
  	INIT_FUNC_WATCHDOG_RESET
  #ifdef CONFIG_CMD_KGDB
- 	initr_kgdb,
+-	initr_kgdb,
+ #endif
+ 	interrupt_init,
+ #ifdef CONFIG_ARM
+

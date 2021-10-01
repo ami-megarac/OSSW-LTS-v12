@@ -140,20 +140,10 @@ static EPECIStatus HW_peci_issue_cmd(unsigned int cmd, char* cmdPtr,
 static EPECIStatus HW_peci_issue_cmd(unsigned int cmd, char* cmdPtr,
                                      int peci_fd, int retry)
 {
-    peci_cmd_t *PECICmd = (peci_cmd_t *)cmdPtr;
-    int Idx = 0;
-
     if (cmdPtr == NULL)
     {
         return PECI_CC_INVALID_REQ;
     }
-
-    fprintf(stderr, "Cmd: 0x%x, PECI request: 0x%x (0x%x 0x%x) 0x%x 0x%x ", cmd, PECICmd->target, PECICmd->dev_id, PECICmd->domain, PECICmd->write_len, PECICmd->read_len);
-    for(Idx = 0; Idx < PECICmd->write_len; Idx++)
-    {
-        fprintf(stderr, "0x%x ", PECICmd->write_buffer[Idx]);
-    }
-    fprintf(stderr, "\n\n");
 
     if (retry == 1)
     {
@@ -170,13 +160,6 @@ static EPECIStatus HW_peci_issue_cmd(unsigned int cmd, char* cmdPtr,
         }
     }
 
-
-    fprintf(stderr, "PECI response: ");
-    for(Idx = 0; Idx < PECICmd->read_len; Idx++)
-    {
-        fprintf(stderr, "0x%x ", PECICmd->read_buffer[Idx]);
-    }
-    fprintf(stderr, "\n\n");
 
     return PECI_CC_SUCCESS;
 }
@@ -275,7 +258,7 @@ EPECIStatus peci_Ping(uint8_t target)
  *------------------------------------------------------------------------*/
 EPECIStatus peci_Ping_seq(uint8_t target, int peci_fd)
 {
-    EPECIStatus ret;
+    EPECIStatus ret = PECI_CC_SUCCESS;
 #ifndef SPX_BMC_ACD
     struct peci_ping_msg cmd;
 
@@ -290,7 +273,11 @@ EPECIStatus peci_Ping_seq(uint8_t target, int peci_fd)
     PECICmd.domain = PECI_DOMAIN;
     PECICmd.target = target;
 
-    ret = HW_peci_issue_cmd(PECI_CMD_PING, (char*)&PECICmd, peci_fd, false);
+    HW_peci_issue_cmd(PECI_CMD_PING, (char*)&PECICmd, peci_fd, false);
+    if (PECICmd.status < 0)
+    {
+        ret = PECI_CC_DRIVER_ERR;
+    }
 #endif
 
     return ret;

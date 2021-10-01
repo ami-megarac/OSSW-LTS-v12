@@ -1,0 +1,29 @@
+diff -Naur uboot_org/drivers/net/phy/realtek.c uboot/drivers/net/phy/realtek.c
+--- uboot_org/drivers/net/phy/realtek.c	2021-09-17 10:05:25.636959465 +0800
++++ uboot/drivers/net/phy/realtek.c	2021-09-17 10:04:48.039082548 +0800
+@@ -378,11 +378,25 @@
+ 	.writeext = &rtl8211f_phy_extwrite,
+ };
+ 
++/* Support for RTL8211FD-VX PHY */
++static struct phy_driver RTL8211FD_VX_driver = {
++	.name = "RealTek RTL8211FD-VX",
++	.uid = 0x1cc859,
++	.mask = 0xffffff,
++	.features = PHY_GBIT_FEATURES,
++	.config = &rtl8211f_config,
++	.startup = &rtl8211f_startup,
++	.shutdown = &genphy_shutdown,
++	.readext = &rtl8211f_phy_extread,
++	.writeext = &rtl8211f_phy_extwrite,
++};
++
+ int phy_realtek_init(void)
+ {
+ 	phy_register(&RTL8211B_driver);
+ 	phy_register(&RTL8211E_driver);
+ 	phy_register(&RTL8211F_driver);
++	phy_register(&RTL8211FD_VX_driver);
+ 	phy_register(&RTL8211DN_driver);
+ 
+ 	return 0;

@@ -1305,6 +1305,7 @@ static int ast_usbhub_get_string_desc(struct usb_string *table, int id, uint8_t 
 	int i;
 	int len;
 	char *s;
+	uint8_t *ptr = NULL;
 
 	/* descriptor 0 has the language id */
 	if (id == 0) {
@@ -1331,7 +1332,16 @@ static int ast_usbhub_get_string_desc(struct usb_string *table, int id, uint8_t 
 
 	buf [0] = 2 + len;
 	buf [1] = USB_DT_STRING;
-
+		/* ASPEED RECOMMENDATION:
+CPU write memory has longer latency and there are many stages of internal pipeline and FIFO.So when all memory write data are out of CPU, then CPU will write AHB to update USB controller.It is possible that USB received the CPU command and start DMA to fetch data, but the CPU write still in buffer and not all flushed to DRAM.
+Then the USB DMA may fetch old data from DRAM.
+Doing dummy read after memcpy() can hold the AHB command until CPU write data are all flush to DRAM. */
+	ptr = (uint8_t *)buf;
+	if(len > 3)
+		TDBG_FLAGGED(ast_usbhub_debug_flags, AST_USBHUB_DEBUG_SETUP, "%x %x %x\n",
+				ptr[len - 1],
+				ptr[len - 2],
+				ptr[len - 3]);
 	return buf[0];
 }
 

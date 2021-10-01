@@ -257,6 +257,10 @@ int as_i2c_bus_recovery(struct i2c_adapter *i2c_adap)
 	if (m_bus_recovery_info[i2c_adap->nr].enable_recovery == DISABLE_RECOVERY)
 		return -ENOSYS;
 
+	if(i2c_wait_for_bus_free(i2c_adap->nr) == 1)
+	{
+		return -ENOSYS;
+	}
 	return i2c_bus_recovery(i2c_adap->nr);
 }
 

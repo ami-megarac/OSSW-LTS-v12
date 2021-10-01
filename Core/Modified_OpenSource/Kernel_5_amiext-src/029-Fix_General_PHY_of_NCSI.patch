@@ -1,7 +1,6 @@
-diff -Naur linux_org/drivers/net/ethernet/faraday/ftgmac100.c linux/drivers/net/ethernet/faraday/ftgmac100.c
---- linux_org/drivers/net/ethernet/faraday/ftgmac100.c	2020-06-08 18:23:28.105313493 +0800
-+++ linux/drivers/net/ethernet/faraday/ftgmac100.c	2020-06-08 18:26:42.590878616 +0800
-@@ -24,8 +24,9 @@
+--- linux-5.4.99/drivers/net/ethernet/faraday/ftgmac100.c	2021-02-17 17:35:20.000000000 +0800
++++ linux/drivers/net/ethernet/faraday/ftgmac100.c	2021-07-01 16:32:03.367218949 +0800
+@@ -25,8 +25,9 @@
  #include <linux/if_vlan.h>
  #include <linux/of_net.h>
  #include <net/ip.h>
@@ -12,7 +11,16 @@ diff -Naur linux_org/drivers/net/ethernet/faraday/ftgmac100.c linux/drivers/net/
  #include "ftgmac100.h"
  
  #define DRV_NAME	"ftgmac100"
-@@ -1480,17 +1481,21 @@
+@@ -51,6 +52,8 @@
+ #define FTGMAC_100MHZ		100000000
+ #define FTGMAC_25MHZ		25000000
+ 
++long unsigned int ftgmac100_mac_register[4] = {0x1e660000, 0x1e680000, 0x1e670000, 0x1e690000};
++
+ struct ftgmac100 {
+ 	/* Registers */
+ 	struct resource *res;
+@@ -1480,17 +1483,21 @@
  		/* If using NC-SI, set our carrier on and start the stack */
  		netif_carrier_on(netdev);
  
@@ -35,7 +43,7 @@ diff -Naur linux_org/drivers/net/ethernet/faraday/ftgmac100.c linux/drivers/net/
   err_alloc:
  	ftgmac100_free_buffers(priv);
  	free_irq(netdev->irq, netdev);
-@@ -1522,9 +1527,10 @@
+@@ -1522,9 +1529,10 @@
  	netif_napi_del(&priv->napi);
  	if (netdev->phydev)
  		phy_stop(netdev->phydev);
@@ -47,7 +55,7 @@ diff -Naur linux_org/drivers/net/ethernet/faraday/ftgmac100.c linux/drivers/net/
  	ftgmac100_stop_hw(priv);
  	free_irq(netdev->irq, netdev);
  	ftgmac100_free_buffers(priv);
-@@ -1601,8 +1607,10 @@
+@@ -1601,8 +1609,10 @@
  #ifdef CONFIG_NET_POLL_CONTROLLER
  	.ndo_poll_controller	= ftgmac100_poll_controller,
  #endif
@@ -58,7 +66,7 @@ diff -Naur linux_org/drivers/net/ethernet/faraday/ftgmac100.c linux/drivers/net/
  };
  
  static int ftgmac100_setup_mdio(struct net_device *netdev)
-@@ -1702,7 +1710,7 @@
+@@ -1707,7 +1717,7 @@
  	mdiobus_unregister(priv->mii_bus);
  	mdiobus_free(priv->mii_bus);
  }
@@ -67,7 +75,7 @@ diff -Naur linux_org/drivers/net/ethernet/faraday/ftgmac100.c linux/drivers/net/
  static void ftgmac100_ncsi_handler(struct ncsi_dev *nd)
  {
  	if (unlikely(nd->state != ncsi_dev_state_functional))
-@@ -1711,7 +1719,7 @@
+@@ -1716,7 +1726,7 @@
  	netdev_dbg(nd->dev, "NCSI interface %s\n",
  		   nd->link_up ? "up" : "down");
  }
@@ -76,7 +84,17 @@ diff -Naur linux_org/drivers/net/ethernet/faraday/ftgmac100.c linux/drivers/net/
  static void ftgmac100_setup_clk(struct ftgmac100 *priv)
  {
  	priv->clk = devm_clk_get(priv->dev, NULL);
-@@ -1806,6 +1814,7 @@
+@@ -1740,7 +1750,8 @@
+ 	struct net_device *netdev;
+ 	struct ftgmac100 *priv;
+ 	struct device_node *np;
+-	int err = 0;
++	int err = 0, index = 0;
++	long unsigned int register_addr = 0;
+ 
+ 	if (!pdev)
+ 		return -ENODEV;
+@@ -1817,6 +1828,7 @@
  		priv->txdes0_edotr_mask = BIT(15);
  	}
  
@@ -84,26 +102,50 @@ diff -Naur linux_org/drivers/net/ethernet/faraday/ftgmac100.c linux/drivers/net/
  	if (np && of_get_property(np, "use-ncsi", NULL)) {
  		if (!IS_ENABLED(CONFIG_NET_NCSI)) {
  			dev_err(&pdev->dev, "NCSI stack not enabled\n");
-@@ -1823,7 +1832,17 @@
+@@ -1856,6 +1868,42 @@
  		if (err)
  			goto err_setup_mdio;
  	}
--
 +#endif
 +	
-+	priv->use_ncsi = false;
-+	err = ftgmac100_setup_mdio(netdev);
-+	if (err)
-+	{
-+		//Enable interface for NCSI usage
-+		dev_info(&pdev->dev, "Using NCSI interface\n");
-+		priv->use_ncsi = true;
++	if (np && of_get_property(np, "fixed-link", NULL)){
++		struct phy_device *phy;
++
++		phy = of_phy_get_and_connect(priv->netdev, np,
++					     &ftgmac100_adjust_link);
++		if (!phy) {
++			dev_err(&pdev->dev, "Failed to connect to phy\n");
++			goto err_setup_mdio;
++		}
++
++		/* Indicate that we support PAUSE frames (see comment in
++		 * Documentation/networking/phy.txt)
++		 */
++		phy_support_asym_pause(phy);
++
++		/* Display what we found */
++		phy_attached_info(phy);
++	}else{
++		priv->use_ncsi = false;
++#ifdef CONFIG_SPX_FEATURE_NCSI_DEFAULT_INTERFACE
++		sscanf(CONFIG_SPX_FEATURE_NCSI_DEFAULT_INTERFACE, "eth%d", &index);
++		sscanf(pdev->name, "%lx.ethernet", &register_addr);
++		if (ftgmac100_mac_register[index] == register_addr) {
++			//Enable interface for NCSI usage
++			dev_info(&pdev->dev, "Using NCSI interface\n");
++			priv->use_ncsi = true;
++		}else 
++#endif
++		{
++			err = ftgmac100_setup_mdio(netdev);
++			if (err)
++				goto err_setup_mdio;
++		}
 +	}
-+	
+ 
  	if (priv->is_aspeed)
  		ftgmac100_setup_clk(priv);
- 
-@@ -1835,10 +1854,10 @@
+@@ -1868,15 +1916,29 @@
  	netdev->hw_features = NETIF_F_RXCSUM | NETIF_F_HW_CSUM |
  		NETIF_F_GRO | NETIF_F_SG | NETIF_F_HW_VLAN_CTAG_RX |
  		NETIF_F_HW_VLAN_CTAG_TX;
@@ -116,18 +158,47 @@ diff -Naur linux_org/drivers/net/ethernet/faraday/ftgmac100.c linux/drivers/net/
  	/* AST2400  doesn't have working HW checksum generation */
  	if (np && (of_device_is_compatible(np, "aspeed,ast2400-mac")))
  		netdev->hw_features &= ~NETIF_F_HW_CSUM;
-@@ -1857,10 +1876,14 @@
++
++	/* AST2500 doesn't have working HW checksum generation for IPV6
++	*       * but it works for IPV4, so disabling hw checksum and enabling
++	*               * it for only IPV4.
++	*               */
++	if (np && (of_device_is_compatible(np, "aspeed,ast2500-mac")))
++	{
++		netdev->hw_features &= ~NETIF_F_HW_CSUM;
++		netdev->hw_features |= NETIF_F_IP_CSUM;
++	}           
++
+ 	if (np && of_get_property(np, "no-hw-checksum", NULL))
+-		netdev->hw_features &= ~(NETIF_F_HW_CSUM | NETIF_F_RXCSUM);
++		netdev->hw_features &= ~(NETIF_F_HW_CSUM |
++				NETIF_F_RXCSUM
++					| NETIF_F_IP_CSUM);
++
+ 	netdev->features |= netdev->hw_features;
+ 
+ 	/* register network device */
+@@ -1890,9 +1938,11 @@
  
  	return 0;
  
 +#if 0 //Marked for ignore open source NCSI 
  err_ncsi_dev:
+ 	if (priv->ndev)
+ 		ncsi_unregister_dev(priv->ndev);
 +#endif
  err_register_netdev:
  	ftgmac100_destroy_mdio(netdev);
-+#if 0 //Marked for ignore open source NCSI 
  err_setup_mdio:
+@@ -1913,9 +1976,11 @@
+ 	netdev = platform_get_drvdata(pdev);
+ 	priv = netdev_priv(netdev);
+ 
++#if 0 //Marked for ignore open source NCSI
+ 	if (priv->ndev)
+ 		ncsi_unregister_dev(priv->ndev);
+ 	unregister_netdev(netdev);
 +#endif
- 	iounmap(priv->base);
- err_ioremap:
- 	release_resource(priv->res);
+ 
+ 	clk_disable_unprepare(priv->clk);
+ 

@@ -1,5 +1,5 @@
---- linux-5.4.41/drivers/mtd/fmh/crc32.h	2020-05-17 16:52:58.300021872 -0400
-+++ linux/drivers/mtd/fmh/crc32.h	2020-05-16 22:44:47.903637534 -0400
+--- linux-5.4.99/drivers/mtd/fmh/crc32.h	2021-03-11 10:37:38.766372599 +0800
++++ linux/drivers/mtd/fmh/crc32.h	2021-03-10 15:16:44.337540600 +0800
 @@ -0,0 +1,74 @@
 +#ifndef AMI_CRC32_H
 +#define AMI_CRC32_H
@@ -75,8 +75,8 @@
 +};
 +
 +#endif
---- linux-5.4.41/drivers/mtd/fmh/fmhcore.c	2020-05-17 16:53:23.960168003 -0400
-+++ linux/drivers/mtd/fmh/fmhcore.c	2020-05-16 22:44:55.595682464 -0400
+--- linux-5.4.99/drivers/mtd/fmh/fmhcore.c	2021-03-11 10:37:42.950184138 +0800
++++ linux/drivers/mtd/fmh/fmhcore.c	2021-03-10 15:16:44.337540600 +0800
 @@ -0,0 +1,199 @@
 +#ifndef __KERNEL__
 +# include <stdio.h>
@@ -277,8 +277,8 @@
 +	return;
 +}
 +
---- linux-5.4.41/drivers/mtd/fmh/fmh.h	2020-05-17 16:57:17.245496855 -0400
-+++ linux/drivers/mtd/fmh/fmh.h	2020-05-16 22:45:04.839736463 -0400
+--- linux-5.4.99/drivers/mtd/fmh/fmh.h	2021-03-11 10:38:29.088109733 +0800
++++ linux/drivers/mtd/fmh/fmh.h	2021-03-10 15:16:44.337540600 +0800
 @@ -0,0 +1,141 @@
 +#ifndef __AMI_FMH_H__
 +#define __AMI_FMH_H__
@@ -421,21 +421,21 @@
 +void DoCRC32(UINT32 *crc32, unsigned char Data);
 +void EndCRC32(UINT32 *crc32);
 +#endif	
---- linux-5.4.41/drivers/mtd/fmh/Kconfig	2020-05-17 16:58:28.029840823 -0400
-+++ linux/drivers/mtd/fmh/Kconfig	2020-05-16 22:46:53.388370586 -0400
+--- linux-5.4.99/drivers/mtd/fmh/Kconfig	2021-03-11 10:39:11.410212725 +0800
++++ linux/drivers/mtd/fmh/Kconfig	2021-03-10 15:16:44.337540600 +0800
 @@ -0,0 +1,5 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +config MTD_FMHCORE
 +	bool
 +	help
 +	  SPX FMH is a dyanmic parition scheme. This is the parser 
---- linux-5.4.41/drivers/mtd/fmh/Makefile	2020-05-17 16:58:31.857859628 -0400
-+++ linux/drivers/mtd/fmh/Makefile	2020-05-16 22:46:40.856297372 -0400
+--- linux-5.4.99/drivers/mtd/fmh/Makefile	2021-03-11 10:39:29.289412905 +0800
++++ linux/drivers/mtd/fmh/Makefile	2021-03-10 15:16:44.337540600 +0800
 @@ -0,0 +1,2 @@
 +# SPDX-License-Identifier: GPL-2.0-only
 +obj-$(CONFIG_MTD_FMHCORE)    		+= fmhcore.o
---- linux-5.4.41/drivers/mtd/Kconfig	2020-05-14 01:58:30.000000000 -0400
-+++ linux/drivers/mtd/Kconfig	2020-05-16 22:49:14.469194880 -0400
+--- linux-5.4.99/drivers/mtd/Kconfig	2021-02-17 17:35:20.000000000 +0800
++++ linux/drivers/mtd/Kconfig	2021-03-11 10:34:43.394332707 +0800
 @@ -195,6 +195,8 @@
  
  source "drivers/mtd/chips/Kconfig"
@@ -445,8 +445,8 @@
  source "drivers/mtd/maps/Kconfig"
  
  source "drivers/mtd/devices/Kconfig"
---- linux-5.4.41/drivers/mtd/Makefile	2020-05-14 01:58:30.000000000 -0400
-+++ linux/drivers/mtd/Makefile	2020-05-16 22:50:32.301649683 -0400
+--- linux-5.4.99/drivers/mtd/Makefile	2021-02-17 17:35:20.000000000 +0800
++++ linux/drivers/mtd/Makefile	2021-03-11 10:35:18.696719881 +0800
 @@ -26,6 +26,7 @@
  inftl-objs		:= inftlcore.o inftlmount.o
  

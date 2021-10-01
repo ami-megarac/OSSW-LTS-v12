@@ -1,5 +1,5 @@
---- linux-5.4.41/arch/arm/include/mach/hardware.h	2020-05-17 18:10:03.006305882 -0400
-+++ linux/arch/arm/include/mach/hardware.h	2020-05-17 01:58:01.191739960 -0400
+--- linux-5.4.99/arch/arm/include/mach/hardware.h	2021-07-01 18:07:47.851260646 +0800
++++ linux/arch/arm/include/mach/hardware.h	2021-07-01 17:23:47.238223700 +0800
 @@ -0,0 +1,47 @@
 +/*
 + *  linux/include/asm-arm/arch-ast3100evb/hardware.h
@@ -48,9 +48,9 @@
 +#define PCIMEM_BASE		0xf0000000
 +
 +#endif
---- linux-5.4.41/arch/arm/include/mach/hwmap.h	2020-05-17 18:10:07.502340988 -0400
-+++ linux/arch/arm/include/mach/hwmap.h	2020-05-17 01:59:38.960299723 -0400
-@@ -0,0 +1,551 @@
+--- linux-5.4.99/arch/arm/include/mach/hwmap.h	2021-07-01 18:07:59.999239140 +0800
++++ linux/arch/arm/include/mach/hwmap.h	2021-07-01 17:23:47.314223900 +0800
+@@ -0,0 +1,553 @@
 +/*
 + *  This file contains the AST SOC Register Base, IRQ and DMA  mappings
 + *
@@ -95,7 +95,7 @@
 +#define AST_MAC3_BASE                  0x1E670000    /* ???? */
 +#define AST_MAC4_BASE                  0x1E690000	 /* ???? */
 +#define AST_USB20_BASE                 0x1E6A0000
-+#if defined(CONFIG_SOC_AST3200) || defined(CONFIG_SOC_AST2500) || defined(CONFIG_SOC_AST2530)
++#if defined(SOC_AST3200) || defined(SOC_AST2500) || defined(SOC_AST2530)
 +#define AST_USB20_1_BASE               0x1E6A1000	/* Only in AST3200 and maybe in AST2500 too */
 +#define AST_USB20_2_BASE               0x1E6A3000	/* Only in AST3200 and maybe in AST2500 too */
 +#endif
@@ -113,7 +113,7 @@
 +#define AST_PS2_BASE                   0x1E6EA000    /* AST3100 Specific */
 +#define AST_RFX_BASE                   0x1E6EB000    /* AST3100 Specific */
 +#define AST_LPC_PLUS_BASE              0x1E6EC000	 /* Not in AST3100   */
-+#if defined(CONFIG_SOC_AST3200) || defined(CONFIG_SOC_AST2500) || defined(CONFIG_SOC_AST2530)
++#if defined(SOC_AST3200) || defined(SOC_AST2500) || defined(SOC_AST2530)
 +#define AST_PCIE_BASE                  0x1E6ED000
 +#define AST_P2X_BASE                   0x1E6F0000	/* P2X Bridge  */
 +#define AST_PCIE_WIN_BASE              0x70000000	/* PCIe Host Bus Bridge */
@@ -142,7 +142,7 @@
 +#define AST_UART3_BASE                 0x1E78E000
 +#define AST_UART4_BASE                 0x1E78F000
 +#define AST_PCIARBITER_BASE            0x1E78C000
-+#if defined(CONFIG_SOC_AST2530)
++#if defined(SOC_AST2530)
 +#define AST_UART6_BASE                 0x1E790000
 +#define AST_UART7_BASE                 0x1E791000
 +#define AST_UART8_BASE                 0x1E792000
@@ -152,10 +152,10 @@
 +#define AST_UART12_BASE                0x1E796000
 +#define AST_UART13_BASE                0x1E797000
 +#endif
-+#if defined(CONFIG_SOC_AST2500) || defined(CONFIG_SOC_AST2530)
++#if defined(SOC_AST2500) || defined(SOC_AST2530)
 +#define AST_UART_UDMA_BASE             0x1E79E000
 +#endif
-+#ifdef CONFIG_SOC_AST3200
++#ifdef SOC_AST3200
 +#define AST_H264_BASE                  0x1E7C0000
 +#endif
 +
@@ -172,7 +172,7 @@
 +#define AST_MAC3_VA_BASE                IO_ADDRESS(AST_MAC3_BASE)
 +#define AST_MAC4_VA_BASE                IO_ADDRESS(AST_MAC4_BASE)
 +#define AST_USB20_VA_BASE               IO_ADDRESS(AST_USB20_BASE)
-+#if defined(CONFIG_SOC_AST3200) || defined(CONFIG_SOC_AST2500) || defined(CONFIG_SOC_AST2530)
++#if defined(SOC_AST3200) || defined(SOC_AST2500) || defined(SOC_AST2530)
 +#define AST_USB20_1_VA_BASE             IO_ADDRESS(AST_USB20_1_BASE)
 +#define AST_USB20_2_VA_BASE             IO_ADDRESS(AST_USB20_2_BASE)
 +#endif
@@ -190,8 +190,8 @@
 +#define AST_ADC_VA_BASE                 IO_ADDRESS(AST_ADC_BASE)
 +#define AST_PS2_VA_BASE                 IO_ADDRESS(AST_PS2_BASE)
 +#define AST_RFX_VA_BASE                 IO_ADDRESS(AST_RFX_BASE)
-+#if defined(CONFIG_SOC_AST3200) || defined(CONFIG_SOC_AST2500) || defined(CONFIG_SOC_AST2530)
-+#ifdef CONFIG_SOC_AST3200
++#if defined(SOC_AST3200) || defined(SOC_AST2500) || defined(SOC_AST2530)
++#ifdef SOC_AST3200
 +#define AST_H264_VA_BASE                IO_ADDRESS(AST_H264_BASE)
 +#endif
 +#define AST_PCIE_VA_BASE                IO_ADDRESS(AST_PCIE_BASE)
@@ -219,7 +219,7 @@
 +#define AST_I2C_VA_BASE                 IO_ADDRESS(AST_I2C_BASE)
 +#define AST_PECI_VA_BASE                IO_ADDRESS(AST_PECI_BASE)
 +#define AST_PCIARBITER_VA_BASE          IO_ADDRESS(AST_PCIARBITER_BASE)
-+#if defined(CONFIG_SOC_AST2530)
++#if defined(SOC_AST2530)
 +#define AST_UART6_VA_BASE               IO_ADDRESS(AST_UART6_BASE)
 +#define AST_UART7_VA_BASE               IO_ADDRESS(AST_UART7_BASE)
 +#define AST_UART8_VA_BASE               IO_ADDRESS(AST_UART8_BASE)
@@ -229,7 +229,7 @@
 +#define AST_UART12_VA_BASE              IO_ADDRESS(AST_UART12_BASE)
 +#define AST_UART13_VA_BASE              IO_ADDRESS(AST_UART13_BASE)
 +#endif
-+#if defined(CONFIG_SOC_AST2500) || defined(CONFIG_SOC_AST2530)
++#if defined(SOC_AST2500) || defined(SOC_AST2530)
 +#define AST_UART_UDMA_VA_BASE           IO_ADDRESS(AST_UART_UDMA_BASE)
 +#endif
 +
@@ -237,17 +237,18 @@
 +/*****************************************************************
 +                     IRQ Assignment
 +*****************************************************************/
-+#ifdef CONFIG_SOC_AST2300
++#ifdef SOC_AST2300
 +#define NR_IRQS                         46
 +#define MAXIRQNUM                       45
 +#endif
 +
-+#if defined(CONFIG_SOC_AST2400) || defined(CONFIG_SOC_AST1250) 
++#if defined(SOC_AST2400) || defined(SOC_AST1250) 
 +#define NR_IRQS                			51	
 +#define MAXIRQNUM           			50
 +#endif
 +
-+#if defined(CONFIG_SOC_AST2500) || defined(CONFIG_SOC_AST2530)
++#if 0 // redundant macro definition here
++#if defined(SOC_AST2500) || defined(SOC_AST2530)
 +#ifdef CONFIG_PCIE_AST
 +#define AST_VIC_NUM						64
 +//#define NR_IRQS                			AST_VIC_NUM + ARCH_NR_PCIE
@@ -258,13 +259,14 @@
 +#define MAXIRQNUM           			63
 +#endif
 +#endif
++#endif
 +
-+#ifdef CONFIG_SOC_AST3100
++#ifdef SOC_AST3100
 +#define NR_IRQS                			51
 +#define MAXIRQNUM           			50
 +#endif
 +
-+#ifdef CONFIG_SOC_AST3200
++#ifdef SOC_AST3200
 +#define AST_VIC_NUM						64
 +#define NR_IRQS                			AST_VIC_NUM + ARCH_NR_PCIE
 +#define MAXIRQNUM           			(AST_VIC_NUM + ARCH_NR_PCIE - 1)
@@ -330,7 +332,7 @@
 +#define IRQ_I2C                12
 +#define IRQMASK_I2C            (1 << IRQ_I2C)
 +
-+#if defined(CONFIG_SOC_AST3200) || defined(CONFIG_SOC_AST2500) || defined(CONFIG_SOC_AST2530)
++#if defined(SOC_AST3200) || defined(SOC_AST2500) || defined(SOC_AST2530)
 +#define IRQ_USB20_2            13 			
 +#define IRQMASK_USB20_2        (1 << IRQ_USB20_2)
 +#else
@@ -393,7 +395,7 @@
 +#define IRQ_SGPIO_MASTER       40
 +#define IRQMASK_SGPIO_MASTER   (1 << (IRQ_SGPIO_MASTER - BW_CMP_NR_IRQS))
 +
-+#ifndef CONFIG_SOC_AST3200
++#ifndef SOC_AST3200
 +#define IRQ_SGPIO_SLAVE        41
 +#define IRQMASK_SGPIO_SLAVE    (1 << (IRQ_SGPIO_SLAVE - BW_CMP_NR_IRQS))
 +#else
@@ -415,7 +417,7 @@
 +#define IRQMASK_SOFT_INTR      (1 << (IRQ_SOFT_INTR - BW_CMP_NR_IRQS))
 +#define IRQ_MAIL_BOX           46
 +#define IRQMASK_MAIL_BOX       (1 << (IRQ_MAIL_BOX - BW_CMP_NR_IRQS))
-+#if defined(CONFIG_SOC_AST2500) || defined(CONFIG_SOC_AST2530)
++#if defined(SOC_AST2500) || defined(SOC_AST2530)
 +#define IRQ_AHBC               47
 +#define IRQMASK_AHBC           (1 << (IRQ_AHBC - BW_CMP_NR_IRQS))
 +#define IRQ_GPIO_L1            48
@@ -433,7 +435,7 @@
 +#define IRQ_UART_UDMA_INT      50
 +#define IRQMASK_UART_UDMA_INT  (1 << (IRQ_UART_UDMA_INT - BW_CMP_NR_IRQS))
 +
-+#if defined(CONFIG_SOC_AST2500) || defined(CONFIG_SOC_AST2530)
++#if defined(SOC_AST2500) || defined(SOC_AST2530)
 +#define IRQ_UARTINT5           51
 +#define IRQMASK_UARTINT5       (1 << (IRQ_UARTINT5 - BW_CMP_NR_IRQS))
 +#define IRQ_UARTINT6           52
@@ -454,8 +456,8 @@
 +#define IRQMASK_SPI_INT        (1 << (IRQ_SPI_INT   - BW_CMP_NR_IRQS))
 +#endif
 +
-+#if defined(CONFIG_SOC_AST3200) || defined(CONFIG_SOC_AST2500) || defined(CONFIG_SOC_AST2530)
-+#ifdef CONFIG_SOC_AST3200
++#if defined(SOC_AST3200) || defined(SOC_AST2500) || defined(SOC_AST2530)
++#ifdef SOC_AST3200
 +#define IRQ_H264               61
 +#define IRQMASK_H264           (1 << (IRQ_H264 - BW_CMP_NR_IRQS))
 +
@@ -468,7 +470,7 @@
 +
 +/* Mask of valid system controller interrupts */
 +/* VIC means VIC1 */
-+#ifdef CONFIG_SOC_AST3100
++#ifdef SOC_AST3100
 +#define AST_VIC_VALID_INTMASK    ( \
 +                                         IRQMASK_ECC | \
 +                                         IRQMASK_MIC | \
@@ -498,7 +500,7 @@
 +                                         IRQMASK_PS2 \
 +					)
 +#else
-+#ifdef CONFIG_SOC_AST3200
++#ifdef SOC_AST3200
 +#define AST_VIC_VALID_INTMASK    ( \
 +                                         IRQMASK_ECC | \
 +                                         IRQMASK_MIC | \
@@ -528,9 +530,9 @@
 +                                         IRQMASK_UARTINT1 | IRQMASK_UARTINT2 | IRQMASK_UARTINT3 | IRQMASK_SGPIO_MASTER | \
 +                                         IRQMASK_PS2 | IRQMASK_H264 | IRQMASK_420_422 | IRQMASK_P2X | IRQMASK_P2X_BRIDGE \
 +					)
-+#else /* Non CONFIG_SOC_AST3100 and CONFIG_SOC_AST3200 */
++#else /* Non SOC_AST3100 and SOC_AST3200 */
 +
-+#if defined(CONFIG_SOC_AST2500) || defined(CONFIG_SOC_AST2530)
++#if defined(SOC_AST2500) || defined(SOC_AST2530)
 +#define AST_VIC_VALID_INTMASK    ( \
 +                                         IRQMASK_ECC | \
 +                                         IRQMASK_MIC | \
@@ -559,7 +561,7 @@
 +                                         IRQMASK_PCI  \
 +                   )
 +
-+#else /* Non CONFIG_SOC_AST3100, CONFIG_SOC_AST3200 and CONFIG_SOC_AST2500 */
++#else /* Non SOC_AST3100, SOC_AST3200 and SOC_AST2500 */
 +#define AST_VIC_VALID_INTMASK    ( \
 +                                         IRQMASK_ECC | \
 +                                         IRQMASK_MIC | \
@@ -586,8 +588,8 @@
 +                                         IRQMASK_2D | \
 +                                         IRQMASK_PCI  \
 +                   )
-+#endif //CONFIG_SOC_AST2500
-+#if !defined(CONFIG_SOC_AST2500) && !defined(CONFIG_SOC_AST2530)
++#endif //SOC_AST2500
++#if !defined(SOC_AST2500) && !defined(SOC_AST2530)
 +#define EXT_AST_VIC_VALID_INTMASK    ( \
 +                                         IRQMASK_UARTINT1 | IRQMASK_UARTINT2 | IRQMASK_UARTINT3 | IRQMASK_SGPIO_MASTER | IRQMASK_JTAG_MASTER \
 +					)
@@ -599,11 +601,11 @@
 +					)
 +#endif					
 +
-+#endif //CONFIG_SOC_AST3200					
++#endif //SOC_AST3200					
 +#endif					
 +#endif //_HWREG_ASTCOMMON_H_
---- linux-5.4.41/arch/arm/include/mach/hwreg.h	2020-05-17 18:10:12.694381443 -0400
-+++ linux/arch/arm/include/mach/hwreg.h	2020-05-17 02:00:34.536618329 -0400
+--- linux-5.4.99/arch/arm/include/mach/hwreg.h	2021-07-01 18:08:05.147230784 +0800
++++ linux/arch/arm/include/mach/hwreg.h	2021-07-01 17:23:47.238223700 +0800
 @@ -0,0 +1,274 @@
 +/*
 + *  This file contains the AST SOC Register locations
@@ -879,8 +881,8 @@
 +#define RFX_POST_DEC_STAT_7_REG         (AST_RFX_VA_BASE + 0xD8)
 +#define RFX_POST_DEC_STAT_8_REG         (AST_RFX_VA_BASE + 0xDC)
 +#endif
---- linux-5.4.41/arch/arm/include/mach/hwdef.h	2020-05-17 18:10:16.562411523 -0400
-+++ linux/arch/arm/include/mach/hwdef.h	2020-05-17 01:58:51.332026910 -0400
+--- linux-5.4.99/arch/arm/include/mach/hwdef.h	2021-07-01 18:07:54.027249389 +0800
++++ linux/arch/arm/include/mach/hwdef.h	2021-07-01 17:23:47.238223700 +0800
 @@ -0,0 +1,198 @@
 +/*
 + *  This file contains the AST SOC Register definitions
@@ -1080,8 +1082,8 @@
 +
 +
 +#endif /* _HWDEF_AST2400_H_ */
---- linux-5.4.41/arch/arm/include/mach/platform.h	2020-05-17 18:10:22.370456596 -0400
-+++ linux/arch/arm/include/mach/platform.h	2020-05-17 02:00:42.004661161 -0400
+--- linux-5.4.99/arch/arm/include/mach/platform.h	2021-07-01 18:08:10.723222211 +0800
++++ linux/arch/arm/include/mach/platform.h	2021-07-01 17:23:47.238223700 +0800
 @@ -0,0 +1,33 @@
 +/*
 + *  linux/include/asm-arm/arch-astvb/platform.h

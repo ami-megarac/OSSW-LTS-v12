@@ -323,6 +323,12 @@ function web.RequestHandler:send_error(status_code, msg)
     end
 end
 
+--- Check status of request being handled. If finished the response is sent.
+-- @return (Boolean) true or false.
+function web.RequestHandler:finished()
+    return self._finished == true
+end
+
 --- Get cookie value from incoming request.
 -- @param name The name of the cookie to get.
 -- @param default A default value if no cookie is found.
@@ -361,7 +367,7 @@ function web.RequestHandler:get_secure_cookie(name, default, max_age)
     if max_age then
         max_age = max_age * 1000 -- Get milliseconds.
         local cookietime = tonumber(timestamp)
-        assert(util.getimeofday() - timestamp < max_age, "Cookie has expired.")
+        assert(util.gettimeofday() - timestamp < max_age, "Cookie has expired.")
     end
     local hmac_cmp = hash.HMAC(self.application.kwargs.cookie_secret,
                                string.format("%d|%s|%s",
@@ -476,7 +482,7 @@ function web.RequestHandler:write(chunk)
     elseif t == "string" and chunk:len() == 0 then
         return
     elseif t == "table" then
-        self:add_header("Content-Type", "application/json; charset=UTF-8")
+        self:set_header("Content-Type", "application/json; charset=UTF-8")
         chunk = escape.json_encode(chunk)
     elseif t ~= "string" and t ~= "table" then
         error("Unsupported type written as response; "..t)
@@ -543,15 +549,17 @@ function web.RequestHandler:flush(callback, arg)
 end
 
 function web.RequestHandler:_gen_headers()
-    if not self:get_header("Content-Type") then
-        -- No content type is set, assume that it is text/html.
-        -- This might not be preferable in all cases.
-        self:add_header("Content-Type", "text/html; charset=UTF-8")
-    end
-    if not self:get_header("Content-Length") and not self.chunked then
-        -- No length is set, add current write buffer size.
-        self:add_header("Content-Length",
-            tonumber(self._write_buffer:len()))
+    if self:get_status() ~= 204 then
+        if not self:get_header("Content-Type") then
+            -- No content type is set, assume that it is text/html.
+            -- This might not be preferable in all cases.
+            self:add_header("Content-Type", "text/html; charset=UTF-8")
+        end
+        if not self:get_header("Content-Length") and not self.chunked then
+            -- No length is set, add current write buffer size.
+            self:add_header("Content-Length",
+                tonumber(self._write_buffer:len()))
+        end
     end
     self.headers:set_status_code(self._status_code)
     self.headers:set_version("HTTP/1.1")
@@ -720,6 +728,25 @@ end
 --- Called in asynchronous handlers when the connection is closed.
 function web.RequestHandler:on_connection_close() end
 
+function web.RequestHandler:_execute_func_table_unpack(func)
+    if type(func) == "table" then
+        for i = 1, #func, 1 do
+            func[i](self, unpack(self._url_args))
+        end
+    else
+        func(self, unpack(self._url_args))
+    end
+end
+
+function web.RequestHandler:_execute_func_table(func)
+    if type(func) == "table" then
+        for i = 1, #func, 1 do
+            func[i](self)
+        end
+    else
+        func(self)
+    end
+end
 
 --- Main entry point for the Application class.
 function web.RequestHandler:_execute()
@@ -732,10 +759,38 @@ function web.RequestHandler:_execute()
     if not self._finished then
         -- If there is no URL args then do not unpack as this has a significant
         -- cost.
+        local method = self[self.request.method:lower()]
         if self._url_args and #self._url_args > 0 then
-            self[self.request.method:lower()](self, unpack(self._url_args))
+            if type(method) == "table" then
+                -- Table based request method.
+                if method.pre then
+                    self:_execute_func_table_unpack(method.pre)
+                end
+                if method.main then
+                    self:_execute_func_table_unpack(method.main)
+                end
+                if method.post then
+                    self:_execute_func_table_unpack(method.post)
+                end
+            else
+                method(self, unpack(self._url_args))
+            end
         else
-            self[self.request.method:lower()](self)
+            if type(method) == "table" then
+                -- Table based request method.
+                if method.pre then
+                    self:_execute_func_table(method.pre)
+                end
+                if method.main then
+                    self:_execute_func_table(method.main)
+                end
+                if method.post then
+                    self:_execute_func_table(method.post)
+                end
+            else
+                -- Is function based method.
+                method(self)
+            end
         end
         if self._auto_finish and not self._finished then
             self:finish()
@@ -789,7 +844,7 @@ function web._StaticWebCache:get_file(path)
     local cf = self.files[path]
 
     -- Full path hash lookup.
-    if cf then
+    if cf and STATICWEBCACHE_MAX ~= -1 then
         -- index 1 = type
         -- index 2 = stat_t
         -- index 3 = buf or file
@@ -878,7 +933,7 @@ function web._StaticWebCache:get_mime(path)
     if not path then
         error("No filename suplied to get_mime()")
     end
-    local parts = path:split(".")
+    local parts = util.strsplit(path, ".")
     if #parts == 0 then
         return -1
     end
@@ -1117,7 +1172,7 @@ function web.Application:initialize(handlers, kwargs)
     self.kwargs = kwargs or {}
     self.settings = self.kwargs.settings
     self.default_host = self.kwargs.default_host
-    self.application_name = self.kwargs.application_name or "Turbo.lua v1.1"
+    self.application_name = self.kwargs.application_name or "Turbo.lua v2"
 end
 
 --- Sets the server name.

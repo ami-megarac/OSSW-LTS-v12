@@ -162,6 +162,13 @@ typedef struct
 #define CRASHDUMP_KNOWN_VESION 0x401e002
 #define CRASHDUMP_MAX_SIZE 0x7f8
 
+#define IERR_BIT 30
+#define MSMI_IERR_BIT 22
+#define IERR_INTERNAL_BIT 27
+#define MSMI_IERR_INTERNAL 19
+#define MCERR_INTERNAL_BIT 26
+#define MSMI_MCERR_INTERNAL 18
+
 /******************************************************************************
  *
  *   ICX1 Structures

@@ -1,0 +1,45 @@
+--- linux_old/drivers/net/phy/phy.c	2021-09-01 11:46:58.691050088 +0530
++++ linux/drivers/net/phy/phy.c	2021-09-01 11:46:42.495050094 +0530
+@@ -581,12 +581,24 @@
+ int phy_start_aneg(struct phy_device *phydev)
+ {
+ 	int err;
++	int DuplexMode=-1;
+ 
+ 	if (!phydev->drv)
+ 		return -EIO;
+ 
+ 	mutex_lock(&phydev->lock);
+ 
++	DuplexMode = phy_read(phydev, MII_BMCR);
++	if(DuplexMode < 0)
++	{
++		err = DuplexMode;
++		goto out_unlock;
++	}
++	else
++	{
++		DuplexMode = DuplexMode & BMCR_FULLDPLX ? 1 : 0;
++	}
++
+ 	if (AUTONEG_DISABLE == phydev->autoneg)
+ 		phy_sanitize_settings(phydev);
+ 
+@@ -596,6 +608,17 @@
+ 
+ 	if (phy_is_started(phydev))
+ 		err = phy_check_link_status(phydev);
++
++	if(phydev->duplex == DUPLEX_FULL || phydev->duplex == DUPLEX_HALF)
++	{
++		if(phydev->duplex != DuplexMode)
++		{
++			phydev->link = 0;
++			phydev->state = PHY_NOLINK;
++			phy_link_down(phydev, true);
++		}
++	}
++
+ out_unlock:
+ 	mutex_unlock(&phydev->lock);
+ 

@@ -28,6 +28,7 @@ extern "C" {
 }
 
 #include "crashdump.hpp"
+#include "utils.hpp"
 
 /******************************************************************************
  *
@@ -54,21 +55,21 @@ static void powerManagementJson(uint32_t u32CoreNum,
     if (sCpuPowerState->retCstate != PECI_CC_SUCCESS ||
         sCpuPowerState->retVratio != PECI_CC_SUCCESS)
     {
-        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA_DF,
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA_DF_CPX,
                       sCpuPowerState->ccCstate, sCpuPowerState->retCstate);
         cJSON_AddStringToObject(core, PM_JSON_CSTATE_REG_NAME, jsonItemString);
-        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA_DF,
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA_DF_CPX,
                       sCpuPowerState->ccVratio, sCpuPowerState->retVratio);
         cJSON_AddStringToObject(core, PM_JSON_VID_REG_NAME, jsonItemString);
     }
     else if (PECI_CC_UA(sCpuPowerState->ccCstate) ||
              PECI_CC_UA(sCpuPowerState->ccVratio))
     {
-        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA,
-                      sCpuPowerState->ccCstate);
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA_CPX,
+                      sCpuPowerState->u32CState, sCpuPowerState->ccCstate);
         cJSON_AddStringToObject(core, PM_JSON_CSTATE_REG_NAME, jsonItemString);
-        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA,
-                      sCpuPowerState->ccVratio);
+        cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA_CPX,
+                      sCpuPowerState->u32VidRatio, sCpuPowerState->ccVratio);
         cJSON_AddStringToObject(core, PM_JSON_VID_REG_NAME, jsonItemString);
     }
     else
@@ -194,7 +195,7 @@ int logPowerManagementCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     for (uint32_t u32CoreNum = 0; (cpuInfo.coreMask >> u32CoreNum) != 0;
          u32CoreNum++)
     {
-        if (!(cpuInfo.coreMask & (1 << u32CoreNum)))
+        if (!CHECK_BIT(cpuInfo.coreMask, u32CoreNum))
         {
             continue;
         }
@@ -216,12 +217,6 @@ int logPowerManagementCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         if (ret != PECI_CC_SUCCESS)
         {
             retval = ret;
-        }
-        // If we hit a failure, assume that register reads are not allowed and
-        // bail
-        if (retval != 0)
-        {
-            break;
         }
         // Log the Power Management for this core
         powerManagementJson(u32CoreNum, &sCpuPowerState, pJsonChild);
@@ -275,6 +270,12 @@ static void powerManagementPllJsonICX1(const char* secName, const char* regName,
 {
     char jsonItemString[PM_JSON_STRING_LEN] = {0};
     cJSON* section = nullptr;
+    if ((section = cJSON_GetObjectItemCaseSensitive(pJsonChild, secName)) ==
+        NULL)
+    {
+        cJSON_AddItemToObject(pJsonChild, secName,
+                              section = cJSON_CreateObject());
+    }
     if (sRegData->bInvalid)
     {
         cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UA_DF, cc, ret);
@@ -285,16 +286,9 @@ static void powerManagementPllJsonICX1(const char* secName, const char* regName,
     }
     else
     {
-        if ((section = cJSON_GetObjectItemCaseSensitive(pJsonChild, secName)) ==
-            NULL)
-        {
-            cJSON_AddItemToObject(pJsonChild, secName,
-                                  section = cJSON_CreateObject());
-        }
         cd_snprintf_s(jsonItemString, PM_JSON_STRING_LEN, PM_UINT32_FMT,
                       sRegData->uValue, cc);
     }
-
     cJSON_AddStringToObject(section, regName, jsonItemString);
 }
 
@@ -528,6 +522,7 @@ static const SPowerManagementVx sPowerManagementVx[] = {
     {crashdump::cpu::skx, logPowerManagementCPX1},
     {crashdump::cpu::icx, logPowerManagementICX},
     {crashdump::cpu::icx2, logPowerManagementICX},
+    {crashdump::cpu::icxd, logPowerManagementICX},
 };
 
 /******************************************************************************

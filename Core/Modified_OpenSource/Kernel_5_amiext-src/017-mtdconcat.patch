@@ -1,6 +1,5 @@
-diff -Naur linux.org/drivers/mtd/concat/Kconfig linux.mtdconcat/drivers/mtd/concat/Kconfig
---- linux.org/drivers/mtd/concat/Kconfig	1969-12-31 19:00:00.000000000 -0500
-+++ linux.mtdconcat/drivers/mtd/concat/Kconfig	2020-07-24 14:07:35.000000000 -0400
+--- linux-5.4.99/drivers/mtd/concat/Kconfig	2021-07-02 14:49:51.474070798 +0800
++++ linux/drivers/mtd/concat/Kconfig	2021-06-28 18:01:42.560753200 +0800
 @@ -0,0 +1,10 @@
 +menu "Concat MTD device drivers"
 +       depends on MTD!=n
@@ -12,15 +11,13 @@ diff -Naur linux.org/drivers/mtd/concat/Kconfig linux.mtdconcat/drivers/mtd/conc
 +		 MTD driver based on the flash devices provided in DTS
 +
 +endmenu
-diff -Naur linux.org/drivers/mtd/concat/Makefile linux.mtdconcat/drivers/mtd/concat/Makefile
---- linux.org/drivers/mtd/concat/Makefile	1969-12-31 19:00:00.000000000 -0500
-+++ linux.mtdconcat/drivers/mtd/concat/Makefile	2020-07-24 13:45:55.955806317 -0400
+--- linux-5.4.99/drivers/mtd/concat/Makefile	2021-07-02 14:50:00.277935734 +0800
++++ linux/drivers/mtd/concat/Makefile	2021-06-28 18:01:42.564753300 +0800
 @@ -0,0 +1 @@
 +obj-$(CONFIG_MTD_CONCAT)   += mtd-concat.o
-diff -Naur linux.org/drivers/mtd/concat/mtd-concat.c linux.mtdconcat/drivers/mtd/concat/mtd-concat.c
---- linux.org/drivers/mtd/concat/mtd-concat.c	1969-12-31 19:00:00.000000000 -0500
-+++ linux.mtdconcat/drivers/mtd/concat/mtd-concat.c	2020-07-24 13:51:01.667507805 -0400
-@@ -0,0 +1,145 @@
+--- linux-5.4.99/drivers/mtd/concat/mtd-concat.c	2021-07-02 14:50:10.897772182 +0800
++++ linux/drivers/mtd/concat/mtd-concat.c	2021-06-28 18:01:44.440761400 +0800
+@@ -0,0 +1,166 @@
 +/* SPDX-License-Identifier: GPL-2.0+
 + * Virtual concat MTD device driver
 + *
@@ -39,6 +36,9 @@ diff -Naur linux.org/drivers/mtd/concat/mtd-concat.c linux.mtdconcat/drivers/mtd
 +#include <linux/of_platform.h>
 +#include <linux/slab.h>
 +
++#ifdef CONFIG_SPX_FEATURE_HW_FAILSAFE_BOOT
++extern unsigned char broken_spi_banks;
++#endif
 +/*
 + * struct of_mtd_concat - platform device driver data.
 + * @cmtd the final mtd_concat device
@@ -117,6 +117,24 @@ diff -Naur linux.org/drivers/mtd/concat/mtd-concat.c linux.mtdconcat/drivers/mtd
 +               info->devices[info->num_devices++] = mtd;
 +       }
 +
++#ifdef CONFIG_SPX_FEATURE_HW_FAILSAFE_BOOT
++	broken_spi_banks=0;
++	if(strstr(boot_command_line,"imagebooted=1")) {
++		if(info->num_devices == 1) {
++			broken_spi_banks=2;//second spi not detected
++			printk("SPI 2 not Detected\n");
++		}
++	}
++	else if(strstr(boot_command_line,"imagebooted=2")) {
++		if(info->num_devices == 1) {
++			broken_spi_banks=1;//first spi not detected
++			printk("SPI 1 not Detected\n");
++		}
++	}
++	else {
++		broken_spi_banks=0;
++	}
++#endif
 +       info->cmtd = mtd_concat_create(info->devices, info->num_devices,
 +                                      dev_name(&pdev->dev));
 +       if (!info->cmtd) {
@@ -166,28 +184,25 @@ diff -Naur linux.org/drivers/mtd/concat/mtd-concat.c linux.mtdconcat/drivers/mtd
 +MODULE_LICENSE("GPL v2");
 +MODULE_AUTHOR("Bernhard Frauendienst <kernel@nospam.obeliks.de>");
 +MODULE_DESCRIPTION("Ccat MTD device driver");
-diff -Naur linux.org/drivers/mtd/Kconfig linux.mtdconcat/drivers/mtd/Kconfig
---- linux.org/drivers/mtd/Kconfig	2020-07-24 13:34:12.411473094 -0400
-+++ linux.mtdconcat/drivers/mtd/Kconfig	2020-07-24 13:45:55.943806326 -0400
-@@ -213,4 +213,6 @@
+--- linux-5.4.99/drivers/mtd/Kconfig	2021-07-02 15:14:58.872067930 +0800
++++ linux/drivers/mtd/Kconfig	2021-07-02 14:59:56.417587203 +0800
+@@ -211,4 +211,6 @@
  
  source "drivers/mtd/hyperbus/Kconfig"
  
 +source "drivers/mtd/concat/Kconfig"
 +
  endif # MTD
-diff -Naur linux.org/drivers/mtd/Makefile linux.mtdconcat/drivers/mtd/Makefile
---- linux.org/drivers/mtd/Makefile	2020-07-24 13:34:12.411473094 -0400
-+++ linux.mtdconcat/drivers/mtd/Makefile	2020-07-24 13:45:55.943806326 -0400
+--- linux-5.4.99/drivers/mtd/Makefile	2021-07-02 15:15:06.292088012 +0800
++++ linux/drivers/mtd/Makefile	2021-07-02 15:00:16.882380731 +0800
 @@ -31,3 +31,5 @@
  obj-$(CONFIG_MTD_SPI_NOR)	+= spi-nor/
  obj-$(CONFIG_MTD_UBI)		+= ubi/
  obj-$(CONFIG_MTD_HYPERBUS)	+= hyperbus/
 +obj-$(CONFIG_MTD_CONCAT)	+= concat/
 +
-diff -Naur linux.org/drivers/mtd/mtdcore.c linux.mtdconcat/drivers/mtd/mtdcore.c
---- linux.org/drivers/mtd/mtdcore.c	2020-07-24 13:34:09.855467064 -0400
-+++ linux.mtdconcat/drivers/mtd/mtdcore.c	2020-07-24 13:45:55.943806326 -0400
+--- linux-5.4.99/drivers/mtd/mtdcore.c	2021-02-17 17:35:20.000000000 +0800
++++ linux/drivers/mtd/mtdcore.c	2021-07-02 15:05:57.591362565 +0800
 @@ -1039,6 +1039,44 @@
  }
  EXPORT_SYMBOL_GPL(get_mtd_device_nm);
@@ -233,9 +248,8 @@ diff -Naur linux.org/drivers/mtd/mtdcore.c linux.mtdconcat/drivers/mtd/mtdcore.c
  void put_mtd_device(struct mtd_info *mtd)
  {
  	mutex_lock(&mtd_table_mutex);
-diff -Naur linux.org/include/linux/mtd/mtd.h linux.mtdconcat/include/linux/mtd/mtd.h
---- linux.org/include/linux/mtd/mtd.h	2020-05-14 01:58:30.000000000 -0400
-+++ linux.mtdconcat/include/linux/mtd/mtd.h	2020-07-24 13:45:54.599807291 -0400
+--- linux-5.4.99/include/linux/mtd/mtd.h	2021-02-17 17:35:20.000000000 +0800
++++ linux/include/linux/mtd/mtd.h	2021-07-02 15:12:54.559599474 +0800
 @@ -568,6 +568,8 @@
  extern int __get_mtd_device(struct mtd_info *mtd);
  extern void __put_mtd_device(struct mtd_info *mtd);

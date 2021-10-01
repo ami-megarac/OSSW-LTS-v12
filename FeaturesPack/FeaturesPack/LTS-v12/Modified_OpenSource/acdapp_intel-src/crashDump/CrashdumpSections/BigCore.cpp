@@ -572,6 +572,7 @@ int logCrashdumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         // Crashdump sequence failed, abort the sequence
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_CRASHDUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
+        peci_Unlock(peci_fd);
         return ret;
     }
 
@@ -584,6 +585,7 @@ int logCrashdumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         // Crashdump sequence failed, abort the sequence
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_CRASHDUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
+        peci_Unlock(peci_fd);
         return ret;
     }
     for (uint32_t i = 0; i < CD_DWORDS_HEADER; i++)
@@ -598,6 +600,7 @@ int logCrashdumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
             peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU,
                                  VCU_ABORT_SEQ, VCU_CRASHDUMP_SEQ,
                                  sizeof(uint32_t), peci_fd, &cc);
+            peci_Unlock(peci_fd);
             return ret;
         }
     }
@@ -609,11 +612,12 @@ int logCrashdumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
     ret = peci_RdPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_READ,
                                sizeof(uint32_t), (uint8_t*)&u32NumReads,
                                peci_fd, &cc);
-    if (ret != PECI_CC_SUCCESS)
+    if (ret != PECI_CC_SUCCESS || (PECI_CC_UA(cc)))
     {
         // Crashdump sequence failed, abort the sequence and go to the next CPU
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_CRASHDUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
+        peci_Unlock(peci_fd);
         return ret;
     }
 
@@ -626,6 +630,7 @@ int logCrashdumpCPX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
                         u32NumReads);
         peci_WrPkgConfig_seq(cpuInfo.clientAddr, MBX_INDEX_VCU, VCU_ABORT_SEQ,
                              VCU_CRASHDUMP_SEQ, sizeof(uint32_t), peci_fd, &cc);
+        peci_Unlock(peci_fd);
         return SIZE_FAILURE;
     }
     for (uint32_t i = 0; i < u32NumReads; i++)
@@ -1058,6 +1063,145 @@ static void rawdumpJsonICX1(uint32_t u32CoreNum, uint32_t u32ThreadNum,
     }
 }
 
+void calculateWaitTimeInBigCore(cJSON* pJsonChild,
+                                struct timespec bigCoreStartTime)
+{
+    struct timespec bigCoreStopTime = {0, 0};
+    clock_gettime(CLOCK_MONOTONIC, &bigCoreStopTime);
+    uint64_t runTimeInNs =
+        tsToNanosecond(&bigCoreStopTime) - tsToNanosecond(&bigCoreStartTime);
+    struct timespec runTime = {0, 0};
+    runTime.tv_sec = runTimeInNs / 1e9;
+    runTime.tv_nsec = runTimeInNs % (uint64_t)1e9;
+    CRASHDUMP_PRINT(ERR, stderr,
+                    "Waited in big core for %.2f seconds for "
+                    "data to be ready\n",
+                    (double)runTime.tv_sec);
+
+    char timeString[64];
+    cd_snprintf_s(timeString, sizeof(timeString), "%.2fs",
+                  (double)runTime.tv_sec);
+    cJSON_AddStringToObject(pJsonChild, "_wait_time", timeString);
+}
+
+bool isMaxTimeElapsed(crashdump::CPUInfo& cpuInfo,
+                      struct timespec* bigCoreStartTime)
+{
+    struct timespec timeRemaining =
+        calculateDelay(bigCoreStartTime, (int)cpuInfo.launchDelay.tv_sec);
+
+    if (0 == tsToNanosecond(&timeRemaining))
+    {
+        return true;
+    }
+
+    return false;
+}
+
+bool isIerrPresent(crashdump::CPUInfo& cpuInfo)
+{
+    SRegRawData mcaErrSrcLogRegData = {};
+    uint8_t mcaErrSrcLogRegIndex = 4;
+
+    int error =
+        getPciRegister(cpuInfo, &mcaErrSrcLogRegData, mcaErrSrcLogRegIndex);
+    if (error)
+    {
+        CRASHDUMP_PRINT(ERR, stderr,
+                        "Failed to read mca_err_src_log register (%d)!\n",
+                        error);
+        return false;
+    }
+
+    bool mcerrCheck;
+    if (inputField::FLAG_ENABLE ==
+        getFlagValueFromInputFile(
+            cpuInfo, crashdump::sectionNames[crashdump::BIG_CORE].name,
+            "_wait_on_mcerr"))
+    {
+        mcerrCheck = true;
+    }
+    else
+    {
+        mcerrCheck = false;
+    }
+
+    bool internalIerrCheck;
+    if (inputField::FLAG_DISABLE ==
+        getFlagValueFromInputFile(
+            cpuInfo, crashdump::sectionNames[crashdump::BIG_CORE].name,
+            "_wait_on_int_ierr"))
+    {
+        internalIerrCheck = false;
+    }
+    else
+    {
+        internalIerrCheck = true;
+    }
+
+    bool externalIerrCheck;
+    if (inputField::FLAG_DISABLE ==
+        getFlagValueFromInputFile(
+            cpuInfo, crashdump::sectionNames[crashdump::BIG_CORE].name,
+            "_wait_on_ext_ierr"))
+    {
+        externalIerrCheck = false;
+    }
+    else
+    {
+        externalIerrCheck = true;
+    }
+
+    if (mcerrCheck &&
+        CHECK_BIT(mcaErrSrcLogRegData.uValue.u64, MCERR_INTERNAL_BIT))
+    {
+        CRASHDUMP_PRINT(INFO, stderr, "MCERR_INTERNAL_BIT (%d) is set\n",
+                        MCERR_INTERNAL_BIT);
+        return true;
+    }
+
+    if (mcerrCheck &&
+        CHECK_BIT(mcaErrSrcLogRegData.uValue.u64, MSMI_MCERR_INTERNAL))
+    {
+        CRASHDUMP_PRINT(INFO, stderr, "MSMI_MCERR_INTERNAL (%d) is set\n",
+                        MSMI_MCERR_INTERNAL);
+        return true;
+    }
+
+    if (internalIerrCheck &&
+        CHECK_BIT(mcaErrSrcLogRegData.uValue.u64, MSMI_IERR_INTERNAL))
+    {
+        CRASHDUMP_PRINT(INFO, stderr, "MSMI_IERR_INTERNAL (%d) is set\n",
+                        MSMI_IERR_INTERNAL);
+        return true;
+    }
+
+    if (internalIerrCheck &&
+        CHECK_BIT(mcaErrSrcLogRegData.uValue.u64, IERR_INTERNAL_BIT))
+    {
+        CRASHDUMP_PRINT(INFO, stderr, "IERR_INTERNAL_BIT (%d) is set\n",
+                        IERR_INTERNAL_BIT);
+        return true;
+    }
+
+    if (externalIerrCheck &&
+        CHECK_BIT(mcaErrSrcLogRegData.uValue.u64, IERR_BIT))
+    {
+        CRASHDUMP_PRINT(INFO, stderr, "IERR_BIT (%d) is set\n", IERR_BIT);
+        return true;
+    }
+
+    if (externalIerrCheck &&
+        CHECK_BIT(mcaErrSrcLogRegData.uValue.u64, MSMI_IERR_BIT))
+    {
+        CRASHDUMP_PRINT(INFO, stderr, "MSMI_IERR_BIT (%d) is set\n",
+                        MSMI_IERR_BIT);
+        return true;
+    }
+
+    return false;
+}
+
 /******************************************************************************
  *
  *  logCrashdumpICX1
@@ -1134,141 +1278,162 @@ int logCrashdumpICX1(crashdump::CPUInfo& cpuInfo, cJSON* pJsonChild)
         return ret;
     }
 
-    // Crashdump Get Frames
-    // Go through each enabled core
-    for (uint32_t u32CoreNum = 0; (cpuInfo.coreMask >> u32CoreNum) != 0;
-         u32CoreNum++)
+    bool waitForCoreCrashdump = false;
+    struct timespec bigCoreStartTime = {0, 0};
+    if (isIerrPresent(cpuInfo))
     {
-        if (!(cpuInfo.coreMask & (1 << u32CoreNum)))
-        {
-            continue;
-        }
-        uint32_t u32Threads = CD_ST_THREADS_PER_CORE;
-        for (uint32_t u32ThreadNum = 0; u32ThreadNum < u32Threads;
-             u32ThreadNum++)
-        {
-            // Get the crashdump size for this thread from the first read
-            UCrashdumpVerSize uCrashdumpVerSize;
-            ret = peci_CrashDump_GetFrame(
-                cpuInfo.clientAddr, PECI_CRASHDUMP_CORE, u32CoreNum, 0,
-                sizeof(uint64_t), (uint8_t*)&uCrashdumpVerSize.raw, &cc);
+        waitForCoreCrashdump = true;
+        clock_gettime(CLOCK_MONOTONIC, &bigCoreStartTime);
+    }
 
-            if (ret != PECI_CC_SUCCESS)
+    do
+    {
+        // Crashdump Get Frames
+        // Go through each enabled core
+        for (uint32_t u32CoreNum = 0; (cpuInfo.coreMask >> u32CoreNum) != 0;
+             u32CoreNum++)
+        {
+            if (!CHECK_BIT(cpuInfo.coreMask, u32CoreNum))
             {
-                CRASHDUMP_PRINT(ERR, stderr,
-                                "Error (%d) during GetFrame 0 (0x%" PRIx64
-                                ")\n",
-                                ret, uCrashdumpVerSize.raw);
                 continue;
             }
-
-            if (PECI_CC_SKIP_CORE(cc))
+            uint32_t u32Threads = CD_ST_THREADS_PER_CORE;
+            for (uint32_t u32ThreadNum = 0; u32ThreadNum < u32Threads;
+                 u32ThreadNum++)
             {
-                break;
-            }
-            if (PECI_CC_SKIP_SOCKET(cc))
-            {
-                return ret;
-            }
-
-            uint32_t u32CrashdumpSize = 0;
-
-            switch (cpuInfo.model)
-            {
-                case crashdump::cpu::icx:
-                    u32CrashdumpSize = uCrashdumpVerSize.field.regDumpSize +
-                                       uCrashdumpVerSize.field.sqDumpSize +
-                                       ICX_A0_FRAME_BYTE_OFFSET;
-                    break;
-                default:
-                    u32CrashdumpSize = uCrashdumpVerSize.field.regDumpSize +
-                                       uCrashdumpVerSize.field.sqDumpSize;
-                    break;
-            }
-            uint32_t u32version = uCrashdumpVerSize.field.version;
-
-            uint64_t* pu64Crashdump = (uint64_t*)(calloc(u32CrashdumpSize, 1));
-            if (pu64Crashdump == NULL)
-            {
-                // calloc failed, exit
-                CRASHDUMP_PRINT(ERR, stderr,
-                                "Error allocating memory (size:%d)\n",
-                                u32CrashdumpSize);
-                return SIZE_FAILURE;
-            }
-            pu64Crashdump[0] = uCrashdumpVerSize.raw;
-
-            // log crashed core
-            SET_BIT(cpuInfo.crashedCoreMask, u32CoreNum);
-
-            // Get the rest of the crashdump data
-            for (uint32_t i = 1; i < (u32CrashdumpSize / sizeof(uint64_t)); i++)
-            {
+                // Get the crashdump size for this thread from the first read
+                UCrashdumpVerSize uCrashdumpVerSize;
                 ret = peci_CrashDump_GetFrame(
                     cpuInfo.clientAddr, PECI_CRASHDUMP_CORE, u32CoreNum, 0,
-                    sizeof(uint64_t), (uint8_t*)&pu64Crashdump[i], &cc);
-                u32NumReads = i;
-                if (PECI_CC_SKIP_CORE(cc))
-                {
-                    CRASHDUMP_PRINT(ERR, stderr,
-                                    "Error (%d) during GetFrame (num:%d)\n",
-                                    ret, i);
-                    gotoNextCore = true;
-                    break;
-                }
-
-                if (PECI_CC_SKIP_SOCKET(cc))
-                {
-                    CRASHDUMP_PRINT(ERR, stderr,
-                                    "Error (%d) during GetFrame (num:%d)\n",
-                                    ret, i);
-                    FREE(pu64Crashdump);
-                    return ret;
-                }
+                    sizeof(uint64_t), (uint8_t*)&uCrashdumpVerSize.raw, &cc);
 
                 if (ret != PECI_CC_SUCCESS)
                 {
                     CRASHDUMP_PRINT(ERR, stderr,
-                                    "Error (%d) during GetFrame (num:%d)\n",
-                                    ret, i);
-                    gotoNextCore = true;
+                                    "Error (%d) during GetFrame 0 (0x%" PRIx64
+                                    ")\n",
+                                    ret, uCrashdumpVerSize.raw);
+                    continue;
+                }
+
+                if (PECI_CC_SKIP_CORE(cc))
+                {
                     break;
                 }
-            }
-            // Check if this core is multi-threaded, if available
-            if (u32CrashdumpSize >= (CD_WHO_MISC_OFFSET + 1) * sizeof(uint64_t))
-            {
-                UCrashdumpWhoMisc uCrashdumpWhoMisc;
-                uCrashdumpWhoMisc.raw = pu64Crashdump[CD_WHO_MISC_OFFSET];
-                if (uCrashdumpWhoMisc.field.multithread)
+                if (PECI_CC_SKIP_SOCKET(cc))
                 {
-                    u32Threads = CD_MT_THREADS_PER_CORE;
+                    return ret;
                 }
-            }
 
-            uint8_t threadId = 0;
-            if (CHECK_BIT(pu64Crashdump[CD_WHO_MISC_OFFSET], 0))
-            {
-                threadId = 1;
+                uint32_t u32CrashdumpSize = 0;
+
+                switch (cpuInfo.model)
+                {
+                    case crashdump::cpu::icx:
+                        u32CrashdumpSize = uCrashdumpVerSize.field.regDumpSize +
+                                           uCrashdumpVerSize.field.sqDumpSize +
+                                           ICX_A0_FRAME_BYTE_OFFSET;
+                        break;
+                    default:
+                        u32CrashdumpSize = uCrashdumpVerSize.field.regDumpSize +
+                                           uCrashdumpVerSize.field.sqDumpSize;
+                        break;
+                }
+                uint32_t u32version = uCrashdumpVerSize.field.version;
+
+                uint64_t* pu64Crashdump =
+                    (uint64_t*)(calloc(u32CrashdumpSize, 1));
+                if (pu64Crashdump == NULL)
+                {
+                    // calloc failed, exit
+                    CRASHDUMP_PRINT(ERR, stderr,
+                                    "Error allocating memory (size:%d)\n",
+                                    u32CrashdumpSize);
+                    return SIZE_FAILURE;
+                }
+                pu64Crashdump[0] = uCrashdumpVerSize.raw;
+
+                // log crashed core
+                SET_BIT(cpuInfo.crashedCoreMask, u32CoreNum);
+                if (waitForCoreCrashdump)
+                {
+                    waitForCoreCrashdump = false;
+                    calculateWaitTimeInBigCore(pJsonChild, bigCoreStartTime);
+                }
+
+                // Get the rest of the crashdump data
+                for (uint32_t i = 1; i < (u32CrashdumpSize / sizeof(uint64_t));
+                     i++)
+                {
+                    ret = peci_CrashDump_GetFrame(
+                        cpuInfo.clientAddr, PECI_CRASHDUMP_CORE, u32CoreNum, 0,
+                        sizeof(uint64_t), (uint8_t*)&pu64Crashdump[i], &cc);
+                    u32NumReads = i;
+                    if (PECI_CC_SKIP_CORE(cc))
+                    {
+                        CRASHDUMP_PRINT(ERR, stderr,
+                                        "Error (%d) during GetFrame (num:%d)\n",
+                                        ret, i);
+                        gotoNextCore = true;
+                        break;
+                    }
+
+                    if (PECI_CC_SKIP_SOCKET(cc))
+                    {
+                        CRASHDUMP_PRINT(ERR, stderr,
+                                        "Error (%d) during GetFrame (num:%d)\n",
+                                        ret, i);
+                        FREE(pu64Crashdump);
+                        return ret;
+                    }
+
+                    if (ret != PECI_CC_SUCCESS)
+                    {
+                        CRASHDUMP_PRINT(ERR, stderr,
+                                        "Error (%d) during GetFrame (num:%d)\n",
+                                        ret, i);
+                        gotoNextCore = true;
+                        break;
+                    }
+                }
+                // Check if this core is multi-threaded, if available
+                if (u32CrashdumpSize >=
+                    (CD_WHO_MISC_OFFSET + 1) * sizeof(uint64_t))
+                {
+                    UCrashdumpWhoMisc uCrashdumpWhoMisc;
+                    uCrashdumpWhoMisc.raw = pu64Crashdump[CD_WHO_MISC_OFFSET];
+                    if (uCrashdumpWhoMisc.field.multithread)
+                    {
+                        u32Threads = CD_MT_THREADS_PER_CORE;
+                    }
+                }
+
+                uint8_t threadId = 0;
+                if (CHECK_BIT(pu64Crashdump[CD_WHO_MISC_OFFSET], 0))
+                {
+                    threadId = 1;
+                }
+                // Log this Crashdump
+                if ((u32version != CRASHDUMP_KNOWN_VESION) ||
+                    (u32CrashdumpSize > CRASHDUMP_MAX_SIZE))
+                {
+                    rawdumpJsonICX1(u32CoreNum, threadId, u32CrashdumpSize,
+                                    (uint8_t*)pu64Crashdump, pJsonChild, 0);
+                }
+                else
+                {
+                    crashdumpJsonICX1(u32CoreNum, threadId, u32CrashdumpSize,
+                                      u32NumReads, (uint8_t*)pu64Crashdump,
+                                      pJsonChild, cc, ret);
+                }
+                FREE(pu64Crashdump);
+                if (gotoNextCore == true)
+                    break;
             }
-            // Log this Crashdump
-            if ((u32version != CRASHDUMP_KNOWN_VESION) ||
-                (u32CrashdumpSize > CRASHDUMP_MAX_SIZE))
-            {
-                rawdumpJsonICX1(u32CoreNum, threadId, u32CrashdumpSize,
-                                (uint8_t*)pu64Crashdump, pJsonChild, 0);
-            }
-            else
-            {
-                crashdumpJsonICX1(u32CoreNum, threadId, u32CrashdumpSize,
-                                  u32NumReads, (uint8_t*)pu64Crashdump,
-                                  pJsonChild, cc, ret);
-            }
-            FREE(pu64Crashdump);
-            if (gotoNextCore == true)
-                break;
         }
-    }
+    } while (waitForCoreCrashdump &
+             !(isMaxTimeElapsed(cpuInfo, &bigCoreStartTime)));
+
     return ret;
 }
 
@@ -1278,6 +1443,7 @@ static const SCrashdumpVx sCrashdumpVx[] = {
     {crashdump::cpu::skx, logCrashdumpCPX1},
     {crashdump::cpu::icx, logCrashdumpICX1},
     {crashdump::cpu::icx2, logCrashdumpICX1},
+    {crashdump::cpu::icxd, logCrashdumpICX1},
 };
 
 /******************************************************************************

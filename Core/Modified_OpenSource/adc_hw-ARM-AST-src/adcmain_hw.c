@@ -42,7 +42,7 @@ static void *ast_adc_virt_base = NULL;
 
 static int m_dev_id = 0;
 static int compensating_value = 0;
-static uint16_t compensating_mode = 1;
+static uint16_t compensating_mode = 0;
 
 static int adc_hw_module_init(void);
 static void adc_hw_module_exit(void);

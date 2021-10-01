@@ -1433,6 +1433,7 @@ NCSI_Enable_Info(NCSI_IF_INFO *info)
 				{
 					if (DisableChannel(info,PackageID,ChannelID) == 0){
 						info->ChannelInfo[i].Enabled = 0;
+						info->LinkStatus=0;
 						continue;
 					}
 				}

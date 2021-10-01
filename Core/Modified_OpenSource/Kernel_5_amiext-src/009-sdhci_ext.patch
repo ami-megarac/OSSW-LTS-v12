@@ -1,15 +1,31 @@
---- linux-5.4.41/drivers/mmc/host/sdhci.c	2020-05-14 01:58:30.000000000 -0400
-+++ linux/drivers/mmc/host/sdhci.c	2020-05-17 00:58:23.976574380 -0400
-@@ -198,32 +198,44 @@
+--- linux-5.4.99/drivers/mmc/host/sdhci.c	2021-02-17 17:35:20.000000000 +0800
++++ linux/drivers/mmc/host/sdhci.c	2021-07-01 19:15:32.722196077 +0800
+@@ -32,6 +32,7 @@
+ #include <linux/mmc/slot-gpio.h>
+ 
+ #include "sdhci.h"
++#include "sdhci-ast.h"
+ 
+ #define DRIVER_NAME "sdhci"
+ 
+@@ -198,32 +199,44 @@
  void sdhci_reset(struct sdhci_host *host, u8 mask)
  {
  	ktime_t timeout;
+-
+-	sdhci_writeb(host, mask, SDHCI_SOFTWARE_RESET);
+-
+-	if (mask & SDHCI_RESET_ALL) {
+-		host->clock = 0;
+-		/* Reset-all turns off SD Bus Power */
+-		if (host->quirks2 & SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON)
+-			sdhci_runtime_pm_bus_off(host);
 +	//printk("calling sdhci_reset\n");
 +	if(host->ami_quirks & SDHCI_AMI_QUIRK_NO_SOFTWARE_RESET)
 +	{
 +		if (mask & SDHCI_RESET_ALL)
 +			host->clock = 0;
-+	}
+ 	}
 +	else
 +	{
 +	///	printk("calling sdhci_reset  pass1\n");
@@ -25,16 +41,25 @@
 +		/* Wait max 100 ms */
 +		timeout = ktime_add_ms(ktime_get(), 100);
  
--	sdhci_writeb(host, mask, SDHCI_SOFTWARE_RESET);
+-	/* Wait max 100 ms */
+-	timeout = ktime_add_ms(ktime_get(), 100);
+-
+-	/* hw clears the bit when it's done */
+-	while (1) {
+-		bool timedout = ktime_after(ktime_get(), timeout);
 +		/* hw clears the bit when it's done */
 +		while (1) {
 +			//bool timedout = ktime_after(ktime_get(), timeout);
  
--	if (mask & SDHCI_RESET_ALL) {
--		host->clock = 0;
--		/* Reset-all turns off SD Bus Power */
--		if (host->quirks2 & SDHCI_QUIRK2_CARD_ON_NEEDS_BUS_ON)
--			sdhci_runtime_pm_bus_off(host);
+-		if (!(sdhci_readb(host, SDHCI_SOFTWARE_RESET) & mask))
+-			break;
+-		if (timedout) {
+-			pr_err("%s: Reset 0x%x never completed.\n",
+-				mmc_hostname(host->mmc), (int)mask);
+-			sdhci_dumpregs(host);
+-			return;
+-		}
+-		udelay(10);
 +			if (!(sdhci_readb(host, SDHCI_SOFTWARE_RESET) & mask))
 +				break;
 +		//	printk("calling sdhci_reset  pass3\n");
@@ -47,28 +72,11 @@
 +			}
 +			timeout--;
 +			udelay(10);
- 	}
--
--	/* Wait max 100 ms */
--	timeout = ktime_add_ms(ktime_get(), 100);
--
--	/* hw clears the bit when it's done */
--	while (1) {
--		bool timedout = ktime_after(ktime_get(), timeout);
--
--		if (!(sdhci_readb(host, SDHCI_SOFTWARE_RESET) & mask))
--			break;
--		if (timedout) {
--			pr_err("%s: Reset 0x%x never completed.\n",
--				mmc_hostname(host->mmc), (int)mask);
--			sdhci_dumpregs(host);
--			return;
--		}
--		udelay(10);
++	}
  	}
  }
  EXPORT_SYMBOL_GPL(sdhci_reset);
-@@ -1020,11 +1032,15 @@
+@@ -1020,11 +1033,15 @@
  static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
  {
  	struct mmc_data *data = cmd->data;
@@ -87,7 +95,7 @@
  
  	if (!data)
  		return;
-@@ -1124,10 +1140,22 @@
+@@ -1124,10 +1141,22 @@
  	}
  
  	sdhci_set_transfer_irqs(host);
@@ -114,7 +122,7 @@
  
  	/*
  	 * For Version 4.10 onwards, if v4 mode is enabled, 32-bit Block Count
-@@ -1358,15 +1386,21 @@
+@@ -1360,15 +1389,21 @@
  
  	/* Wait max 10 ms */
  	timeout = 10;
@@ -145,7 +153,7 @@
  
  	while (sdhci_readl(host, SDHCI_PRESENT_STATE) & mask) {
  		if (timeout == 0) {
-@@ -1386,6 +1420,7 @@
+@@ -1388,6 +1423,7 @@
  		WARN_ON(host->data_cmd);
  		host->data_cmd = cmd;
  	}
@@ -153,7 +161,7 @@
  
  	sdhci_prepare_data(host, cmd);
  
-@@ -1409,7 +1444,19 @@
+@@ -1411,7 +1447,19 @@
  		flags = SDHCI_CMD_RESP_SHORT_BUSY;
  	else
  		flags = SDHCI_CMD_RESP_SHORT;
@@ -174,7 +182,7 @@
  	if (cmd->flags & MMC_RSP_CRC)
  		flags |= SDHCI_CMD_CRC;
  	if (cmd->flags & MMC_RSP_OPCODE)
-@@ -1429,7 +1476,15 @@
+@@ -1431,7 +1479,15 @@
  		timeout += 10 * HZ;
  	sdhci_mod_timer(host, cmd->mrq, timeout);
  
@@ -191,7 +199,7 @@
  }
  EXPORT_SYMBOL_GPL(sdhci_send_command);
  
-@@ -1456,14 +1511,30 @@
+@@ -1458,14 +1514,30 @@
  static void sdhci_finish_command(struct sdhci_host *host)
  {
  	struct mmc_command *cmd = host->cmd;
@@ -229,7 +237,7 @@
  		}
  	}
  
-@@ -1484,8 +1555,9 @@
+@@ -1486,8 +1558,9 @@
  		if (cmd->data) {
  			DBG("Cannot wait for busy signal when also doing a data transfer");
  		} else if (!(host->quirks & SDHCI_QUIRK_NO_BUSY_IRQ) &&
@@ -240,7 +248,127 @@
  			return;
  		}
  	}
-@@ -3785,6 +3857,9 @@
+@@ -1843,17 +1916,19 @@
+ 	spin_unlock_irqrestore(&host->lock, flags);
+ }
+ EXPORT_SYMBOL_GPL(sdhci_request);
+-
+ void sdhci_set_bus_width(struct sdhci_host *host, int width)
+ {
+ 	u8 ctrl;
+-
+ 	ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
+-	if (width == MMC_BUS_WIDTH_8) {
++	if (width == MMC_BUS_WIDTH_8) 
++        {
+ 		ctrl &= ~SDHCI_CTRL_4BITBUS;
+-		ctrl |= SDHCI_CTRL_8BITBUS;
+-	} else {
+-		if (host->mmc->caps & MMC_CAP_8_BIT_DATA)
++		if ((host->version & SDHCI_SPEC_VER_MASK) >= SDHCI_SPEC_300)
++			ctrl |= SDHCI_CTRL_8BITBUS;
++	} 
++        else 
++        {
++		if ((host->version & SDHCI_SPEC_VER_MASK) >= SDHCI_SPEC_300)
+ 			ctrl &= ~SDHCI_CTRL_8BITBUS;
+ 		if (width == MMC_BUS_WIDTH_4)
+ 			ctrl |= SDHCI_CTRL_4BITBUS;
+@@ -1888,7 +1963,74 @@
+ 	sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
+ }
+ EXPORT_SYMBOL_GPL(sdhci_set_uhs_signaling);
++#if defined(EMMC_8BITS) //only ast2500 supporta 8 bit mode. 
++#define SDHCI_CTRL_S0_8BITBUS 0x1000000;
++#define AST_SCU_MULTI_PIN_ENABLE_8_BITS_MODE 0x00000008 /* bit 3 */
++#define ENABLE_8_BIT 1
++
++static void ast_set_gerneral_transfer_mode(int set)
++{
++	u32 ctrl2;
++
++	/*Enable 8bits transfer mode multi function ping*/
++	iowrite32(SCU_UNLOCK_MAGIC, (void __iomem*)AST_SCU_VA_BASE);/* unlock SCU */
++
++        	ctrl2 = ioread32((void __iomem*)AST_SCU_VA_BASE+0x90);
++        	if(set == ENABLE_8_BIT)
++        	{
++        		ctrl2 |= AST_SCU_MULTI_PIN_ENABLE_8_BITS_MODE;//Enable 8bits multi unction ping
++        	}else
++        	{
++        		ctrl2 &= ~AST_SCU_MULTI_PIN_ENABLE_8_BITS_MODE;//Disable 8bits multi unction ping
++        	}
++        	iowrite32(ctrl2, (void __iomem*)AST_SCU_VA_BASE+0x90);
++        	mdelay(10);
++        	ctrl2 = ioread32((void __iomem*)AST_SCU_VA_BASE+0x90);
++
++	iowrite32(0, (void __iomem*)AST_SCU_VA_BASE);/* lock SCU */
++
++        	/*Enable 8bits host transfer mode*/
++	ctrl2 = ioread32((void __iomem*)AST_MDMA_VA_BASE);
++	if(set == ENABLE_8_BIT)
++	{
++		ctrl2 |= SDHCI_CTRL_S0_8BITBUS;//Enable 8bits transfer mode
++	}
++	else
++	{
++		ctrl2 &= ~SDHCI_CTRL_S0_8BITBUS;//Disable 8bits transfer mode
++	}
++	iowrite32(ctrl2, (void __iomem*)AST_MDMA_VA_BASE);
++}
+ 
++int ast_platform_bus_width(struct sdhci_host *host, int width)
++{
++	u32 ctrl;
++	int enable_set;
++
++	ctrl = sdhci_readl(host, SDHCI_HOST_CONTROL);
++
++	switch (width) {
++	case MMC_BUS_WIDTH_8:
++		ctrl &= ~SDHCI_CTRL_4BITBUS;
++		enable_set = ENABLE_8_BIT;
++		break;
++
++	case MMC_BUS_WIDTH_4:
++		ctrl |= SDHCI_CTRL_4BITBUS;
++		enable_set = 0;
++		break;
++	default:
++		ctrl &= ~SDHCI_CTRL_4BITBUS;
++		enable_set = 0;
++		break;
++	}
++	ast_set_gerneral_transfer_mode(enable_set);
++	
++	sdhci_writel(host, ctrl, SDHCI_HOST_CONTROL);
++
++	return 0;
++}
++#endif
+ void sdhci_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
+ {
+ 	struct sdhci_host *host = mmc_priv(mmc);
+@@ -1942,9 +2084,16 @@
+ 
+ 	if (host->ops->platform_send_init_74_clocks)
+ 		host->ops->platform_send_init_74_clocks(host, ios->power_mode);
+-
++	/*
++	 * If your platform has 8-bit width support but is not a v3 controller,
++	 * or if it requires special setup code, you should implement that in
++	 * platform_bus_width().
++	 */
++#if defined(EMMC_8BITS)
++	host->ops->platform_bus_width(host, ios->bus_width);
++#else
+ 	host->ops->set_bus_width(host, ios->bus_width);
+-
++#endif
+ 	ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
+ 
+ 	if (!(host->quirks & SDHCI_QUIRK_NO_HISPD_BIT)) {
+@@ -3787,6 +3936,9 @@
  		host->flags &= ~SDHCI_USE_ADMA;
  	}
  
@@ -250,8 +378,30 @@
  	if (sdhci_can_64bit_dma(host))
  		host->flags |= SDHCI_USE_64_BIT_DMA;
  
---- linux-5.4.41/drivers/mmc/host/sdhci.h	2020-05-14 01:58:30.000000000 -0400
-+++ linux/drivers/mmc/host/sdhci.h	2020-05-17 01:00:50.255505237 -0400
+@@ -3980,8 +4132,19 @@
+ 	 * won't assume 8-bit width for hosts without that CAP.
+ 	 */
+ 	if (!(host->quirks & SDHCI_QUIRK_FORCE_1_BIT_DATA))
+-		mmc->caps |= MMC_CAP_4_BIT_DATA;
+-
++        {
++		//mmc->caps |= MMC_CAP_4_BIT_DATA;
++        	if(host->mmc->caps & MMC_CAP_8_BIT_DATA)
++		{
++                        printk("8 bits auto-detect\n");
++			mmc->caps |= MMC_CAP_8_BIT_DATA;//MMC used 8bits auto detect mode
++		}
++		else
++		{
++			printk("4 bits auto-detect\n");
++			mmc->caps |= MMC_CAP_4_BIT_DATA;//MMC used 4bits auto detect mode
++		}
++        }
+ 	if (host->quirks2 & SDHCI_QUIRK2_HOST_NO_CMD23)
+ 		mmc->caps &= ~MMC_CAP_CMD23;
+ 
+--- linux-5.4.99/drivers/mmc/host/sdhci.h	2021-02-17 17:35:20.000000000 +0800
++++ linux/drivers/mmc/host/sdhci.h	2021-07-01 19:15:48.946152557 +0800
 @@ -520,6 +520,16 @@
  #define SDHCI_SIGNALING_180	(1<<15)	/* Host is capable of 1.8V signaling */
  #define SDHCI_SIGNALING_120	(1<<16)	/* Host is capable of 1.2V signaling */
@@ -277,3 +427,18 @@
  
  	struct sg_mapping_iter sg_miter;	/* SG state for PIO */
  	unsigned int blocks;	/* remaining PIO blocks */
+@@ -633,6 +644,7 @@
+ 	unsigned int	(*get_max_timeout_count)(struct sdhci_host *host);
+ 	void		(*set_timeout)(struct sdhci_host *host,
+ 				       struct mmc_command *cmd);
++        int		(*platform_bus_width)(struct sdhci_host *host, int width);
+ 	void		(*set_bus_width)(struct sdhci_host *host, int width);
+ 	void (*platform_send_init_74_clocks)(struct sdhci_host *host,
+ 					     u8 power_mode);
+@@ -797,5 +809,5 @@
+ void sdhci_abort_tuning(struct sdhci_host *host, u32 opcode);
+ void sdhci_set_data_timeout_irq(struct sdhci_host *host, bool enable);
+ void __sdhci_set_timeout(struct sdhci_host *host, struct mmc_command *cmd);
+-
++int ast_platform_bus_width(struct sdhci_host *host, int width);
+ #endif /* __SDHCI_HW_H */
