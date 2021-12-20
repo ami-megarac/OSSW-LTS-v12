@@ -1866,7 +1866,7 @@ int main (int argc, char **argv) {
 						}
 
 						if (con->request_count == 1 || con->state != CON_STATE_READ) { /* e.g. CON_STATE_READ_POST || CON_STATE_WRITE */
-							if ( (srv->cur_ts - con->read_idle_ts > con->conf.max_read_idle) && (strncmp(con->request.uri->ptr, "/sol?", strlen("/sol?")) !=0) ) {//disallow web socket SOL timeout
+							if (srv->cur_ts - con->read_idle_ts > con->conf.max_read_idle) {
 								/* time - out */
 								if (con->conf.log_request_handling) {
 									log_error_write(srv, __FILE__, __LINE__, "sd",
@@ -1877,7 +1877,7 @@ int main (int argc, char **argv) {
 								changed = 1;
 							}
 						} else {
-							if ( (srv->cur_ts - con->read_idle_ts > con->keep_alive_idle) && (strncmp(con->request.uri->ptr, "/sol?", strlen("/sol?")) !=0) ) {//disallow web socket SOL timeout
+							if (srv->cur_ts - con->read_idle_ts > con->keep_alive_idle) {
 								/* time - out */
 								if (con->conf.log_request_handling) {
 									log_error_write(srv, __FILE__, __LINE__, "sd",
@@ -2067,15 +2067,6 @@ int main (int argc, char **argv) {
 		for (ndx = 0; ndx < srv->joblist->used; ndx++) {
 			connection *con = srv->joblist->ptr[ndx];
 			connection_state_machine(srv, con);
-			handler_t r;
-                        switch(r = plugins_call_handle_joblist(srv, con)) {
-                        case HANDLER_FINISHED:
-                        case HANDLER_GO_ON:
-                                break;
-                        default:
-                                log_error_write(srv, __FILE__, __LINE__, "d", r);
-                                break;
-                        }
 			con->in_joblist = 0;
 		}
 

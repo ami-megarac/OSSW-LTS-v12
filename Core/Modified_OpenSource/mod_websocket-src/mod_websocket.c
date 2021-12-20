@@ -331,7 +331,7 @@ SOCKET WSInitializeClient(u_short PortNo, char *InterfaceName) {
 	SOCKET sock; /* Server Socket */
 
 	/* Create a socket to listening */
-	if ((g_corefeatures.global_ipv6 == ENABLED) && (IsBMCNFSMode() != 1) && (isIPv6Enabled() != 0)) {
+	if ((g_corefeatures.global_ipv6 == ENABLED) && (IsBMCNFSMode() != 1)) {
 		sock = WSInitializeClientv6(PortNo, InterfaceName);
 	} else {
 		sock = WSInitializeClientv4(PortNo, InterfaceName);
@@ -528,8 +528,8 @@ int decode_websocket_hybi(unsigned char *src, uint64_t srclength,
 		// unmask the data
 		frame_mask = payload - 4;
 		for (i = 0; i < payload_length; i++) {
-			payload[i] ^= frame_mask[i % 4]; /* Fortify [Buffer overflow]- False Positive */ /* payload is unsigned char pointer to an array and assigned with assigned with uncsigned char value which is in a limited range - Reason */
-			target[dest_offset + i] = payload[i]; /* Fortify [Buffer overflow]- False Positive */ /* target is unsigned char pointer to an array and assigned with assigned with uncsigned char value which is in a limited range - Reason */
+			payload[i] ^= frame_mask[i % 4];
+			target[dest_offset + i] = payload[i];
 		}
 		len = payload_length;
 
@@ -562,19 +562,19 @@ int cleanup_instance( int instance, int clear_ssl )
 
 	if (WebSockCtx[(int) instance].cin_buf != NULL) {
 		free(WebSockCtx[(int) instance].cin_buf);
-		WebSockCtx[(int) instance].cin_buf = NULL; /* Fortify [Buffer Overflow : Off-by-One]:: False Positive */ /* cin_buf is char pointer and assigned with null after the memory is freed - Reason */
+		WebSockCtx[(int) instance].cin_buf = NULL; /* Fortify [Buffer Overflow]:: False Positive */
 	}
 	if (WebSockCtx[(int) instance].cout_buf != NULL) {
 		free(WebSockCtx[(int) instance].cout_buf);
-		WebSockCtx[(int) instance].cout_buf = NULL; /* Fortify [Buffer Overflow : Off-by-One]:: False Positive */ /* cout_buf is char pointer and assigned with null after the memory is freed - Reason */
+		WebSockCtx[(int) instance].cout_buf = NULL; /* Fortify [Buffer Overflow]:: False Positive */
 	}
 	if (WebSockCtx[(int) instance].tin_buf != NULL) {
 		free(WebSockCtx[(int) instance].tin_buf);
-		WebSockCtx[(int) instance].tin_buf = NULL; /* Fortify [Buffer Overflow : Off-by-One]:: False Positive */ /* tin_buf is char pointer and assigned with null after the memory is freed - Reason */
+		WebSockCtx[(int) instance].tin_buf = NULL; /* Fortify [Buffer Overflow]:: False Positive */
 	}
 	if (WebSockCtx[(int) instance].tout_buf != NULL) {
 		free(WebSockCtx[(int) instance].tout_buf);
-		WebSockCtx[(int) instance].tout_buf = NULL; /* Fortify [Buffer Overflow : Off-by-One]:: False Positive */ /* tout_buf is char pointer and assigned with null after the memory is freed - Reason */
+		WebSockCtx[(int) instance].tout_buf = NULL; /* Fortify [Buffer Overflow]:: False Positive */
 	}
 
 	if (WebSockCtx[(int) instance].targetfd > 0) {
@@ -593,10 +593,10 @@ int cleanup_instance( int instance, int clear_ssl )
 		}
 		WebSockCtx[(int) instance].sockfd = -1;
 	}
-	WebSockCtx[(int) instance].media = 0; /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */ /* variable media is type of signed integer and assigned with value 0 which is in limited range - Reason */
+	WebSockCtx[(int) instance].media = 0; /* Fortify [Buffer Overflow]:: False Positive */
 	/* To ensure proper cleanup, memset the websocket instance once the
 	** cleanup is done. */
-	memset(&WebSockCtx[instance], 0, sizeof(webs_ctx)); /*Fortify[Buffer Overflow] :: false positive*/ /* The number of bytes set to the null is in limited range as WebSockCtx is pointer to the structure of webs_ctx - Reason*/
+	memset(&WebSockCtx[instance], 0, sizeof(webs_ctx)); /*Fortify[Buffer Overflow] :: false positive*/
 	return 0;
 }
 
@@ -1359,7 +1359,7 @@ int ServiceWebSockCmd(int Instance, buffer* uri)
 			return ret;
 		}
 
-		WebSockCtx[Instance].targetfd = WSInitializeClient(port, LOOPBACK); /* Fortify [Buffer Overflow: Off-by-One]: False Positive */ /* targetfd is of type signed integer and assigned with signed integer value which is in a limited range - Reason */
+		WebSockCtx[Instance].targetfd = WSInitializeClient(port, LOOPBACK); /* Fortify [Buffer Overflow]:: False Positive */
 		/* If media / video server port not listening */
 		if (WebSockCtx[Instance].targetfd <= 0) {
 			TCRIT("ServiceWebSockCmd: Invalid targetfd");
@@ -1419,7 +1419,7 @@ int ServiceWebSockCmd(int Instance, buffer* uri)
 		}
 	}
 
-	WebSockCtx[Instance].media = (0 == strncmp(ServiceConfig.ServiceName, CDMEDIA_SERVICE_NAME, strlen(CDMEDIA_SERVICE_NAME))) ? 1 :0; /* Fortify [Buffer Overflow]:: False Positive */ /* variable media is type of signed integer and assigned with value 0/1 which is in limited range - Reason */
+	WebSockCtx[Instance].media = (0 == strncmp(ServiceConfig.ServiceName, CDMEDIA_SERVICE_NAME, strlen(CDMEDIA_SERVICE_NAME))) ? 1 :0; /* Fortify [Buffer Overflow]:: False Positive */
 
 	if (ProcessWebThreads(Instance) != 0) {
 		TCRIT("ServiceWebSockCmd: Processwebthreads threads creation failed");
@@ -1862,11 +1862,11 @@ static handler_t mod_websocket_check_extension(server *srv, connection *con, voi
     for (i = hdrs->used; i > 0; i--) {
         hdr = (data_string *)hdrs->data[i - 1];
         if (buffer_is_equal_string(hdr->key, CONST_STR_LEN("Connection"))) {
-            connection_hdr_value = buffer_init_buffer(hdr->value); /* Fortify [Memory Leak]:: False Positive */ /* The memory allocated for connection_hdr_value is being freed before returning handler_t- Reason*/
+            connection_hdr_value = buffer_init_buffer(hdr->value);
             buffer_to_lower(connection_hdr_value);
         }
         if (buffer_is_equal_string(hdr->key, CONST_STR_LEN("Upgrade"))) {
-            upgrade_hdr_value = buffer_init_buffer(hdr->value); /* Fortify [Memory Leak]:: False Positive */ /* The memory allocated for upgrade_hdr_value is being freed before returning handler_t- Reason*/
+            upgrade_hdr_value = buffer_init_buffer(hdr->value);
             buffer_to_lower(upgrade_hdr_value);
         }
     }
@@ -1876,7 +1876,7 @@ static handler_t mod_websocket_check_extension(server *srv, connection *con, voi
      */
     if (buffer_is_empty(connection_hdr_value) ||
         buffer_is_empty(upgrade_hdr_value) ||
-        strstr(connection_hdr_value->ptr, "upgrade") == NULL || /* Fortify [Null Dereference]:: False Positive */ /* If condition is present to check connection_hdr_value, upgrade_hdr_value is empty or not. If connection_hdr_value, upgrade_hdr_value is empty the data will not nr dereferenced. - Reason*/
+        strstr(connection_hdr_value->ptr, "upgrade") == NULL ||
         strstr(upgrade_hdr_value->ptr, "websocket") == NULL) {
         if (p->conf.debug >= MOD_WEBSOCKET_LOG_INFO) {
             log_error_write(srv, __FILE__, __LINE__, "ss",
@@ -1939,7 +1939,8 @@ FREE_FUNC(mod_websocket_free) {
 SETDEFAULTS_FUNC(mod_websocket_set_defaults) {
     size_t i, j;
     plugin_data *p = p_d;
-    config_values_t cv[] = {					    	/* Fortify [Hardcoded Encryption Key]:: False Positive */ /* encrypted keys are not used in the cv variable and cv variable is using variable using configuration values - Reason */
+    /* Key Management: Hardcoded Encryption Key: false positive */
+    config_values_t cv[] = {
         { MOD_WEBSOCKET_CONFIG_SERVER,        NULL, T_CONFIG_LOCAL, T_CONFIG_SCOPE_CONNECTION },
         { MOD_WEBSOCKET_CONFIG_TIMEOUT,       NULL, T_CONFIG_SHORT, T_CONFIG_SCOPE_CONNECTION },
         { MOD_WEBSOCKET_CONFIG_DEBUG,         NULL, T_CONFIG_SHORT, T_CONFIG_SCOPE_CONNECTION },
@@ -2007,7 +2008,7 @@ SETDEFAULTS_FUNC(mod_websocket_set_defaults) {
                 log_error_write(srv, __FILE__, __LINE__, "s", "invalid configuration");
                 return HANDLER_ERROR;
             }
-            ext = data_array_init(); /* Fortify [Memory leak]:: False Positive */ /* Memory for ext is freed inside array_insert_unique function - Reason */
+            ext = data_array_init();
 #ifdef CONFIG_SPX_FEATURE_LIGHTTPD_1_4_35  	
             buffer_copy_string_buffer(ext->key, ((data_array *)(da->value->data[j]))->key);
 #elif defined(CONFIG_SPX_FEATURE_LIGHTTPD_1_4_45)
@@ -2015,7 +2016,7 @@ SETDEFAULTS_FUNC(mod_websocket_set_defaults) {
 #endif		
             ext->value = array_init_array(((data_array *)(da->value->data[j]))->value);
             ext->is_index_key = ((data_array *)(da->value->data[j]))->is_index_key;
-            array_insert_unique(s->exts, (data_unset *)ext);/* Fortify [Memory leak]:: False Positive */ /* Memory for ext is freed inside FREE_FUNC function - Reason */
+            array_insert_unique(s->exts, (data_unset *)ext);
         }
     }
     return HANDLER_GO_ON;
@@ -2203,6 +2204,7 @@ SUBREQUEST_FUNC(mod_websocket_handle_subrequest) {
 			}
 
 			if (alloc_ws_ctx(Instance) != 0) {
+				cleanup_instance(Instance, 0);
 				hctx->con->http_status = MOD_WEBSOCKET_INTERNAL_SERVER_ERROR;
 				hctx->con->mode = DIRECT;
 				return HANDLER_FINISHED;
@@ -2217,7 +2219,8 @@ SUBREQUEST_FUNC(mod_websocket_handle_subrequest) {
 			WebSockCtx[Instance].hybi = 1;
 
 			if (ServiceWebSockCmd(Instance, hctx->con->request.uri) != 0) {
-				hctx->con->dupped = 0;
+			    	hctx->con->dupped = 0;
+				hctx->con->ssl = NULL;
 				hctx->con->http_status = MOD_WEBSOCKET_INTERNAL_SERVER_ERROR;
 				hctx->con->mode = DIRECT;
 				break;

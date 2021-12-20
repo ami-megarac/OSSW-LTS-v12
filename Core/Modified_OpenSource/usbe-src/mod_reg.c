@@ -292,6 +292,9 @@ int register_usb_device (usb_device_driver* usb_device_driver, USB_DEV* UsbDev)
 	if (usb_device_driver->devnum >= MAX_USB_HW)
 	{
 		TCRIT ("Error:The Device Number %d cannot be more than %d\n", usb_device_driver->devnum, MAX_USB_HW);
+		/* Avoid the "Out-of-bounds read" and "Out-of-bounds access" with DevNo, Valid DevNo range: 0 ~ (MAX_USB_HW-1). */
+		/* coverity[overrun-local : FALSE] */
+		return -1;
 	}
 	DevNo = (uint8)usb_device_driver->devnum; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive *//* Reason for False Positive - Casting reture value as unsigned int8 parameter to fit return value. */
 

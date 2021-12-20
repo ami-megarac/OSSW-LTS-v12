@@ -39,7 +39,7 @@ addAuthInfo(int cmd, u8 *data, uint8 Instance) {
  * 
  */
 void releaseUsbDev(int instance) {
-	uint8 InstanceIx = (uint8)instance;
+	uint8 InstanceIx = instance;
 	if (&iUSBDeviceInfo[InstanceIx]) {
 		ReleaseiUSBDevice(&iUSBDeviceInfo[InstanceIx]);
 	}
@@ -50,13 +50,13 @@ void releaseUsbDev(int instance) {
  * 
  */
 int requestUsbDev(int instance) {
-	uint8 InstanceIx = (uint8)instance;
+	uint8 InstanceIx = instance;
 
-	iUSBDeviceInfo[InstanceIx].DevInfo.DeviceType = IUSB_CDROM_FLOPPY_COMBO; /* Fortify [Buffer overflow]- False Positive */ /* DeviceType and LockType are unsigned char and assigned with 0x22 and 0x05 which are in a limited range - Reason */
+	iUSBDeviceInfo[InstanceIx].DevInfo.DeviceType = IUSB_CDROM_FLOPPY_COMBO;
 	iUSBDeviceInfo[InstanceIx].DevInfo.LockType = LOCK_TYPE_SHARED;
 	if (0 != RequestiUSBDevice(&iUSBDeviceInfo[InstanceIx])) {
-		iUSBDeviceInfo[InstanceIx].DevInfo.DeviceType = IUSB_DEVICE_CDROM;/* Fortify [Buffer overflow]- False Positive */ /* DeviceType and LockType are unsigned char and assigned with 0x05 and 0x02 which are in a limited range - Reason */
-		iUSBDeviceInfo[InstanceIx].DevInfo.LockType = LOCK_TYPE_SHARED;/* Fortify [Buffer overflow]- False Positive */ /* DeviceType and LockType are unsigned char and assigned with 0x05 and 0x02 which are in a limited range - Reason */
+		iUSBDeviceInfo[InstanceIx].DevInfo.DeviceType = IUSB_DEVICE_CDROM;
+		iUSBDeviceInfo[InstanceIx].DevInfo.LockType = LOCK_TYPE_SHARED;
 		if (0 != RequestiUSBDevice(&iUSBDeviceInfo[InstanceIx])) {
 			TCRIT("Error Unable to find iUSB CDROM Device \n");
 			return 1;
@@ -129,9 +129,9 @@ int sendCmdToCdserver(int server, int cmd, int instance) {
 	IUSB_SCSI_PACKET RemoteHBPkt;
 	memset(&RemoteHBPkt, 0, sizeof(IUSB_SCSI_PACKET));
 
-	RemoteHBPkt.Header.Instance = (uint8)instance;
+	RemoteHBPkt.Header.Instance = instance;
 	strncpy((char *) (RemoteHBPkt.Header.Signature), IUSB_SIG, strlen(IUSB_SIG));
-	RemoteHBPkt.CommandPkt.OpCode = (uint8)cmd; // OpCode 
+	RemoteHBPkt.CommandPkt.OpCode = cmd; // OpCode 
 	RemoteHBPkt.Header.DataPktLen = mac2long(sizeof(IUSB_SCSI_PACKET) - sizeof(IUSB_HEADER));
 	len = mac2long(RemoteHBPkt.Header.DataPktLen) + sizeof(IUSB_HEADER);
 	sendDataToServer(server, (char *) &RemoteHBPkt, len);

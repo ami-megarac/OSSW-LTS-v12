@@ -692,10 +692,10 @@ int ast_usbhub_get_ep_status(uint8_t dev_num, uint8_t ep_num, uint8 ep_dir, uint
 
 	if (ep_num == AST_USBHUB_DEV_EP0_ID) {
 		reg = ast_usbhub_read_reg(AST_USBHUB_DEV_EP0_CSR(dev_num));
-		*stall = (reg & AST_USBHUB_DEV_EP0_STALL) ? 1 : 0; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive *//* Reason for False Positive - Conditional operator return 0 or 1, no any negative values. */
+		*stall = (reg & AST_USBHUB_DEV_EP0_STALL) ? 1 : 0; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive */
 	} else {
 		reg = ast_usbhub_read_reg(AST_USBHUB_EP_CONF(ep_num));
-		*stall = (reg & AST_USBHUB_EP_CONF_STALL) ? 1 : 0; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive *//* Reason for False Positive - Conditional operator return 0 or 1, no any negative values. */
+		*stall = (reg & AST_USBHUB_EP_CONF_STALL) ? 1 : 0; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive */
 	}
 
 	return 0;
@@ -778,7 +778,7 @@ void ast_usbhub_set_remote_wakeup(uint8_t dev_num, uint8_t enable)
 	reg = (enable) ? (reg | AST_USBHUB_ROOT_AUTO_REMOTE_WAKEUP) : (reg & ~AST_USBHUB_ROOT_AUTO_REMOTE_WAKEUP);
 	ast_usbhub_write_reg(reg, AST_USBHUB_ROOT);
 	#else /* manually remote wakeup */
-	ast_usbhub_remote_wakeup_enable = enable ? 1 : 0; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive *//* Reason for False Positive - Conditional operator return 0 or 1, no any negative values. */
+	ast_usbhub_remote_wakeup_enable = enable ? 1 : 0; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive */
 	#endif
 }
 
@@ -1290,7 +1290,7 @@ static int ascii_to_unicode(const char *str, uint8_t *buf, unsigned int len)
 
 	i = 0;
 	while (len != 0 && *str != '\0') {
-		buf[i] = (uint8_t)*str; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive *//* Reason for False Positive - Casting for fortify [Type Mismatch: Signed to Unsigned].*/
+		buf[i] = (uint8_t)*str; /* Casting for fortify [Type Mismatch: Signed to Unsigned].*/
 		buf[i + 1] = 0x00;
 		i += 2;
 		str ++;
@@ -1305,7 +1305,6 @@ static int ast_usbhub_get_string_desc(struct usb_string *table, int id, uint8_t 
 	int i;
 	int len;
 	char *s;
-	uint8_t *ptr = NULL;
 
 	/* descriptor 0 has the language id */
 	if (id == 0) {
@@ -1332,16 +1331,7 @@ static int ast_usbhub_get_string_desc(struct usb_string *table, int id, uint8_t 
 
 	buf [0] = 2 + len;
 	buf [1] = USB_DT_STRING;
-		/* ASPEED RECOMMENDATION:
-CPU write memory has longer latency and there are many stages of internal pipeline and FIFO.So when all memory write data are out of CPU, then CPU will write AHB to update USB controller.It is possible that USB received the CPU command and start DMA to fetch data, but the CPU write still in buffer and not all flushed to DRAM.
-Then the USB DMA may fetch old data from DRAM.
-Doing dummy read after memcpy() can hold the AHB command until CPU write data are all flush to DRAM. */
-	ptr = (uint8_t *)buf;
-	if(len > 3)
-		TDBG_FLAGGED(ast_usbhub_debug_flags, AST_USBHUB_DEBUG_SETUP, "%x %x %x\n",
-				ptr[len - 1],
-				ptr[len - 2],
-				ptr[len - 3]);
+
 	return buf[0];
 }
 
@@ -1418,7 +1408,7 @@ static void ast_usbhub_set_speed(void)
 
 	/* judge bus speed */
 	reg = ast_usbhub_read_reg(AST_USBHUB_USB_STATUS);
-	ast_usbhub_hub_speed = ((reg & AST_USBHUB_USB_STATUS_BUS_SPEED) == AST_USBHUB_USB_STATUS_BUS_HIGH) ? USB_SPEED_HIGH : USB_SPEED_FULL; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive *//* Reason for False Positive - Conditional operator return enum value, and it was declared by kernel header. */
+	ast_usbhub_hub_speed = ((reg & AST_USBHUB_USB_STATUS_BUS_SPEED) == AST_USBHUB_USB_STATUS_BUS_HIGH) ? USB_SPEED_HIGH : USB_SPEED_FULL; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive */
 
 	for (i = 0; i < AST_USBHUB_DEV_NUM; i ++) {
 		if (ast_usbhub_device_connect_to_port[i]) {
@@ -1744,7 +1734,7 @@ Doing dummy read after memcpy() can hold the AHB command until CPU write data ar
 			TDBG_FLAGGED(ast_usbhub_debug_flags, AST_USBHUB_DEBUG_SETUP, "QUAL DESC\n");
 
 			value = sizeof(ast_usbhub_hub_dev_qualifier_desc);
-			ast_usbhub_hub_dev_qualifier_desc.bDeviceProtocol = (ast_usbhub_hub_speed == USB_SPEED_FULL) ? 0x01 : 0x00; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive *//* Reason for False Positive - Conditional operator return 0 or 1, no any negative values. */
+			ast_usbhub_hub_dev_qualifier_desc.bDeviceProtocol = (ast_usbhub_hub_speed == USB_SPEED_FULL) ? 0x01 : 0x00; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive */
 			memcpy(ast_usbhub_hub_ep0_buf, &ast_usbhub_hub_dev_qualifier_desc, value);
 
 			/* ASPEED RECOMMENDATION:
@@ -1804,7 +1794,7 @@ Doing dummy read after memcpy() can hold the AHB command until CPU write data ar
 		if (!ast_usbhub_hub_current_config_value)
 			break;
 		if (w_index != 0) { /* we only have 1 interface: interface 0 */
-			value = -EDOM; /* Fortify [Poor Style: Value Never Read]:: False Positive *//* Reason for False Positive - Error checking for request from host. */
+			value = -EDOM; /* Fortify issue :: False Positive */
 			break;
 		}
 
@@ -1886,7 +1876,7 @@ Doing dummy read after memcpy() can hold the AHB command until CPU write data ar
 			}
 		} else if (recipient == USB_RECIP_ENDPOINT) {
 			reg = ast_usbhub_read_reg(AST_USBHUB_HUB_EP1_CSR);
-			ast_usbhub_hub_ep0_buf[0] = (reg & AST_USBHUB_HUB_EP1_STALL) ? 1 : 0; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive *//* Reason for False Positive - Conditional operator return 0 or 1, no any negative values. */
+			ast_usbhub_hub_ep0_buf[0] = (reg & AST_USBHUB_HUB_EP1_STALL) ? 1 : 0; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive */
 		} else {
 			break;
 		}
@@ -2303,9 +2293,24 @@ int ast_usbhub_module_init(void)
 	}
 
 	if (i == AST_USBHUB_USE_DEV_NUM) { /* all device register successful */
+		uint32_t reg;
+
 		ast_usbhub_alloc_dma_buf();
 		ast_usbhub_init_and_connect();
 		ast_usbhub_sys = AddSysctlTable("ast-usbhub", ast_usbhub_ctl_table);
+
+		/*
+		 * Bug68362: Enable USB pull down to prevent leakage at initialization
+		 *   Bit 23: DP 15K pull down enable
+		 *   Bit 24: DN 15K pull down enable
+		 */
+		reg = ast_usbhub_read_reg(AST_USBHUB_ROOT);
+		reg |= (0x3 << 23);
+		ast_usbhub_write_reg(reg, AST_USBHUB_ROOT);
+		reg = ast_usbhub_read_reg(AST_USBHUB_ROOT);
+		printk("%s: Enable USB pull down on USB VHub 0x%8x\n",
+				ast_usbhub_driver_name, reg);
+
 		return 0;
 	} else { /* register failed, ret is the failed device */
 		for (i = 0; i < ret; i ++) {

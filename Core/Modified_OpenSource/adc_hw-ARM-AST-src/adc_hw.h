@@ -25,7 +25,7 @@
 
 #define ADC_CHANNEL0_NUM			0x00
 #define ADC_CHANNEL15_NUM			0x0F
-#if defined(SOC_AST2500)
+#if defined(CONFIG_SOC_AST2500)
 #define ADC_REF_VOLTAGE_IN_MVOLTS		1800
 #else
 #define ADC_REF_VOLTAGE_IN_MVOLTS               2500
@@ -61,7 +61,6 @@ typedef struct
 	int	(*adc_get_resolution) (uint16_t *adc_resolution);
 	int	(*adc_get_reference_voltage) (uint16_t *adc_ref_volatge);
 	int	(*adc_reboot_notifier) (void);
-	int (*adc_set_compensating_mode) (int mode);
 } ADC_HW;
 
 

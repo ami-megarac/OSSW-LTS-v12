@@ -1,0 +1,3 @@
+version=3
+opts=dversionmangle=s/\+dfsg//,pgpsigurlmangle=s/$/.sig/,repacksuffix=+dfsg,repack,compression=xz \
+http://ftp.gnu.org/gnu/gawk/gawk-([\d\.]+)\.tar\.gz

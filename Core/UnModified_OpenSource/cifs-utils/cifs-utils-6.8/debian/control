@@ -1,0 +1,29 @@
+Source: cifs-utils
+Section: otherosfs
+Priority: optional
+Maintainer: Debian Samba Maintainers <pkg-samba-maint@lists.alioth.debian.org>
+Uploaders: Steve Langasek <vorlon@debian.org>, Noèl Köthe <noel@debian.org>, Jelmer Vernooĳ <jelmer@debian.org>, Mathieu Parent <sathieu@debian.org>
+Build-Depends: debhelper (>= 11),
+	libkeyutils-dev,
+	libcap-ng-dev,
+	libkrb5-dev,
+	libpam0g-dev,
+	libtalloc-dev (>= 1.2.0~git20080616),
+	libwbclient-dev (>= 2:3.6.5-3),
+	python3-docutils
+Standards-Version: 4.1.4
+Homepage: http://www.samba.org/~jlayton/cifs-utils/
+Vcs-Git: https://salsa.debian.org/samba-team/cifs-utils.git
+Vcs-Browser: https://salsa.debian.org/samba-team/cifs-utils
+
+Package: cifs-utils
+Architecture: linux-any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Replaces: smbfs (<< 2:4.0~rc1-1)
+Suggests: keyutils, smbclient, winbind
+Description: Common Internet File System utilities
+ The SMB/CIFS protocol provides support for cross-platform file sharing with
+ Microsoft Windows, OS X, and other Unix systems.
+ .
+ This package provides utilities for managing mounts of CIFS network
+ file systems.

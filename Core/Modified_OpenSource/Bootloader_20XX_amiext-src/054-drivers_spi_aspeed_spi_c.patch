@@ -1,0 +1,22 @@
+--- uboot_org/drivers/spi/aspeed_spi.c	2021-10-07 17:42:22.348556667 +0800
++++ uboot/drivers/spi/aspeed_spi.c	2021-10-07 17:40:26.138039689 +0800
+@@ -858,6 +858,19 @@
+ 	} else {
+ 		seg_addr = SEGMENT_ADDR_VALUE((u32)flash->ahb_base,
+ 						  (u32)flash->ahb_base + flash->ahb_size);
++		//AMI check address overlap and correct address if overlap
++		if((flash->cs + 1 ) < ASPEED_SPI_MAX_CS)
++		{
++			u32 seg_addr_next = readl(&priv->regs->segment_addr[flash->cs + 1]);	
++			u32 seg_size = 0;
++			if( SEGMENT_ADDR_END(seg_addr) > SEGMENT_ADDR_START(seg_addr_next))
++			{
++				seg_size = SEGMENT_ADDR_END(seg_addr_next) - SEGMENT_ADDR_START(seg_addr_next);
++				seg_addr_next=SEGMENT_ADDR_VALUE(SEGMENT_ADDR_END(seg_addr),SEGMENT_ADDR_END(seg_addr)+seg_size);
++				writel(seg_addr_next, &priv->regs->segment_addr[flash->cs+1]);
++			}
++		}
++
+ 	}
+ 	writel(seg_addr, &priv->regs->segment_addr[flash->cs]);
+ 

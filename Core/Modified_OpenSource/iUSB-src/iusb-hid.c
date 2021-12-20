@@ -114,7 +114,9 @@ KeybdLedWaitStatus(IUSB_HID_PACKET *UserModePkt, uint8 IfNum, uint8 NoWait)
 	iUsbKeybdWakeup[IfNum] 	= 0;
 
 	if (!PendingFlag[IfNum])
-	{	
+	{
+		/* Reason for false positive - IfNum nerver larger than array size. The number is compared with MAX_HID_IFACES. */
+		/* coverity[overrun-local : FALSE] */
 		spin_unlock_irqrestore(&iUsbKeybdLedLock[IfNum], flags);
 		UsbCore.CoreUsb_OsSleepOnTimeout(&KeybdReqWait[IfNum],&iUsbKeybdWakeup[IfNum],0);
 		spin_lock_irqsave(&iUsbKeybdLedLock[IfNum], flags);
@@ -129,6 +131,8 @@ KeybdLedWaitStatus(IUSB_HID_PACKET *UserModePkt, uint8 IfNum, uint8 NoWait)
 	TDBG_FLAGGED(iusb, DEBUG_IUSB_HID,"KeybdLedStatus(): Sleep Leaving\n");
 	iUsbKeybdActive[IfNum] 	= 0;
 	iUsbKeybdLedPkt[IfNum] 	= NULL;
+	/* Reason for false positive - IfNum nerver larger than array size. The number is compared with MAX_HID_IFACES. */
+	/* coverity[overrun-local : FALSE] */
 	spin_unlock_irqrestore(&iUsbKeybdLedLock[IfNum], flags);
 	/* Copy from kernel data area to user data area*/
 	if (__copy_to_user((void *)UserModePkt,(void *)&LedKernelModePkt[IfNum],sizeof(IUSB_HID_PACKET)))
@@ -180,14 +184,22 @@ KeybdLedRemoteCall(uint8 DevNo,uint8 IfNum,uint8 Data)
 	{	
 		PendingFlag[IfNum] = 1;
 		if (!FirstTime[IfNum])
+		{
+			/* Reason for false positive - IfNum nerver larger than array size. The number is compared with MAX_HID_IFACES. */
+			/* coverity[overrun-local : FALSE] */
 			spin_unlock_irqrestore(&iUsbKeybdLedLock[IfNum], flags);
+		}
 		TDBG_FLAGGED(iusb, DEBUG_IUSB_HID,"KeybdLedRemoteCall(): Pending Data 0x%x\n",Data);
 		return 0;
 	}
 
 	ret = FillLedPacket(DevNo,IfNum,Data);
 	if (!FirstTime[IfNum])
+	{
+		/* Reason for false positive - IfNum nerver larger than array size. The number is compared with MAX_HID_IFACES. */
+		/* coverity[overrun-local : FALSE] */
 		spin_unlock_irqrestore(&iUsbKeybdLedLock[IfNum], flags);
+	}
 	return ret;
 }
 
@@ -206,7 +218,9 @@ KeybdPrepareData(IUSB_HID_PACKET *UserModePkt, uint8 *KeybdData)
 		TWARN ("KeybdPrepareData():__copy_from_user failed\n");
 		return -EFAULT;
 	}
-	memcpy (KeybdData, &(HidPkt->Data),  8); /* Fortify [Out-of-Bounds Read]:: False Positive *//* Reason for False Positive - Buffer(KernelModeKeybdData) size is enough for the parameter casted. */
+	/* Reason for false positive - Buffer(KernelModeKeybdData) size is enough for the parameter casted. */
+	/* coverity[overrun-buffer-arg : FALSE] */
+	memcpy (KeybdData, &(HidPkt->Data),  8);
 	return 0;
 }
 
@@ -228,7 +242,9 @@ MousePrepareData(IUSB_HID_PACKET *UserModePkt, uint8 MouseMode, uint8 *MouseData
 			TWARN ("MousePrepareData():__copy_from_user failed\n");
 			return -EFAULT;
 		}
-		memcpy (MouseData, &(HidPkt->Data), REL_EFFECTIVE_MOUSE_DATA_SIZE); /* Fortify [Out-of-Bounds Read]:: False Positive *//* Reason for False Positive - Buffer(KernelModeMouseData_rel) size is enough for the parameter casted. */
+		/* Reason for false positive - Buffer(KernelModeMouseData_rel) size is enough for the parameter casted. */
+		/* coverity[overrun-buffer-arg : FALSE] */
+		memcpy (MouseData, &(HidPkt->Data), REL_EFFECTIVE_MOUSE_DATA_SIZE);
 		return 0;
 	}
 	else if (MouseMode == ABSOLUTE_MOUSE_MODE)
@@ -240,7 +256,9 @@ MousePrepareData(IUSB_HID_PACKET *UserModePkt, uint8 MouseMode, uint8 *MouseData
 			TWARN ("MousePrepareData():__copy_from_user failed\n");
 			return -EFAULT;
 		}
-		memcpy (MouseData, &(HidPkt->Data), ABS_EFFECTIVE_MOUSE_DATA_SIZE); /* Fortify [Out-of-Bounds Read]:: False Positive *//* Reason for False Positive - Buffer(KernelModeMouseData_abs) size is enough for the parameter casted. */
+		/* Reason for false positive - Buffer(KernelModeMouseData_abs) size is enough for the parameter casted. */
+		/* coverity[overrun-buffer-arg : FALSE] */
+		memcpy (MouseData, &(HidPkt->Data), ABS_EFFECTIVE_MOUSE_DATA_SIZE);
 		return 0;
     }
 	else 

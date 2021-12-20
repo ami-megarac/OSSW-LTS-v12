@@ -340,13 +340,7 @@ char *qcgireq_getquery(Q_CGI_T method)
         }
 
         int i, cl = atoi(content_length);
-		if(cl > INT_MAX)
-		{
-		   return NULL;
-		}
-        char *query = (char *)malloc(sizeof(char) * (cl + 1));/* Fortify [Integer Overflow]:: False Positive */
-                                                /* Reason for False Positive – sizeof char always fixed and condition to check integer overflow of cl is present. */
-
+        char *query = (char *)malloc(sizeof(char) * (cl + 1));
         for (i = 0; i < cl; i++)query[i] = fgetc(stdin);
         query[i] = '\0';
         return query;
@@ -395,14 +389,14 @@ static int _parse_multipart(qentry_t *request)
               strstr(getenv("CONTENT_TYPE"), "boundary=") + CONST_STRLEN("boundary="));
     _q_strtrim(boundary_orig);
     _q_strunchar(boundary_orig, '"', '"');
-    /*False Positive [Buffer Overflow]*//* Reason for False Positive  The size of buffer allocated is big enough cause of it is counting by two strings with the terminating null byte and snprintf() limits the length of string copied*/
+    /* Buffer overflow: false positive */
     retval = snprintf(boundary, sizeof(boundary), "--%s", boundary_orig);
     if(retval < 0 || retval >= (signed)sizeof(boundary))
     {
 	    TCRIT("Buffer overflow\n");
 	    return amount;
     }
-    /*False Positive [Buffer Overflow]*//* Reason for False Positive  The size of buffer allocated is big enough cause of it is counting by two strings with the terminating null byte and snprintf() limits the length of string copied*/
+    /* Buffer overflow: false positive */
     retval = snprintf(boundaryEOF, sizeof(boundaryEOF), "--%s--", boundary_orig);
     if(retval < 0 || retval >= (signed)sizeof(boundaryEOF))
     {
@@ -451,7 +445,7 @@ static int _parse_multipart(qentry_t *request)
     // check file save mode
     bool upload_filesave = false; // false: into memory, true: into file
     const char *upload_basepath = NULL; 
-	upload_basepath = request->getstr(request, "_Q_UPLOAD_BASEPATH", false);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Memory cleared properly in both failure and success cases. */
+	upload_basepath = request->getstr(request, "_Q_UPLOAD_BASEPATH", false);
     if (upload_basepath != NULL) upload_filesave = true;
 
 	
@@ -472,7 +466,7 @@ static int _parse_multipart(qentry_t *request)
                 int c_count;
 
                 // get name field
-                name = strdup(buf + CONST_STRLEN("Content-Disposition: form-data; name=\""));/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Memory cleared properly in both failure and success cases. */
+                name = strdup(buf + CONST_STRLEN("Content-Disposition: form-data; name=\""));
                 for (c_count = 0; (name[c_count] != '\"') && (name[c_count] != '\0'); c_count++);
                 name[c_count] = '\0';
 
@@ -485,15 +479,15 @@ static int _parse_multipart(qentry_t *request)
                     filename[c_count] = '\0';
                     // remove directory from path, erase '\'
                     for (erase = 0, c_count = strlen(filename) - 1; c_count >= 0; c_count--) {
-                        if (erase == 1) filename[c_count] = ' ';/*Fortify [Buffer Overflow] :: False Positive*//*Reason for False Positive -  filename is not a user inputso, there is no buffer overflow*/
+                        if (erase == 1) filename[c_count] = ' ';
                         else {
                             if (filename[c_count] == '\\') {
                                 erase = 1;
-                                filename[c_count] = ' ';/*Fortify [Buffer Overflow] :: False Positive*//*Reason for False Positive -  filename is not a user inputso, there is no buffer overflow*/
+                                filename[c_count] = ' ';
                             }
                         }
                     }
-                    _q_strtrim(filename);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Memory cleared properly in both failure and success cases. */
+                    _q_strtrim(filename);
 
                     // empty attachment
                     if (!strcmp(filename, "")) {
@@ -503,7 +497,7 @@ static int _parse_multipart(qentry_t *request)
                 }
             } else if (!strncasecmp(buf, "Content-Type: ", CONST_STRLEN("Content-Type: "))) {
                 contenttype = strdup(buf + CONST_STRLEN("Content-Type: "));
-                _q_strtrim(contenttype);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Memory cleared properly in both failure and success cases. */
+                _q_strtrim(contenttype);
             }
         }
 
@@ -523,7 +517,7 @@ static int _parse_multipart(qentry_t *request)
                         boundary, upload_basepath, savename, &valuelen, &finish);
             free(savename);
 
-            if (value != NULL) request->putstr(request, name, value, false);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Memory cleared properly in both failure and success cases. */
+            if (value != NULL) request->putstr(request, name, value, false);
             else request->putstr(request, name, "(parsing failure)", false);
         } else {
             value = _parse_multipart_value_into_memory(boundary, &valuelen, &finish);
@@ -538,13 +532,8 @@ static int _parse_multipart(qentry_t *request)
             char ename[255+10+1];
 
             // store data length, 'NAME.length'
-            /*False Positive [Buffer Overflow]*//* Reason for False Positive  The size of buffer allocated is big enough cause of it is counting by two strings with the terminating null byte and snprintf() limits the length of string copied*/
+            /* Buffer overflow: false positive */
             retval = snprintf(ename, sizeof(ename), "%s.length", name);
-             /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
-				/**
-				 * Reason for False Positive: 
-				 * Avoid buffer overflow once the total size of two strings without "the terminating null byte" equal or large the size of dest string.
-				 */
             if(retval < 0 || retval >= (signed)sizeof(ename)) {
                 DEBUG_CODER("Buffer Overflow");
                 continue;
@@ -553,43 +542,28 @@ static int _parse_multipart(qentry_t *request)
             }
 
             // store filename, 'NAME.filename'
-             /*False Positive [Buffer Overflow]*//* Reason for False Positive  The size of buffer allocated is big enough cause of it is counting by two strings with the terminating null byte and snprintf() limits the length of string copied*/
+            /* Buffer overflow: false positive */
             retval = snprintf(ename, sizeof(ename), "%s.filename", name);
-            /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
-				/**
-				 * Reason for False Positive: 
-				 * Avoid buffer overflow once the total size of two strings without "the terminating null byte" equal or large the size of dest string.
-				 */
             if(retval < 0 || retval >= (signed)sizeof(ename)) {
                 DEBUG_CODER("Buffer Overflow");
                 continue;
             } else {
-                request->putstr(request, ename, filename, false);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Memory cleared properly in both failure and success cases. */
+                request->putstr(request, ename, filename, false);
             }
 
             // store contenttype, 'NAME.contenttype'
-            /*False Positive [Buffer Overflow]*//* Reason for False Positive  The size of buffer allocated is big enough cause of it is counting by two strings with the terminating null byte and snprintf() limits the length of string copied*/
+            /* Buffer overflow: false positive */
             retval = snprintf(ename, sizeof(ename), "%s.contenttype", name);
-            /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
-				/**
-				 * Reason for False Positive: 
-				 * Avoid buffer overflow once the total size of two strings without "the terminating null byte" equal or large the size of dest string.
-				 */
             if(retval < 0 || retval >= (signed)sizeof(ename)) {
                 DEBUG_CODER("Buffer Overflow");
                 continue;
             } else {
-                request->putstr(request, ename, ((contenttype!=NULL)?contenttype:""), false);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Memory cleared properly in both failure and success cases. */
+                request->putstr(request, ename, ((contenttype!=NULL)?contenttype:""), false);
             }
 
             if (upload_filesave == true) {
-               /*False Positive [Buffer Overflow]*//* Reason for False Positive  The size of buffer allocated is big enough cause of it is counting by two strings with the terminating null byte and snprintf() limits the length of string copied*/
+                /* Buffer overflow: false positive */
                 retval = snprintf(ename, sizeof(ename), "%s.savepath", name);
-                /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
-				/**
-				 * Reason for False Positive: 
-				 * Avoid buffer overflow once the total size of two strings without "the terminating null byte" equal or large the size of dest string.
-				 */
                 if(retval < 0 || retval >= (signed)sizeof(ename)) {
                     DEBUG_CODER("Buffer Overflow");
                     continue;
@@ -634,7 +608,7 @@ static char *_parse_multipart_value_into_memory(char *boundary, int *valuelen,
     for (value = NULL, length = 0, mallocsize = _Q_MULTIPART_CHUNK_SIZE, c_count = 0;
          (c = fgetc(stdin)) != EOF; ) {
         if (c_count == 0) {
-            value = (char *)malloc(sizeof(char) * mallocsize);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Memory cleared properly in both failure and success cases. */
+            value = (char *)malloc(sizeof(char) * mallocsize);
             if (value == NULL) {
             	DEBUG_CODER("Memory allocation fail.");
                 *finish = true;
@@ -895,7 +869,7 @@ static qentry_t *_parse_query(qentry_t *request, const char *query,
 	if (query != NULL) newquery = strdup(query);
 	while (newquery && *newquery) {
 		char *value = _q_makeword(newquery, sepchar);
-		char *name = _q_strtrim(_q_makeword(value, equalchar));/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Memory cleared properly in both failure and success cases. */
+		char *name = _q_strtrim(_q_makeword(value, equalchar));
 
 		_q_urldecode(name);
 		_q_urldecode(value);

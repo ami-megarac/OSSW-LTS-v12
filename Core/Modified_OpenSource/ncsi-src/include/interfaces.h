@@ -223,6 +223,7 @@ void NCSI_Detect_Info(NCSI_IF_INFO *info);
 int  NCSI_Enable_Info(NCSI_IF_INFO *info);
 void EnableDetectTimer(NCSI_IF_INFO *info);
 
+int  GetEthIndex(char *deviceName);
 int  NCSI_Net_Driver_Register(NCSI_IF_INFO *info);
 int  NCSI_Net_Driver_DeRegister(NCSI_IF_INFO *info);
 

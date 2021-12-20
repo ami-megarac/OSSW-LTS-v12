@@ -96,7 +96,7 @@ Kcs_OsSleepOnTimeout(Kcs_OsSleepStruct *Sleep,u8 *Var,long msecs)
 {
 	long timeout;	/* In jiffies */
 	volatile u8 *volatile Condition = Var; 
-
+	int ret = 0;
 	/* Convert milliseconds into jiffies*/
 	timeout = (HZ*msecs)/1000;
 #if (LINUX_VERSION_CODE < KERNEL_VERSION (3,14,17))
@@ -127,8 +127,11 @@ Kcs_OsSleepOnTimeout(Kcs_OsSleepStruct *Sleep,u8 *Var,long msecs)
 	
 
 	/* Sleep on the Condition for a wakeup */
-	wait_event_interruptible(Sleep->queue,((*Condition)||(Sleep->Timeout)));
-
+	ret = wait_event_interruptible(Sleep->queue,((*Condition)||(Sleep->Timeout)));
+	if(ret < 0)
+	{
+		return -ERESTARTSYS;
+	}
 	/* Normally del_timer will be called by Wakeup or timeout routine */
 	/* But when wakeup is called before add_timer() and wait_event(),
 	   it will not be killed by wakeup routine and will be killed only

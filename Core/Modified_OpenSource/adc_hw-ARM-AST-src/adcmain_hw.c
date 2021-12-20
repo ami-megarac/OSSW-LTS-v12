@@ -37,12 +37,12 @@
 #include "adc.h"
 
 #define ADC_HW_MAX_INST	1
+#define ADC_AUTO_CSM	0
 
 static void *ast_adc_virt_base = NULL;
 
 static int m_dev_id = 0;
 static int compensating_value = 0;
-static uint16_t compensating_mode = 0;
 
 static int adc_hw_module_init(void);
 static void adc_hw_module_exit(void);
@@ -56,7 +56,6 @@ static	int adc_read_channel (uint16_t *adc_value, int channel);
 static	int adc_get_resolution (uint16_t *adc_resolution);
 static	int adc_get_reference_voltage (uint16_t *adc_ref_volatge);
 static	int adc_reboot_notifier (void);
-static int adc_set_compensating_mode(uint16_t mode);
 
 extern int register_adc_hw_module (ADC_HW* AdcHw);
 
@@ -67,7 +66,6 @@ static adc_hal_operations_t adc_hw_ops = {
 	adc_get_resolution,
 	adc_get_reference_voltage,
 	adc_reboot_notifier,
-	adc_set_compensating_mode,
 };
 
 static hw_hal_t hw_hal = {
@@ -121,8 +119,8 @@ int disable_adc_channel(uint16_t adc_channel_selection)
 * 2.Set ADC00 to 0x1000006F, enable compensation channel
 * 3.Store the compensation value.
 */
-static void adc_audo_compensating_sensing_mode(void)
-{
+int adc_read_compensating_value(void)
+{	
 	uint32_t reg;
 
 #if defined(CONFIG_SOC_AST2300)	
@@ -161,6 +159,7 @@ static void adc_audo_compensating_sensing_mode(void)
 	//Disable compensation channel
 	ast_adc_write_reg(0x0000000F, AST_ADC_ENGINE_CONTROL_REG);
 #else
+#if (ADC_AUTO_CSM)
 	msleep(50);     
 	//Auto compensating sensing mode 
     ast_adc_write_reg(0x0000002F, AST_ADC_ENGINE_CONTROL_REG);
@@ -177,82 +176,30 @@ static void adc_audo_compensating_sensing_mode(void)
 	compensating_value = ((reg >> 16) & 0x3FF);
     compensating_value = (0x200 - compensating_value);
 	
-#endif
-	printk( "ADC auto compensating value: %d\n", compensating_value );	
+#else
+    int i, cv, cv_acc = 0;
 
-}
-
-#if 0
-#define SCU_HPLL_PARAM                (AST_SCU_VA_BASE + 0x24)
-#define SCU_CLK_SELECTION             (AST_SCU_VA_BASE + 0x08)
-
-static int adc_get_delaytime(void)
-{
-	uint32_t reg, delaytime;
-	int t1, t2;
-	int P, M, N, HPLL, PCLK, PDivider, PDividerID;
-
-	reg = ioread32((void * __iomem)SCU_HPLL_PARAM);
-	N = reg & 0x1F;
-	M = (reg >> 5) & 0xFF;
-	P = (reg >> 13) & 0x2F;
-	HPLL = 24000000 * ((M+1) / (N+1)) / (P+1);
-	
-	reg = ioread32((void * __iomem)SCU_CLK_SELECTION);
-	PDividerID = (reg >> 23) & 0x7;
-	PDivider = (PDividerID * 4) + 4;
-	PCLK = HPLL / PDivider;
-	
-	reg |= (1 << 23); /* Reset ADC */
-	iowrite32(reg, (void * __iomem)SCU_SYS_RESET_REG);
-	reg &= ~(1 << 23);
-
-	//sensing cycle = 12 period of PCLK * 2 * (ADC0C[31:17]+1) * (ADC0C[9:0]+1)
-	reg = ast_adc_read_reg(AST_ADC_ENGINE_CONTROL_REG + 0x0C);
-	t1 = ((reg >> 17) & 0x7FFF) + 1;
-	t2 = (reg & 0x3FF) + 1;
-	PCLK = PCLK / 1000000;
-	delaytime = 12 * 2 * t1 * t2 / PCLK;
-	printk( "ADC sensing cycle delay time: %d ns\n", delaytime );	
-	// convert to ms
-	delaytime = (delaytime / 1000) + 1;
-	if( delaytime < 2 )
-		delaytime = 2;
-	return delaytime;
-}
-#endif
-
-static void adc_compensating_sensing_mode(void)
-{
-	uint32_t i, reg, value, sum;
-
-    sum = 0;
-	msleep(50);     
-	//compensating sensing mode 
-    ast_adc_write_reg(0x0000001F, AST_ADC_ENGINE_CONTROL_REG);
-	msleep(50);
-    ast_adc_write_reg(0x0001001F, AST_ADC_ENGINE_CONTROL_REG);	
-    for( i = 0; i < 10; i++ )
+    /* get avg cv of 10times sample as mentioned in datasheet ast2500v16.pdf */
+    for (i = 0; i < 10; i++)
     {
-		//waitting the sensing cycle = 12 period of PCLK * 2 * (ADC0C[31:17]+1) * (ADC0C[9:0]+1)
-		// if PCLK = 24.75MHz, and the sensing cycle will under 0.5 ms, delay 2 ms is safe enough
-		msleep(2);
-		reg = ast_adc_read_reg(AST_ADC_ENGINE_CONTROL_REG + 0x10);
-		value = (reg & 0x3FF);
-		value = (0x200 - value);
-		sum += value;
-	}
-    ast_adc_write_reg(0x0000000F, AST_ADC_ENGINE_CONTROL_REG);
-    compensating_value = sum / 10;
-    printk( "ADC compensating value: %d\n", compensating_value );	
-}
+        ast_adc_write_reg(0x0000001F, AST_ADC_ENGINE_CONTROL_REG);
+        msleep(50);
+        ast_adc_write_reg(0x0001001F, AST_ADC_ENGINE_CONTROL_REG);
+        msleep(50);
 
-int adc_read_compensating_value(void)
-{	
-	if( compensating_mode == 0 )
-		adc_compensating_sensing_mode();
-	else
-		adc_audo_compensating_sensing_mode();
+        reg = ast_adc_read_reg(AST_ADC_ENGINE_CONTROL_REG + 0x10);
+        cv = reg & 0x3FF;
+        cv = 0x200 - cv;
+        cv_acc += cv;
+
+        ast_adc_write_reg(0x0000000F, AST_ADC_ENGINE_CONTROL_REG);
+        msleep(50);
+    }
+
+    compensating_value = cv_acc / 10;
+#endif //ADC_AUTO_CSM
+#endif
+
 	return 0;
 }
 
@@ -334,51 +281,6 @@ adc_reboot_notifier(void)
 	return 0;
 }
 
-static int adc_set_compensating_mode(uint16_t mode)
-{
-	uint32_t reg;
-	int i = 0;
-	int max_adc_channels = CONFIG_SPX_FEATURE_GLOBAL_MAX_ADC_CHANNELS;
-	
-	if( mode == compensating_mode )
-		return 0;
-	compensating_mode = mode;
-
-	/* unlock SCU */
-	iowrite32(AST_SCU_UNLOCK_MAGIC, (void * __iomem)SCU_KEY_CONTROL_REG); /* unlock SCU */
-	reg = ioread32((void * __iomem)SCU_SYS_RESET_REG);
-	reg |= (1 << 23); /* Reset ADC */
-	iowrite32(reg, (void * __iomem)SCU_SYS_RESET_REG);
-	reg &= ~(1 << 23);
-	iowrite32(reg, (void * __iomem)SCU_SYS_RESET_REG);
-	iowrite32(0, (void * __iomem)SCU_KEY_CONTROL_REG); /* lock SCU */
-
-	//Engine Clock
-	ast_adc_write_reg(0x140, AST_ADC_CLOCK_CONTROL_REG);
-#if defined(SOC_AST2500)
-    //Initialize Sequence, enable Engine and Normal Operation Mode
-    ast_adc_write_reg(0x0000f, AST_ADC_ENGINE_CONTROL_REG);
-    while(1)
-    {
-        msleep(1);
-        //Wait for BIT8 reset to 1
-        reg = ast_adc_read_reg(AST_ADC_ENGINE_CONTROL_REG);
-        if((reg & 0x00000100) != 0x0)
-            break;
-    }
-#else
-	//Enable Engine, Channel0 and Normal Operation Mode
-	ast_adc_write_reg(0x1000f, AST_ADC_ENGINE_CONTROL_REG);
-#endif
-	
-	adc_read_compensating_value();
-	
-	// Enable maximum ADC channels
-	for (i = 0; i < max_adc_channels; i++)
-		enable_adc_channel(i);
-	
-	return 1;
-}
 /*
  * adc_hw_module_exit
  */
@@ -418,8 +320,7 @@ static int adc_hw_module_init(void)
 	if((ast_adc_virt_base = ioremap(AST_ADC_REG_BASE, AST_ADC_REG_SIZE)) == NULL)
 	{
 		printk("failed to map adc  IO space to memory\n");
-		unregister_hw_hal_module (EDEV_TYPE_ADC, m_dev_id);
-		return -EIO;
+		ret = -EIO;
 	}
 
 	/*
@@ -438,7 +339,7 @@ static int adc_hw_module_init(void)
 
 	//Engine Clock
 	ast_adc_write_reg(0x140, AST_ADC_CLOCK_CONTROL_REG);
-#if defined(SOC_AST2500)
+#if defined(CONFIG_SOC_AST2500)
     //Initialize Sequence, enable Engine and Normal Operation Mode
     ast_adc_write_reg(0x0000f, AST_ADC_ENGINE_CONTROL_REG);
     while(1)

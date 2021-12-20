@@ -48,7 +48,6 @@
 #include "qdecoder.h"
 #include "internal.h"
 #include <ctype.h>
-#include <stdint.h>
 
 #define BUF_SIZE (1024 * 4)
 
@@ -104,12 +103,9 @@ char *_q_urlencode(const void *bin, size_t size)
 
     if (bin == NULL) return NULL;
     if (size == 0) return strdup("");
-    if (size > SIZE_MAX) return strdup("");
-    
 
     // malloc buffer
-    char *pszEncStr = (char *)malloc((size * 3) + 1);/* Fortify [Integer Overflow]:: False Positive */
-						/* Reason for False Positive – Condition to check integer overflow of size is present. */
+    char *pszEncStr = (char *)malloc((size * 3) + 1);
     if (pszEncStr == NULL) return NULL;
 
     char *pszEncPt = pszEncStr;
@@ -236,7 +232,7 @@ int _q_unlink(const char *pathname)
 #ifdef _WIN32
     return _unlink(pathname);
 #endif
-    return unlink(pathname);/* Fortify [Path Manipulation]:: False Positive */ /* Reason for False Positive The file path is not a user input and doesn't have any escape sequences*/
+    return unlink(pathname);	/* Fortify [Path Manipulation]:: False Positive */
 }
 
 char *_q_strcpy(char *dst, size_t size, const char *src)
@@ -366,7 +362,7 @@ off_t _q_file_iosend(FILE* outfd, int infd, off_t nbytes)
 
 int _q_countread(const char *filepath)
 {
-    int fd = open(filepath, O_RDONLY, 0);/* Fortify [Path Manipulation]:: False Positive */ /* Reason for False Positive The file path is not a user input and doesn't have any escape sequences*/
+    int fd = open(filepath, O_RDONLY, 0);	/* Fortify [Path Manipulation]:: False Positive */
     if (fd < 0)
     {
         printf("Error in opening file %s\n",filepath);    
@@ -386,7 +382,7 @@ int _q_countread(const char *filepath)
 
 bool _q_countsave(const char *filepath, int number)
 {
-    int fd = open(filepath, O_CREAT|O_WRONLY|O_TRUNC, DEF_FILE_MODE);/* Fortify [Path Manipulation]:: False Positive */ /* Reason for False Positive The file path is not a user input and doesn't have any escape sequences*/
+    int fd = open(filepath, O_CREAT|O_WRONLY|O_TRUNC, DEF_FILE_MODE);	/* Fortify [Path Manipulation]:: False Positive */
     if (fd < 0) 
     {
         printf("Error in opening file %s\n",filepath);    

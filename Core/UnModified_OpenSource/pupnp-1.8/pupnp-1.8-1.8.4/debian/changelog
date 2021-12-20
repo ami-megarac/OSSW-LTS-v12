@@ -1,0 +1,438 @@
+pupnp-1.8 (1:1.8.4-2) unstable; urgency=medium
+
+  * Upload to unstable.
+
+ -- James Cowgill <jcowgill@debian.org>  Mon, 05 Nov 2018 19:55:05 +0000
+
+pupnp-1.8 (1:1.8.4-1) experimental; urgency=medium
+
+  * New upstream release.
+  * Doxyfile: Revert Debian specific changes to doxygen config. None of
+    them have any significant benefits.
+
+  * d/changelog: Remove extra whitespace lines.
+  * d/compat: Use debhelper compat 11.
+  * d/control:
+    - d/control: Move Vcs-* repositories to salsa.d.o.
+    - d/control: Bump standards to 4.2.1.
+  * d/libupnp-doc.*:
+    - Move docs to usr/share/doc/libupnp-dev per policy 3.9.7.
+  * d/rules:
+    - Revert "Implement build targets manually in debian/rules". Newer
+      debhelper versions handle this properly.
+    - d/rules: Create docs/doxygen directory.
+
+ -- James Cowgill <jcowgill@debian.org>  Sat, 27 Oct 2018 15:42:13 +0100
+
+pupnp-1.8 (1:1.8.3-3) experimental; urgency=medium
+
+  * Rename libupnp1.8-doc to libupnp-doc.
+  * Fix Build-Depends-Package in symbols files.
+  * Manually bump SONAME of libupnp to libupnp.so.13. Rename libupnp10 to
+    libupnp13. (Closes: #882377)
+
+ -- James Cowgill <jcowgill@debian.org>  Sat, 23 Dec 2017 11:39:44 +0000
+
+pupnp-1.8 (1:1.8.3-2) experimental; urgency=medium
+
+  * debian/control:
+    - Bump standards version to 4.1.2.
+  * debian/patches:
+    - Renumber.
+    - Add upstream patch to remove inclusion of ThreadPool.h from upnpdebug.h.
+      (Closes: #884252)
+
+ -- James Cowgill <jcowgill@debian.org>  Sat, 23 Dec 2017 00:03:52 +0000
+
+pupnp-1.8 (1:1.8.3-1) experimental; urgency=medium
+
+  * New upstream release.
+
+  * debian/changelog:
+    - Remove trailing whitespace.
+  * debian/control:
+    - Rename libupnp1.8-dev to libupnp-dev. (Closes: #873656)
+    - Move libupnp-1.8-dev conflicts to breaks.
+    - Add versions to breaks and replaces.
+    - Remove unnecessary Testsuite: autopkgtest header.
+    - Set Rules-Requires-Root: no.
+    - Bump standards version to 4.1.1.
+  * debian/copyright:
+    - Update.
+  * debian/patches:
+    - Refresh.
+  * debian/rules:
+    - Implement build targets manually in debian/rules.
+    - Don't suppress doxygen log output.
+
+ -- James Cowgill <jcowgill@debian.org>  Tue, 21 Nov 2017 21:23:05 +0000
+
+pupnp-1.8 (1:1.8.2-3) unstable; urgency=medium
+
+  * debian/rules:
+    - Build with --enable-reuseaddr option.
+
+ -- James Cowgill <jcowgill@debian.org>  Sat, 23 Sep 2017 18:56:47 +0100
+
+pupnp-1.8 (1:1.8.2-2) unstable; urgency=medium
+
+  * debian/control:
+    - Add Conflicts/Replaces to libupnp1.8-dev on old -dev package. These
+      packages should not be installed together.
+
+ -- James Cowgill <jcowgill@debian.org>  Tue, 29 Aug 2017 15:15:21 +0100
+
+pupnp-1.8 (1:1.8.2-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Upstream has reverted the library rename so the 1.8 library is once
+      again called "libupnp" (instead of "libupnp-1.8"). Therefore rename all
+      the Debian packages to follow upstream.
+
+  * debian/clean:
+    - Remove build/inc directory on clean.
+  * debian/control:
+    - Rename libupnp-1.8-{dev,doc} to libupnp1.8-{dev,doc}.
+    - Rename lib{ixml,upnp}-1.8-10 to lib{ixml,upnp}10.
+    - Add Conflicts on libupnp1.8-dev to libupnp6-dev.
+    - Remove obsolete replaces in the doc package.
+    - Bump standards version to 4.0.1.
+  * debian/copyright:
+    - Use https Format URL.
+  * debian/libupnp10.symbols:
+    - Add new UpnpSetEventQueueLimits symbol in 1.8.2.
+  * debian/patches:
+    - Refresh
+  * debian/rules:
+    - Simplify dh_install override in d/rules.
+  * debian/tests:
+    - Edit autopkgtests to use -lupnp.
+
+ -- James Cowgill <jcowgill@debian.org>  Fri, 18 Aug 2017 14:46:36 +0100
+
+pupnp-1.8 (1:1.8.1-1) unstable; urgency=medium
+
+  * New upstream release.
+
+  * debian/copyright:
+    - Remove obsolete RSA section from copyright file.
+  * debian/patches:
+    - Drop patches applied upstream.
+    - Refresh other patches.
+  * debian/rules:
+    - Drop --enable-ipv6 which is now the default.
+
+ -- James Cowgill <jcowgill@debian.org>  Fri, 26 May 2017 09:22:52 +0100
+
+pupnp-1.8 (1:1.8.0-3) unstable; urgency=medium
+
+  * debian/tests:
+    - Try again to fix autopkgtests by just depending on build-essential.
+
+ -- James Cowgill <jcowgill@debian.org>  Mon, 10 Apr 2017 11:25:46 +0100
+
+pupnp-1.8 (1:1.8.0-2) unstable; urgency=medium
+
+  * debian/control:
+    - Add Vcs-Git and Vcs-Browser fields.
+  * debian/libupnp-1.8-doc.doc-base:
+    - Rename doc-base document to avoid conflicting with libupnp6-doc.
+      (Closes: #859618)
+  * debian/tests:
+    - Use gcc to build tests in the autopkgtest script.
+
+ -- James Cowgill <jcowgill@debian.org>  Wed, 05 Apr 2017 11:08:43 +0100
+
+pupnp-1.8 (1:1.8.0-1) unstable; urgency=medium
+
+  * Initial release of pupnp-1.8 source package. (Closes: #856165)
+  * All packages renamed to follow upstream changing the include directory
+    path and individual library names.
+  * Set myself as the package maintainer.
+
+  * .gitignore:
+    - Override upstream's gitignore which ignores .patch files.
+  * debian/README.source:
+    - Remove.
+  * debian/clean:
+    - Cleanup docs/doxygen.
+  * debian/control:
+    - Drop manual debug package.
+    - Split libixml into a separate package.
+    - Run wrap-and-sort -s.
+    - Bump standards version to 3.9.8.
+    - Drop direct build dependencies on autoconf, automake and libtool which
+      debhelper already depends on through dh-autoreconf.
+    - Enable Multi-Arch.
+  * debian/compat:
+    - Use debhelper compat 10.
+  * debian/copyright:
+    - Update for 1.8 and reformat slightly.
+  * debian/*.dirs:
+    - Remove useless dirs files.
+  * debian/libupnp-1.8-doc.lintian-overrides:
+    - Remove.
+  * debian/rules:
+    - Disable testsuite which accesses the network in its unpatched form.
+    - Don't bother cleaning up autotools files since debhelper already does
+      that.
+    - Don't build documentation in build-arch builds.
+    - Mark build target as phony.
+    - Exclude *.map files from the doc package.
+  * debian/patches:
+    - 0001-Use-LFS-functions-in-libixml.patch:
+      + Based on 27-LFS-fix-32bit-large_files.patch
+      + Use version applied upstream.
+    - 0002-Move-threadutil-source-code-to-libupnp.patch:
+      + Backported from upstream to avoid having to ship an extra useless
+        library.
+    - 0003-Replace-MD5-impmplementation-with-public-domain-vers.patch:
+      + Based on 01-debian-md5-licence.patch
+      + Use version applied upstream.
+    - 03_update-doc.patch:
+      + Renamed from 09-update-doc.patch.
+    - 04_optimization-flags.patch:
+      + Add patch to ensure Debian build flags are used during the build.
+    - All other patches removed as either obsolete or if an equivalent was
+      applied upstream.
+  * debian/*.symbols:
+    - Update symbols files for 1.8.
+  * debian/tests:
+    - Add basic autopkgtest.
+  * debian/watch:
+    - Update to use new github repository.
+
+ -- James Cowgill <jcowgill@debian.org>  Sun, 19 Mar 2017 16:06:24 +0000
+
+libupnp (1:1.6.19+git20160116-1.2) unstable; urgency=high
+
+  * Non-maintainer upload.
+  * Fix out-of-bounds-access (CVE-2016-8863, Closes: #842093)
+  * Fix usage on ipv6 enabled hosts (Closes: #813249)
+
+ -- Uwe Kleine-König <ukleinek@debian.org>  Fri, 09 Dec 2016 10:40:28 +0100
+
+libupnp (1:1.6.19+git20160116-1.1) unstable; urgency=high
+
+  * Non-maintainer upload.
+  * Don't allow unhandled POSTs to write to the filesystem by
+    default (Closes: #831857) (CVE-2016-6255)
+    Thanks to Matthew Garrett for the patch.
+
+ -- James Cowgill <jcowgill@debian.org>  Wed, 19 Oct 2016 21:03:51 +0100
+
+libupnp (1:1.6.19+git20160116-1) unstable; urgency=medium
+
+  * Update to latest git:
+    + Don't fail if IPv6 is unavailable, we might be running on an
+      IPv4-only host (Closes: #781876).
+    + Don't define strndup and strnlen if autoconf says we already have them
+      (Closes: #807393).
+  * Add a patch to have Doxygen not write timestamps in the generated
+    documentation to allow package builds to be reproducible.
+    [Jérémy Bobbio <lunar@debian.org>] (patch 22) (Closes: #774518).
+  * Bind miniserver sockets to our given IP address not INADDR_ANY (patch 24).
+  * libupnp6-doc: add override of embedded-javascript-library for jquery.js,
+    see README.jquery in doxygen itself for why (lintian, Policy section 4.13).
+  * Fix lintian binary-file-built-without-LFS-support for libixml: fix
+    libixml Makefile.am, fseeko and #includes, and define AC_USE_LARGEFILE in
+    configure.ac instead of the direct messing with 64bit #defines (patch 27).
+
+ -- Nick Leverton <nick@leverton.org>  Sun, 17 Jan 2016 01:03:04 +0000
+
+libupnp (1:1.6.19+git20141001-1) unstable; urgency=low
+
+  * Ack both NMUs, thankyou for your care of this package.
+  * New upstream release (Closes: #740584, #670964).  We take the git version
+    as the git log suggests some worthwhile security and reliability fixes.
+  * Build for IPv6 (note, UpnpInit() only enables IPv4 connections so
+    most existing libupnp users need not be aware of this).
+  * Change Priority to "optional" (Closes: #740582).
+  * Remove patch 0001-Security-fix-for-CERT-issue-VU-922681 now in upstream.
+  * Improve debian/rules hardening option usage stuff.
+  * Update Standards-Version to 3.9.6 (no changes required).
+  * Fix "memset(ctx, 0, sizeof(ctx));   /* In case it's sensitive */"
+    in our copy of Colin Plumb's md5.c (patch 01-debian-md5-licence.patch).
+  * Disable build tests since we aren't guaranteed to have network access
+    in buildds (patch 19).
+
+ -- Nick Leverton <nick@leverton.org>  Wed, 08 Oct 2014 00:09:27 +0100
+
+libupnp (1:1.6.17-1.2) unstable; urgency=high
+
+  * Non-maintainer upload by the Security Team.
+  * debian/patches/0001-Security-fix-for-CERT-issue-VU-922681 added, fix
+    various stack-based buffer overflows in service_unique_name() function.
+    This fix CVE-2012-5958, CVE-2012-5959, CVE-2012-5960, CVE-2012-5961,
+    CVE-2012-5962, CVE-2012-5963, CVE-2012-5964, CVE-2012-5965. closes: #699316
+
+ -- Yves-Alexis Perez <corsac@debian.org>  Fri, 01 Feb 2013 21:56:12 +0100
+
+libupnp (1:1.6.17-1.1) unstable; urgency=high
+
+  * Non-maintainer upload.
+  * libupnp6-doc Replaces libupnp3-dev (closes: #670894)
+
+ -- Julien Cristau <jcristau@debian.org>  Tue, 08 May 2012 16:59:14 +0200
+
+libupnp (1:1.6.17-1) unstable; urgency=low
+
+  * Ack NMU, thankyou for your work on this package.
+  * New upstream release, rename to libupnp6 for upstream's soname bump.
+    (LP: #855339, LP: #648506).  Now includes IPv6 support.
+  * Update from upstream git to get reinstated UpnpSetVirtualDirCallbacks API.
+  * Remove all patches that are now in upstream.
+  * Update remaining patches (01,07,12) for new upstream coding standards.
+  * Remove fixed-length URLs from upnpapi (patch 18, Closes: #353169).
+  * Update to debhelper v9 to get multi-arch and build-hardening in dh.
+  * Update to Policy 3.9.3, and note that we are "discouraged" from
+    shipping three libraries in this package but live with it for now.
+  * Convert to multiarch.
+  * libupnp-dev metapackage is now Arch: all.
+  * Override lintian about versioned Conflicts and dupe files in docs.
+  * Update debian/copyright to DEP-5 v1.0.
+  * Generate up-to-date docs for the current API and ship a -doc package.
+
+ -- Nick Leverton <nick@leverton.org>  Sat, 14 Apr 2012 20:58:59 +0100
+
+libupnp (1:1.6.6-5.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Don't ship .la files (Closes: #622520).
+
+ -- Luk Claes <luk@debian.org>  Sat, 25 Jun 2011 20:01:57 +0200
+
+libupnp (1:1.6.6-5) unstable; urgency=low
+
+  * Fixes to BSD build issues (Closes: #573319, FTBFS on Gnu/kFreeBSD)
+  * We no longer Build-Depend on dbs anyway (Closes: #576068)
+  * More debug tidying (07-neaten-debug.patch):
+    - send UPNP_CRITICAL msgs to the info log as well as to the error log.
+    - don't print HTTP headers to stdout as they're already in logfile.
+  * Always compile in logging code but don't log unless requested
+    (12-debian-always-debug.patch) to help porting other apps.
+  * Cherry-pick some upstream bug fixes:
+    - soap_request_and_response http_request parameter error from r486
+    - "reuseaddr" patch from issue 2995758 backported from r548
+    - threadpool hang when busy from r515
+    - memory leak in SSDP AdvertiseAndReply from issue 2392304, r518
+  * Add $PTHREAD_CFLAGS to libupnp.pc as assumed by {acx,ax}_pthread.m4
+    (patch 16, Closes: #555386).
+
+ -- Nick Leverton <nick@leverton.org>  Fri, 14 May 2010 15:47:17 +0100
+
+libupnp (1:1.6.6-4) unstable; urgency=low
+
+  * New patch 03-fix-duplicate-entries: fix FTBFS by removing duplicates
+    from file list; patch by Stefan Potyra (Closes: #572859)
+  * Update Sections (Closes: #519926) and general Policy to 3.8.4
+  * Use debhelper 7 dh instead of dbs
+  * Generate and update symbols file
+  * Allow to co-exist with latest libupnp4.
+  * Patch 06-patch-statevar-query.patch adapted from upstream 1.8 branch
+    to fix format of State Variable Query response.
+  * Fix sending of incorrect timeout on auto renew (patch 10).
+
+ -- Nick Leverton <nick@leverton.org>  Mon, 08 Mar 2010 18:23:14 +0000
+
+libupnp (1:1.6.6-3) unstable; urgency=high
+
+  [ Dmitry E. Oboukhov ]
+  * Added libupnp-dev with depends to libupnp3-dev,
+  	really closes: #490339, #490533.
+
+  [ Nick Leverton ]
+  * Include GNU/kfreeBSD build patch (Closes: #491173)
+
+ -- Nick Leverton <nick@leverton.org>  Mon, 21 Jul 2008 20:57:42 +0100
+
+libupnp (1:1.6.6-2) unstable; urgency=low
+
+  * Bump epoch and add Conflicts with libupnp4, to displace incorrect
+    upload of libupnp4 which displaced this package.  Closes: #490339
+  * Fix the erroneous bug 426833 reference in old changelog, don't just
+    document that it was wrong.  Closes: #490536
+  * Standards-Version bumped to 3.8.0, compat bumped to 7.
+
+ -- Nick Leverton <nick@leverton.org>  Sun, 13 Jul 2008 10:39:17 +0100
+
+libupnp (1.6.6-1) unstable; urgency=low
+
+  * New upstream release
+  * Remove patch 03-upstream-upnp-rootdevice.patch, now in upstream.
+  * Remove buggy patch 02-debian-fixed-length-buffer-for-urls.patch
+    (Closes: #482737, reopens #353169).  libupnp4 will include upstream's
+    wider changes for ridding the library of fixed-length static buffers.
+  * Update watchfile again for better uscan pattern matching
+  * Build -dbg symbol package anyway; allow pupnp "--enable-debug" via
+    DEB_BUILD_OPTIONS="debug"
+  * Update copyright file to reflect all contributors.
+  * Tidy up build to use dh_install.
+
+ -- Nick Leverton <nick@leverton.org>  Thu, 19 Jun 2008 18:27:11 +0100
+
+libupnp (1.6.5-2) unstable; urgency=low
+
+  * Correct New Maintainer bug number (was given as #426833, should
+    be #462833) (really Closes: #462833).
+  * Replace RSA Inc copyright MD5 functions by public domain
+    implementation (Closes: #459516).
+  * Remove Build-dep on doc++ as upstream now ships documentation in
+    tarball (Closes: #307562).
+  * Dynamically allocated buffer for uPnP Action urls (Closes: #353169).
+  * Update Description to match current fork of upstream.
+  * Fix watchfile to omit libupnp-doc tarballs.
+  * No longer ignore "upnp:rootdevice" advertisement, upstream svn r326
+    (03-upstream-upnp-rootdevice.patch).
+
+ -- Nick Leverton <nick@leverton.org>  Mon, 21 Apr 2008 22:20:53 +0100
+
+libupnp (1.6.5-1) unstable; urgency=low
+
+  * New upstream release (Closes: #426388, #439373)
+  * New maintainer (Closes: #462833)
+  * Upstream soname changed, bump package to libupnp3
+  * Make libupnp-dev depend on matching version of libupnp3
+
+ -- Nick Leverton <nick@leverton.org>  Sun, 24 Feb 2008 10:29:48 +0000
+
+libupnp (1.4.3-2) unstable; urgency=low
+
+  * Make libupnp-dev depend on libupnp2.
+
+ -- Steve McIntyre <93sam@debian.org>  Sat, 28 Apr 2007 16:58:23 +0100
+
+libupnp (1.4.3-1) unstable; urgency=low
+
+  * New upstream release from pupnp fork (Closes: #392783, #400903, #320949).
+  * Do not claim libupnp-dev contains debugging symbols (Closes: #350115).
+  * Update to Standards-Version 3.7.2.
+  * Remove unnecessary ${shlibs:Depends} from libupnp-dev's Depends field.
+  * Thanks to Jeremy Laine for help on this release.
+  * Two kFreeBSD build failures reported should now be fixed.
+    Closes: #416254. Please open more bugs if there are any more failures.
+
+ -- Steve McIntyre <93sam@debian.org>  Sat, 31 Mar 2007 16:03:29 +0200
+
+libupnp (1.2.1-3) unstable; urgency=low
+
+  * Fix multiple compiler warnings fixes with gcc4. Thanks to Oskar
+    Liljeblad for a patch. Closes: #320949
+  * Include debug versions of the libraries in the -dev package.
+    Closes: #350115
+  * Updated Standards-version.
+
+ -- Steve McIntyre <93sam@debian.org>  Sun, 12 Feb 2006 20:55:35 +0000
+
+libupnp (1.2.1-2) unstable; urgency=low
+
+  * Fix FTBFS with gcc4. Thanks to Andreas Jochens for the patch.
+    Closes: #301775
+
+ -- Steve McIntyre <93sam@debian.org>  Sun, 17 Jul 2005 20:23:44 +0300
+
+libupnp (1.2.1-1) unstable; urgency=low
+
+  * Initial version
+
+ -- Steve McIntyre <93sam@debian.org>  Tue, 18 Jan 2005 19:42:08 +0000

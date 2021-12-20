@@ -1609,6 +1609,13 @@ ipmi_sol_red_pill(struct ipmi_intf * intf, int instance)
 			{
 				/* ERROR */
 				perror("select");
+				if(buffer)
+				{
+						free(buffer);
+						buffer=NULL;
+				}
+
+				
 				return -1;
 			}
 
@@ -1684,6 +1691,11 @@ ipmi_sol_red_pill(struct ipmi_intf * intf, int instance)
 	}
 	else
 		ipmi_sol_deactivate(intf, instance);
+	if(buffer)
+        {
+                free(buffer);
+                buffer=NULL;
+        }
 
 	return 0;
 }

@@ -177,7 +177,9 @@ void i2c_init_internal_data(int bus)
 
 	as_data_ptr[bus].Linear_SlaveRX_len = 0;
 	as_data_ptr[bus].Linear_SlaveRX_index = 0;
-
+#if defined(CONFIG_SPX_FEATURE_SSIF_NACK_SUPPORT)
+	as_data_ptr[bus].Slave_data_ready = 1;
+#endif
 	for(i=0;i<MAX_FIFO_LEN;i++)
 	{
 		as_data_ptr[bus].SlaveRX_len[i] = 0;

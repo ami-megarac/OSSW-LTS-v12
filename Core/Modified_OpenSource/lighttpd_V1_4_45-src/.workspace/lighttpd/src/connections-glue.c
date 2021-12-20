@@ -4,7 +4,7 @@
 #include "connections.h"
 #include "joblist.h"
 #include "log.h"
-#include <dlfcn.h>
+
 #include <errno.h>
 
 #ifdef USE_OPENSSL
@@ -16,10 +16,6 @@
 #define CONNECTED_SSL_SESS 	"/tmp/sesscnt"
 #define WEBSES_MAX_SESSIONS	130
 #define IPV6_STR_LEN		46
-
-#define LIB_PDKAPP_PATH         "/usr/local/lib/libpdkapp.so"
-
-
 char *get_remoteip_port (connection *con, char *ipaddr, int *port, int *ipversion);
 static int connection_handle_http(server *srv, connection *con);
 
@@ -251,12 +247,7 @@ static int connection_handle_http(server *srv, connection *con) {
 	int sesscnt = 0;
 	int ipversion = 0;
 	static char ipprev[IPV6_STR_LEN]={0};
-
-    char *(*ipmi_data)() = NULL;
-    void *helper_handle = NULL;
 	
-	get_remoteip_port(con, ipaddr, &port, &ipversion);	
-
 	if (srv->cur_fds > WEBSES_MAX_SESSIONS)
 	{	
 	
@@ -267,7 +258,7 @@ static int connection_handle_http(server *srv, connection *con) {
 		memset (cmd, 0, sizeof (cmd));
 		fptr = fopen (CONNECTED_SSL_SESS,"r+");
 		if (NULL != fptr)
-		{			
+		{					
 			fscanf (fptr, "%d", &sesscnt);
 			if (sesscnt >= WEBSES_MAX_SESSIONS) {
 			/*Blocking the IP where the thc-ssl-dos flood is running*/
@@ -286,17 +277,6 @@ static int connection_handle_http(server *srv, connection *con) {
 					/*Saving IP to block once rebooted, its optional bcoz once the flood is detected IP is blocked*/				
 					memset (cmd, 0, sizeof (cmd));
 					sprintf (cmd,"/sbin/iptables-save > /conf/iptables.conf");
-			        helper_handle = dlopen(LIB_PDKAPP_PATH, RTLD_NOW | RTLD_NODELETE | RTLD_GLOBAL);
-            		if(helper_handle != NULL)
-            		{
-                 	    ipmi_data = dlsym(helper_handle,"PDK_RecordBlockIPaddress");
-                 	    if(ipmi_data)
-                 		{
-                            ipmi_data(NULL,ipaddr,port);
-							printf("Add sel log and block the IP duo to attack \n");
-                 		}
-            		}
-            		dlclose(helper_handle);
 					system (cmd);
 
 					sesscnt=0x00;
@@ -305,8 +285,9 @@ static int connection_handle_http(server *srv, connection *con) {
 				}							
 			}
 			fclose(fptr);			
-		}	
-    }
+		}					
+
+	}
 	return 0;	
 }
 

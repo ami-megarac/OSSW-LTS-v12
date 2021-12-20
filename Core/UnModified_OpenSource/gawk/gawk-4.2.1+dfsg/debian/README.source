@@ -1,0 +1,11 @@
+The source tarball is a copy of the upstream tarball with the following
+non-free files removed:
+
+doc/gawk.info
+doc/gawk.texi
+doc/gawkinet.info
+doc/gawkinet.texi
+doc/gawktexi.in
+
+These files are licenced under the GNU Documentation license. They are
+available in the gawk-doc package.

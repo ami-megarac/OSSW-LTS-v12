@@ -41,9 +41,7 @@
 
 extern int register_ethtool_override(struct ethtool_ops *ops , int ethindex);
 extern int unregister_ethtool_override(int ethindex);
-#ifndef CONFIG_PILOT4_NET_TULIP
-extern void register_ftgmac_ethtool(struct net_device *netdev, int ethindex);
-#endif
+
 
 /* ethtool_ops function prototypes */
 static void ncsi_get_drvinfo(struct net_device *netdev, struct ethtool_drvinfo *info);
@@ -78,7 +76,7 @@ static struct ethtool_ops ncsi_ops =
 };
 
 
-static
+
 int 
 GetEthIndex(char *deviceName)
 {
@@ -143,13 +141,8 @@ NCSI_Net_Driver_DeRegister(NCSI_IF_INFO *info)
 	if (ethindex == -1)
 		return 1;
 
-#ifndef CONFIG_PILOT4_NET_TULIP	
-	unregister_ethtool_override(ethindex);
-	register_ftgmac_ethtool(info->dev, ethindex);
-	return 0;
-#else
 	return unregister_ethtool_override(ethindex);
-#endif
+
 }
 
 
@@ -515,30 +508,12 @@ InitEthtoolInfo(NCSI_IF_INFO *info)
 		if (LinkStatus & LINK_STATUS_UP)
 		{
 			GetEthtoolInfoFromLink (info,LinkStatus);
-			if (rtnl_trylock())
-			{
-				call_netdevice_notifiers(NETDEV_CHANGE, info->dev);
-				rtnl_unlock();
-			}
-			else
-			{
-				call_netdevice_notifiers(NETDEV_CHANGE, info->dev);
-			}
 			return;
 		}
 	}
 	
 	/* Set the default values */
 	GetEthtoolInfoFromLink (info,0);
-	if (rtnl_trylock())
-	{
-		call_netdevice_notifiers(NETDEV_CHANGE, info->dev);
-		rtnl_unlock();
-	}
-	else
-	{
-		call_netdevice_notifiers(NETDEV_CHANGE, info->dev);
-	}
 	return;
 }
 

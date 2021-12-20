@@ -373,13 +373,12 @@ static int send_rfc_6455(handler_ctx *hctx, mod_websocket_frame_type_t type, cha
         /* needs '\0' char to send */
 #ifdef CONFIG_SPX_FEATURE_LIGHTTPD_1_4_35  	
         buffer_append_memory(b, &endl, 1);
-		DEBUG_LOG(MOD_WEBSOCKET_LOG_DEBUG, "sx", "frame size =", b->used - 1);
 #elif defined(CONFIG_SPX_FEATURE_LIGHTTPD_1_4_45)
         buffer_append_string_len(b, &endl, 1);
         chunkqueue_append_buffer(hctx->tocli, b);
-		DEBUG_LOG(MOD_WEBSOCKET_LOG_DEBUG, "sx", "frame size =", b->used - 1);
         buffer_free(b);
 #endif
+        DEBUG_LOG(MOD_WEBSOCKET_LOG_DEBUG, "sx", "frame size =", b->used - 1);
         return 0;
     }
 #ifdef CONFIG_SPX_FEATURE_LIGHTTPD_1_4_35  	
@@ -390,14 +389,12 @@ static int send_rfc_6455(handler_ctx *hctx, mod_websocket_frame_type_t type, cha
     /* needs '\0' char to send */
 #ifdef CONFIG_SPX_FEATURE_LIGHTTPD_1_4_35  	
     buffer_append_memory(b, &endl, 1);
-    DEBUG_LOG(MOD_WEBSOCKET_LOG_DEBUG, "sx", "frame size =", b->used - 1);
 #elif defined(CONFIG_SPX_FEATURE_LIGHTTPD_1_4_45)
     buffer_append_string_len(b, &endl, 1);
     chunkqueue_append_buffer(hctx->tocli, b);
-    DEBUG_LOG(MOD_WEBSOCKET_LOG_DEBUG, "sx", "frame size =", b->used - 1);
     buffer_free(b);
 #endif
-
+    DEBUG_LOG(MOD_WEBSOCKET_LOG_DEBUG, "sx", "frame size =", b->used - 1);
     return 0;
 }
 
@@ -516,7 +513,7 @@ static int recv_rfc_6455(handler_ctx *hctx) {
                 i++;
                 break;
             case MOD_WEBSOCKET_FRAME_STATE_READ_MASK:
-                hctx->frame.ctl.mask[hctx->frame.ctl.mask_cnt] = (unsigned char)frame->ptr[i];/* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive Reason for False Positive - Type-casting is done properly */
+                hctx->frame.ctl.mask[hctx->frame.ctl.mask_cnt] = frame->ptr[i];
                 hctx->frame.ctl.mask_cnt++;
                 if (hctx->frame.ctl.mask_cnt >= MOD_WEBSOCKET_MASK_CNT) {
                     hctx->frame.ctl.mask_cnt = 0;

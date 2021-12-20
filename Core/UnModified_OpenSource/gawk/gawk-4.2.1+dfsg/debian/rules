@@ -1,0 +1,44 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+ifeq (sh4,$(shell dpkg-architecture -qDEB_HOST_ARCH))
+  # Renesas SH(sh4) need -mieee option.
+  # Without this option the fmtspcl test fails.
+  export DEB_CFLAGS_MAINT_APPEND = -mieee
+endif
+
+LOCPATH=$(CURDIR)/debian/build/locales
+LOCALIAS=/usr/share/locale/locale.alias
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	dh_auto_configure -- --disable-rpath
+	touch --date="Jan 01 2000" \
+            doc/gawktexi.in doc/gawk.texi doc/gawkinet.texi \
+            doc/gawkworkflow.texi doc/gawkworkflow.info \
+            doc/gawk.info doc/gawkinet.info doc/sidebar.awk
+
+override_dh_auto_test:
+	# Only run the testsuite if it's wanted.
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	make check
+endif
+
+override_dh_auto_install:
+	dh_auto_install
+	# Remove unwanted files.
+	rm -f debian/gawk/usr/bin/*awk-*
+	rm -f debian/gawk/usr/bin/awk
+	# Remove fake info files (see README.source).
+	rm -rf debian/gawk/usr/share/info
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -rf debian/build
+
+override_dh_compress:
+	# Don't compress awk examples.
+	dh_compress --exclude=.awk

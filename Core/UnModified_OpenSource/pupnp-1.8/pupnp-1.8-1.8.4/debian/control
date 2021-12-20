@@ -1,0 +1,85 @@
+Source: pupnp-1.8
+Section: net
+Priority: optional
+Homepage: http://pupnp.sourceforge.net/
+Maintainer: James Cowgill <jcowgill@debian.org>
+Build-Depends:
+ debhelper (>= 11),
+Build-Depends-Indep:
+ doxygen,
+ graphviz,
+Rules-Requires-Root: no
+Standards-Version: 4.2.1
+Vcs-Browser: https://salsa.debian.org/debian/pupnp-1.8
+Vcs-Git: https://salsa.debian.org/debian/pupnp-1.8.git
+
+Package: libupnp13
+Multi-Arch: same
+Architecture: any
+Section: libs
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Pre-Depends: ${misc:Pre-Depends}
+Description: Portable SDK for UPnP Devices, version 1.8 (shared library)
+ The Portable SDK for UPnP Devices (libupnp) provides developers with an
+ API and open source code for building control points, devices, and
+ bridges that are compliant with Version 1.0 of the Universal Plug and
+ Play Device Architecture Specification - see http://www.upnp.org/ for
+ specifications.
+ .
+ The libupnp13 package contains the runtime library for uPnP.
+
+Package: libixml10
+Multi-Arch: same
+Architecture: any
+Section: libs
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Pre-Depends: ${misc:Pre-Depends}
+Description: Portable SDK for UPnP Devices, version 1.8 (ixml shared library)
+ The Portable SDK for UPnP Devices (libupnp) provides developers with an
+ API and open source code for building control points, devices, and
+ bridges that are compliant with Version 1.0 of the Universal Plug and
+ Play Device Architecture Specification - see http://www.upnp.org/ for
+ specifications.
+ .
+ The libixml10 package contains the runtime libraries for the Linux DOM2
+ XML Parser (IXML).
+
+Package: libupnp-dev
+Multi-Arch: same
+Architecture: any
+Section: libdevel
+Depends:
+ libixml10 (= ${binary:Version}),
+ libupnp13 (= ${binary:Version}),
+ ${misc:Depends}
+Suggests: libupnp-doc
+Breaks: libupnp-1.8-dev (<< 1:1.8.2-1~), libupnp1.8-dev (<< 1:1.8.3-1~)
+Conflicts: libupnp6-dev
+Replaces: libupnp-1.8-dev (<< 1:1.8.2-1~), libupnp1.8-dev (<< 1:1.8.3-1~)
+Description: Portable SDK for UPnP Devices, version 1.8 (development files)
+ The Portable SDK for UPnP Devices (libupnp) provides developers with an
+ API and open source code for building control points, devices, and
+ bridges that are compliant with Version 1.0 of the Universal Plug and
+ Play Device Architecture Specification - see http://www.upnp.org/ for
+ specifications.
+ .
+ The libupnp-dev package contains the header files, documentation and
+ debug versions of libraries needed for development of programs using
+ uPnP.
+
+Package: libupnp-doc
+Multi-Arch: foreign
+Architecture: all
+Section: doc
+Depends: ${misc:Depends}
+Breaks: libupnp1.8-doc (<< 1:1.8.3-3~)
+Replaces: libupnp1.8-doc (<< 1:1.8.3-3~)
+Description: Documentation for the Portable SDK for UPnP Devices, version 1.8
+ The Portable SDK for UPnP Devices (libupnp) provides developers with an
+ API and open source code for building control points, devices, and
+ bridges that are compliant with Version 1.0 of the Universal Plug and
+ Play Device Architecture Specification - see http://www.upnp.org/ for
+ specifications.
+ .
+ This package contains the HTML documentation for the libupnp library
+ in /usr/share/doc/libupnp-dev/

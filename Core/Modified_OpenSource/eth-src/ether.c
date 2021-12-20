@@ -151,12 +151,7 @@ void EthRxHandler(uint8 DevNo,uint8 ifnum, uint8 epnum)
 	/* Get the Received Data and Length */
 	RxLen = UsbCore.CoreUsbGetRxDataLen(DevNo,epnum);	
 	RxData  = UsbCore.CoreUsbGetRxData(DevNo,epnum);
-	CfgIndex = UsbCore.CoreUsbDevGetCfgIndex(DevNo);
-	EpSize = UsbCore.CoreUsbGetMaxPacketSize (DevNo, CfgIndex, epnum, DIR_OUT);
-	if( Length == 0 )
-	{
-		memset(  &Data, 0x0, sizeof(Data));
-	}
+
 
 	if (Length + RxLen > sizeof (Data))
 	{
@@ -165,16 +160,13 @@ void EthRxHandler(uint8 DevNo,uint8 ifnum, uint8 epnum)
 		return;
 	}
 
-	if(RxLen == EpSize)//host will send PING packet and it may happen resent situation
-	{
-		if( (memcmp(Data, RxData, 12) == 0) && Length != 0 ) // reset happend
-		{
-			Length = 0;
-		}
-	}
+
 	memcpy(Data + Length, RxData, RxLen);
 	Length += RxLen;
 
+	CfgIndex  =  UsbCore.CoreUsbDevGetCfgIndex(DevNo);
+	EpSize  =  UsbCore.CoreUsbGetMaxPacketSize(DevNo,  CfgIndex,  epnum,  DIR_OUT);
+	
 	if(RxLen == EpSize)
 	{
 		return;
@@ -379,7 +371,7 @@ static int EthNetTxHandler(NET_PACKET *Pkt) // Pkt will be null when called by E
 	spin_lock_irqsave(&Lock, flags);
 	if(Current == NULL) // This will be a bug
 	{
-		TCRIT("EthNetTxHandler() : no packets\n");
+		TDBG("EthNetTxHandler() : no packets\n");
 		spin_unlock_irqrestore(&Lock, flags);
 		return 0;
 	}
@@ -475,4 +467,23 @@ int EthCreateDevice(void)
 void EthRemoveDevice(void)
 {
 	UsbCore.CoreUsbNet_OSUnregisterDriver(&Dev);
+}
+
+void ClearRNDISMsgQueue(void)
+{	
+	RNDIS_INFO *Info = (RNDIS_INFO *)Dev.Priv;
+	RNDIS_MSG_QUEUE *Head;
+	
+	if((Head = Info->ResponseHead) == NULL)
+		return;
+	if((Info->ResponseHead = Info->ResponseHead->Next) == NULL)
+		Info->ResponseTail = NULL;
+	else 
+		Info->ResponseHead->Prev = NULL;
+		
+	kfree(Head);
+
+	RndisInfo.State = RNDIS_UNINITIALIZED;
+	RndisInfo.RxPackets = 0;
+	RndisInfo.TxPackets = 0;
 }

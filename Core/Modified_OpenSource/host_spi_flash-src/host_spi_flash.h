@@ -18,6 +18,11 @@
 #include <linux/version.h>
 
 #define SET_HOST_SPI_ACCESS     0
+//AMP: Verify if dual BIOS SPI flash is supported
+#ifdef CONFIG_SPX_FEATURE_DUAL_BIOS_SPI_FLASH
+//AMP: Add command to rescan spi device
+#define RESCAN_HOST_SPI         1
+#endif
 
 struct host_spi_flash_hal_ops_t {
 	int (*max_read)(void); /* maximum data size to be used to read type functions in spi_transfer */

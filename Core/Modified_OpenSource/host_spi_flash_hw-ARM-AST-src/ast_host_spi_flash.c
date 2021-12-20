@@ -538,16 +538,16 @@ int __init ast_host_spi_flash_init(void)
     ast_host_spi_flash_hal_hw_id = register_hw_hal_module(&ast_host_spi_flash_hw_hal, (void **) &host_spi_flash_core_ops);
     if (ast_host_spi_flash_hal_hw_id < 0)
     {
-#ifndef CONFIG_SPX_FEATURE_GLOBAL_ENABLE_LPC_TO_AHB_BRIDGE
-        ast_host_spi_flash_change_mode(BYPASS_MODE);
-#endif
+//#ifndef CONFIG_SPX_FEATURE_GLOBAL_ENABLE_LPC_TO_AHB_BRIDGE
+//       ast_host_spi_flash_change_mode(BYPASS_MODE);
+//#endif
         goto out_iounmap;
     }
 
-#ifndef CONFIG_SPX_FEATURE_GLOBAL_ENABLE_LPC_TO_AHB_BRIDGE
+//#ifndef CONFIG_SPX_FEATURE_GLOBAL_ENABLE_LPC_TO_AHB_BRIDGE
     //Need to change mode to bypass so host can access bios spi
-    ast_host_spi_flash_change_mode(BYPASS_MODE);
-#endif
+//    ast_host_spi_flash_change_mode(BYPASS_MODE);
+//#endif
 
     return 0;
 
@@ -567,9 +567,9 @@ void __exit ast_host_spi_flash_exit(void)
 {
     unregister_hw_hal_module(EDEV_TYPE_HOST_SPI_FLASH, ast_host_spi_flash_hal_hw_id);
 
-#ifndef CONFIG_SPX_FEATURE_GLOBAL_ENABLE_LPC_TO_AHB_BRIDGE
-    ast_host_spi_flash_change_mode(BYPASS_MODE);
-#endif
+//#ifndef CONFIG_SPX_FEATURE_GLOBAL_ENABLE_LPC_TO_AHB_BRIDGE
+//    ast_host_spi_flash_change_mode(BYPASS_MODE);
+//#endif
 
     if (ast_host_spi_flash_mem_virt)
     {

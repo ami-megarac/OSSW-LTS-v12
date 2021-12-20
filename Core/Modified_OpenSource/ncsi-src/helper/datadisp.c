@@ -59,18 +59,15 @@ DumpContents(UINT32 Address, char *Buffer, UINT16 BufLen, UINT8 Format, void (*W
 		switch (Format)
 		{
 			case FORMAT_BYTE:
-				Data = (UINT32)(*((UINT8 *)(Buffer+Index)));  /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive */
-				/* Reason for False Positive - Looks like correctly transfer to this value. */
+				Data = (UINT32)(*((UINT8 *)(Buffer+Index)));
 				ConsolePrintf("%02X",(UINT8)Data);
 				break;
 			case FORMAT_WORD:
-				Data = (UINT32)(*((UINT16 *)(Buffer+Index)));  /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive */
-				/* Reason for False Positive - Looks like correctly transfer to this value. */
+				Data = (UINT32)(*((UINT16 *)(Buffer+Index)));
 				ConsolePrintf("%04X",(UINT16)Data);
 				break;
 			case FORMAT_DWORD:
-				Data = (UINT32)(*((UINT32 *)(Buffer+Index)));  /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive */
-				/* Reason for False Positive - Looks like correctly transfer to this value. */
+				Data = (UINT32)(*((UINT32 *)(Buffer+Index)));
 				ConsolePrintf("%08lX",(UINT32)Data);
 				break;
 			default:

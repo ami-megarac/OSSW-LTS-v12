@@ -444,19 +444,6 @@ int ast_mctppcie_init_process(void)
 
     ast_mctp->dram_base = AST_MCTP_DRAM_BASE;
 
-    mctp_irq = GetIrqFromDT("ami_mctp", IRQ_MCTP);
-
-    ast_mctp->irq = request_irq(mctp_irq, mctppcie_handler, IRQF_SHARED,\
-                        AST_MCTPPCIE_DRIVER_NAME, (void *)AST_MCTP_REG_BASE );
-    if( ast_mctp->irq != 0 )
-    {
-            printk( KERN_ERR "%s: Failed request irq %d, return %d\n",\
-                    AST_MCTPPCIE_DRIVER_NAME, IRQ_MCTP, ast_mctp->irq);
-            unregister_hw_hal_module(EDEV_TYPE_MCTP_PCIE, ast_mctp->hal_id);
-            iounmap (ast_mctp->reg_base);
-            return -EIO;
-    }
-    
     ast_mctp->flag = 0;
     ast_mctp->rx_fifo_size = 128;
     ast_mctp->rx_fifo_num = MCTP_RX_DATA_SIZE / ast_mctp->rx_fifo_size;
@@ -475,6 +462,19 @@ int ast_mctppcie_init_process(void)
     //handle HOST reset irq
     ast_scu_init();
 
+    mctp_irq = GetIrqFromDT("ami_mctp", IRQ_MCTP);
+
+    ast_mctp->irq = request_irq(mctp_irq, mctppcie_handler, IRQF_SHARED,\
+                        AST_MCTPPCIE_DRIVER_NAME, (void *)AST_MCTP_REG_BASE );
+    if( ast_mctp->irq != 0 )
+    {
+            printk( KERN_ERR "%s: Failed request irq %d, return %d\n",\
+                    AST_MCTPPCIE_DRIVER_NAME, IRQ_MCTP, ast_mctp->irq);
+            unregister_hw_hal_module(EDEV_TYPE_MCTP_PCIE, ast_mctp->hal_id);
+            iounmap (ast_mctp->reg_base);
+            return -EIO;
+    }
+    
     printk("The MCTP Over PCIE HW Driver is loaded successfully.\n" );
     return 0;
 }

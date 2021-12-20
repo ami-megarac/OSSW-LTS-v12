@@ -273,7 +273,8 @@ static long watchdog_ioctlUnlocked(struct file *file, unsigned int cmd, unsigned
 #ifndef USE_UNLOCKED_IOCTL   
 static int       
 watchdog_ioctl(struct inode * inode, struct file * file, unsigned int cmd,unsigned long arg)  
-        return watchdog_ioctlUnlocked(file,cmd,arg);  
+{
+	return watchdog_ioctlUnlocked(file,cmd,arg);  
 }  
 #endif  
 

@@ -121,11 +121,6 @@ i2c_as_init( void )
     for( i = 0; i < bus_count; i++ )
 	{
 		if (CONFIG_SPX_FEATURE_I2C_BUS_DISABLE_MASK & (1 << i)) continue;
-		if (CONFIG_SPX_FEATURE_I2C_BUS_SLAVE_EARLY_INIT_MASK & (1 << i))
-		{
-			printk(KERN_INFO "I2C:%d slave early init.\n",i);
-			as_data_ptr[i].SlaveTX_Enable=1;
-		}
 		i2c_init_hardware(i);
 		i2c_init_slave_address(i);
 	}
@@ -302,8 +297,14 @@ as_control( struct i2c_adapter *i2c_adap, unsigned long cmd,
 
         case ENABLE_SSIF:
            	//printk("I2C%d: Enable slave xfer for SSIF\n",i2c_adap->nr);
-    	    i2c_as_slave_xfer_enable(i2c_adap->nr); 
+    	    as_data_ptr[i2c_adap->nr].SlaveTX_Enable = 1;
+    	    i2c_as_reset(i2c_adap->nr); 
 		    break; 
+#if defined(CONFIG_SPX_FEATURE_SSIF_NACK_SUPPORT)
+        case SSIF_NACK_DISABLE:
+        	as_data_ptr[i2c_adap->nr].Slave_data_ready = 1;      	
+        	break;
+#endif
 
         default:
             dev_err( &i2c_adap->dev, "as_control: Unknown ioctl command\n" );

@@ -1,0 +1,33 @@
+Source: gawk
+Section: interpreters
+Priority: optional
+Maintainer: Adrian Bunk <bunk@debian.org>
+Build-Depends: autotools-dev,
+               bison,
+               debhelper (>= 9),
+               gettext,
+               libmpfr-dev,
+               libreadline-dev,
+               libsigsegv-dev,
+               locales-all
+Standards-Version: 3.9.8
+Homepage: http://www.gnu.org/software/gawk/
+
+Package: gawk
+Architecture: any
+Multi-Arch: foreign
+Provides: awk
+Pre-Depends: ${shlibs:Depends}
+Depends: ${misc:Depends}
+Suggests: gawk-doc
+Description: GNU awk, a pattern scanning and processing language
+ `awk', a program that you can use to select particular records in a
+ file and perform operations upon them.
+ .
+ Gawk is the GNU Project's implementation of the AWK programming language.
+ It conforms to the definition of the language in the POSIX 1003.2 Command
+ Language And Utilities Standard. This version in turn is based on the
+ description in The AWK Programming Language, by Aho, Kernighan, and
+ Weinberger, with the additional features defined in the System V Release
+ 4 version of UNIX awk. Gawk also provides more recent Bell Labs awk
+ extensions, and some GNU-specific extensions.

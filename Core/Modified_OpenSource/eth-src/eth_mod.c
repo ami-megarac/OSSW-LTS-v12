@@ -59,6 +59,7 @@ USB_CORE UsbCore;
 
 static int CreateEthernetDescriptor(uint8 DevNo);
 static int EthIoctl (unsigned int cmd,unsigned long arg, int* RetVal);
+static int EthMiscActions (uint8 DevNo, uint8 ep, uint8 Action);
 static int FillDevInfo (IUSB_DEVICE_INFO* iUSBDevInfo);
 static int SetInterfaceAuthKey (uint8 DevNo, uint8 IfNum, uint32 Key);
 static int ClearInterfaceAuthKey (uint8 DevNo, uint8 IfNum);
@@ -69,7 +70,7 @@ static USB_DEV	UsbDev =  {
 	.DevUsbCreateDescriptor 		= CreateEthernetDescriptor,
 	.DevUsbIOCTL 					= EthIoctl,
 	.DevUsbSetKeybdSetReport 		= NULL,
-	.DevUsbMiscActions 				= NULL,
+	.DevUsbMiscActions 				= EthMiscActions,
 	.DevUsbRemoteScsiCall 			= NULL,
 	.DevUsbFillDevInfo 				= FillDevInfo,
 	.DevUsbSetInterfaceAuthKey		= SetInterfaceAuthKey,
@@ -130,6 +131,24 @@ EthIoctl (unsigned int cmd,unsigned long arg, int* RetVal)
 		return -1;
 	}
 
+}
+static int
+EthMiscActions (uint8 DevNo, uint8 ep, uint8 Action)
+{
+	switch (Action)
+	{
+	case ACTION_USB_WRITE_DATA_TIMEOUT:
+		TDBG_FLAGGED(eth, DEBUG_ETH,"EthMiscActions(): ACTION_USB_WRITE_DATA_TIMEOUT...\n");
+		return 0;
+	case ACTION_USB_WRITE_DATA_SUCCESS:
+		TDBG_FLAGGED(eth, DEBUG_ETH,"EthMiscActions(): ACTION_USB_WRITE_DATA_SUCCESS...\n");
+		return 0;
+	case ACTION_USB_BUS_RESET_OCCURRED:
+		TDBG_FLAGGED(eth, DEBUG_ETH,"EthMiscActions(): ACTION_USB_BUS_RESET_OCCURRED...\n");
+		ClearRNDISMsgQueue();
+		return 0;
+	}
+	return -1;
 }
 #define CDC_SUPPORT 1
 static int 

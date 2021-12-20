@@ -106,8 +106,16 @@
 
 #define I2C_BYTE_MODE   0 
 #define I2C_DMA_MODE    1 
-
+#define SSIF_NACK_DISABLE           0x0854
 //#define JM_RECOVERY 1
+
+#define IPMI_SSIF_SINGLE_PART_WRITE_SSIF_CMD            0x02
+#define IPMI_SSIF_MULTI_PART_WRITE_START_SSIF_CMD       0x06
+#define IPMI_SSIF_MULTI_PART_WRITE_MIDDLE_SSIF_CMD       0x07
+#define IPMI_SSIF_MULTI_PART_WRITE_END_SSIF_CMD         0x08
+#define IPMI_SSIF_READ_START_SMBUS_CMD                  0x03
+#define IPMI_SSIF_READ_MIDDLE_SMBUS_CMD                 0x09
+#define IPMI_SSIF_READ_RETRY_SSIF_CMD                   0x0A
 
 #ifdef CONFIG_SPX_FEATURE_ENABLE_I2C_LOG
 #define I2C_LOG_FILTER_COUNT_MAX 6
@@ -170,6 +178,9 @@ struct i2c_as_data
 	int SlaveTX_RES_len;
 	int SlaveTX_index;
 	int SlaveTX_count; //For test usage, show how many data including padding byte are sent
+#if defined(CONFIG_SPX_FEATURE_SSIF_NACK_SUPPORT)
+	int Slave_data_ready;
+#endif
 
 	spinlock_t data_lock;
 
@@ -189,7 +200,6 @@ struct i2c_as_data
 	int block_read;
 	int block_proc_call;
 	int host_notify_flag;
-	int master_read_with_PEC;   //for I2C_SMBUS_BLOCK_DATA and I2C_SMBUS_BLOCK_PROC_CALL
 
 	unsigned char SMB_Linear_SlaveRX_data[TRANSFERSIZE];
 	int SMB_Linear_SlaveRX_len;

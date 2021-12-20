@@ -20,6 +20,8 @@
 #include "proc.h"
 #include "reset.h"
 
+#define BUF_LEN 16
+
 unsigned int m_reset_test_enable = ENABLE_RESET_DRIVER_TESTING;
 extern int TestResetCount(void);
 
@@ -30,9 +32,9 @@ int reset_write_test_setting ( struct file *filp, const char __user *buff, unsig
 #endif
 {
 
-        char buf_val[16];
+        char buf_val[BUF_LEN];
 	
-	if (len > 16)
+	if (len >= BUF_LEN)
                 return -EFAULT;
 
 	if (copy_from_user( buf_val, buff, len ))

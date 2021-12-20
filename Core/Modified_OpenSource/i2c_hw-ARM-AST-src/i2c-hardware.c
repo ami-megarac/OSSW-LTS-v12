@@ -456,7 +456,11 @@ void i2c_init_hardware(int bus)
     i2c_as_write_reg (bus, ast_i2c_clock1[bus], I2C_CLOCK_AC_1_CONTROL_REG);
 
 	/* Set Clock and AC timing Control register 2*/
-	i2c_as_write_reg (bus, DEFAULT_CLOCK_AC_2_VAL, I2C_CLOCK_AC_2_CONTROL_REG );
+#if defined(CONFIG_SPX_FEATURE_SSIF_NACK_SUPPORT)
+    i2c_as_write_reg (bus, CLOCK_AC_2_TIMEOUT_VAL, I2C_CLOCK_AC_2_CONTROL_REG );
+#else
+    i2c_as_write_reg (bus, CLOCK_AC_2_TIMEOUT_VAL_WITHOUT_NACK, I2C_CLOCK_AC_2_CONTROL_REG );
+#endif
 	
     /* Set Function Register */
 	i2c_as_write_reg(bus, DEFAULT_BUF_CONTROL_VAL, I2C_BUF_CONTROL_REG);
@@ -491,7 +495,7 @@ void i2c_init_hardware(int bus)
 					ENABLE_ABNORMAL_START_STOP_RECVD_INTR	| \
 					ENABLE_SLAVE_ADDR_MATCH_INTR 			| \
 					ENABLE_SCL_LOW_TIMEOUT_INTR				| \
-					ENABLE_SMBUS_ARP_HOST_ADDR_MATCH_INTR ,
+					ENABLE_SMBUS_ARP_HOST_ADDR_MATCH_INTR|ENABLE_SDA_LOW_TIMEOUT_INTR , ,
 					I2C_INTR_CONTROL_REG);
 #else
 	i2c_as_write_reg (bus, ENABLE_TX_DONE_WITH_ACK_INTR  			| \
@@ -501,7 +505,7 @@ void i2c_init_hardware(int bus)
 					ENABLE_STOP_CONDITION_RECVD_INTR		| \
 					ENABLE_ABNORMAL_START_STOP_RECVD_INTR	| \
 					ENABLE_SLAVE_ADDR_MATCH_INTR 			| \
-					ENABLE_SCL_LOW_TIMEOUT_INTR	,
+					ENABLE_SCL_LOW_TIMEOUT_INTR	|ENABLE_SDA_LOW_TIMEOUT_INTR ,
 					I2C_INTR_CONTROL_REG);
 #endif
 
@@ -659,13 +663,24 @@ void i2c_as_slave_xfer_enable(int bus)
 		ctrl_bits = i2c_as_read_reg(bus,I2C_FUNCTION_CONTROL_REG); 
 		ctrl_bits &= ~( ENABLE_MASTER_FUNC); 
 		ctrl_bits |= ENABLE_SLAVE_FUNC;
+		ctrl_bits |= ENABLE_AUTORECOVERY;
 		#if defined(GROUP_AST2300_PLUS)
 		ctrl_bits &= ~( BUFFER_SELECTION_PAGE_MASK);
 		ctrl_bits |= BUFFER_SELECTION_PAGE_0;
 		#endif
 		i2c_as_write_reg( bus,ctrl_bits,I2C_FUNCTION_CONTROL_REG); 
 		udelay(100); 
-		 
+		
+		//Since SSIF will work only in BYTE mode changing ssif specific bus to Byte mode
+		if (as_data_ptr[bus].i2c_dma_mode == I2C_DMA_MODE)
+		{
+			if(as_data_ptr[bus].dma_buff != NULL)
+			dma_free_coherent(NULL, AST_I2C_DMA_SIZE,as_data_ptr[bus].dma_buff, as_data_ptr[bus].dma_addr);
+			
+			as_data_ptr[bus].i2c_dma_mode = I2C_BYTE_MODE;
+			as_data_ptr[bus].dma_buff = NULL;
+			as_data_ptr[bus].dma_addr = 0;
+		}
 	 /* clear interrups */ 
 		i2c_as_disable_all_interrupts(bus); 
 		i2c_as_write_reg (bus, CLR_ALL_INTS_VAL, I2C_INTR_STATUS_REG); 
@@ -676,7 +691,10 @@ void i2c_as_slave_xfer_enable(int bus)
 		 
 		as_data_ptr[bus].MasterRX_len = 0; 
 		as_data_ptr[bus].MasterRX_index = 0; 
-	
+		as_data_ptr[bus].SlaveTX_READ_DATA = 0;
+#if defined(CONFIG_SPX_FEATURE_SSIF_NACK_SUPPORT)	
+		as_data_ptr[bus].Slave_data_ready = 1;
+#endif
 		/* Default I2C_BYTE_MODE for GROUP_AST2300 and GROUP_AST2300_PLUS.
 		   For testing buffer transfer mode of SSIF, init ssif tx pool buffer. */
 		//as_data_ptr[bus].pool_buff_base = AST_I2C_POLLBUF_VA_BASE;
@@ -687,7 +705,7 @@ void i2c_as_slave_xfer_enable(int bus)
 					   ENABLE_RX_DONE_INTR|
 								ENABLE_STOP_CONDITION_RECVD_INTR|
 								ENABLE_ABNORMAL_START_STOP_RECVD_INTR|
-								ENABLE_SLAVE_ADDR_MATCH_INTR,
+								ENABLE_SLAVE_ADDR_MATCH_INTR| ENABLE_SDA_LOW_TIMEOUT_INTR| ENABLE_SCL_LOW_TIMEOUT_INTR ,
 										I2C_INTR_CONTROL_REG); 
 }
 

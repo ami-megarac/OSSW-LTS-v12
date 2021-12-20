@@ -92,30 +92,36 @@ qentry_t *qcgisess_init(qentry_t *request, const char *dirpath)
 {
     char *ishttps = getenv("HTTPS");
     // check content flag
-    if (qcgires_getcontenttype(request) != NULL) {/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Memory cleared properly in end_handler. */
+    if (qcgires_getcontenttype(request) != NULL) {
         DEBUG_CODER("Should be called before qRequestSetContentType().");
         return NULL;
     }
 
-    qentry_t *session = qEntry();/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Session memory cleared properly in end_handler. */
+    qentry_t *session = qEntry();
     if (session == NULL) return NULL;
     // check session status & get session id
     bool new_session;
     char *sessionkey;
     char *fileValidation = NULL;
     char *gen_uniq_id = NULL;
-    if (request->getstr(request, SESSION_ID, false) != NULL)/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Session memory cleared properly in end_handler. */
+    if (request->getstr(request, SESSION_ID, false) != NULL)
     {
-        sessionkey = request->getstr(request, SESSION_ID, true);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Session memory cleared properly in end_handler. */
+        sessionkey = request->getstr(request, SESSION_ID, true);
         new_session = false;
     }
     else
     { // new session
-        gen_uniq_id = _genuniqid();/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Session memory cleared properly in end_handler. */
+        gen_uniq_id = _genuniqid();
         //make sure that unique_id should be valid file name.
         fileValidation = strchr(gen_uniq_id, '/');
         if (fileValidation)
         {
+		if(gen_uniq_id)
+		{
+			free(gen_uniq_id);
+			gen_uniq_id=NULL;
+		}
+
             return NULL;
         }
         else
@@ -156,7 +162,7 @@ qentry_t *qcgisess_init(qentry_t *request, const char *dirpath)
 
     // validate exist session
     if (new_session == false) {
-	int donotdestroy = session->getint(session, DO_NOT_DESTROY);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Session memory cleared properly in end_handler. */
+	int donotdestroy = session->getint(session, DO_NOT_DESTROY);
 
 		if(donotdestroy==1) {
 			//TODO: Take security measures
@@ -168,13 +174,13 @@ qentry_t *qcgisess_init(qentry_t *request, const char *dirpath)
                     session->load(session, session_storage_path);
                     uint32 racsession_id = session->getint(session, "racsession_id");
                     racsessinfo_unregister_session(racsession_id, SESSION_UNREGISTER_REASON_LOGOUT);
-                    _q_unlink(session_storage_path);/* Fortify [Path Manipulation]:: False Positive */  /* Fortify [Race Condition: File System Access]:: False Positive *//* Reason for Race Condition: File System Access False Positve - The file does not change between the calls of stat() and _q_unlink() */
-                    _q_unlink(session_timeout_path);/* Fortify [Path Manipulation]:: False Positive */  /* Fortify [Race Condition: File System Access]:: False Positive *//* Reason for Race Condition: File System Access False Positve - The file does not change between the calls of stat() and _q_unlink() */
+                    _q_unlink(session_storage_path);
+                    _q_unlink(session_timeout_path);
                 }
 
             	// remake storage path
                 free(sessionkey);
-                gen_uniq_id = _genuniqid();/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Session memory cleared properly in end_handler. */
+                gen_uniq_id = _genuniqid();
                 //make sure that unique_id should be valid file name.
                 fileValidation = strchr(gen_uniq_id, '/');
                 if (fileValidation)
@@ -283,7 +289,7 @@ const char *qcgisess_getid(qentry_t *session)
  */
 time_t qcgisess_getcreated(qentry_t *session)
 {
-    const char *created = session->getstr(session, INTER_CREATED_SEC, false);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Session memory cleared properly in end_handler. */
+    const char *created = session->getstr(session, INTER_CREATED_SEC, false);
     return (time_t)atol(created);
 }
 
@@ -296,8 +302,8 @@ time_t qcgisess_getcreated(qentry_t *session)
  */
 bool qcgisess_save(qentry_t *session)
 {
-    const char *sessionkey = session->getstr(session, INTER_SESSIONID, false);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Session memory cleared properly in end_handler. */
-    const char *session_repository_path = session->getstr(session, INTER_SESSION_REPO, false);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Session memory cleared properly in end_handler. */
+    const char *sessionkey = session->getstr(session, INTER_SESSIONID, false);
+    const char *session_repository_path = session->getstr(session, INTER_SESSION_REPO, false);
     int session_timeout_interval = session->getint(session, INTER_INTERVAL_SEC);
     if (sessionkey == NULL || session_repository_path == NULL) return false;
 
@@ -344,8 +350,8 @@ bool qcgisess_destroy(qentry_t *session)
 	if(!session)
 		return false;
 	
-    sessionkey = session->getstr(session, INTER_SESSIONID, false);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Session memory cleared properly in end_handler. */
-    session_repository_path = session->getstr(session, INTER_SESSION_REPO, false);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Session memory cleared properly in end_handler. */
+    sessionkey = session->getstr(session, INTER_SESSIONID, false);
+    session_repository_path = session->getstr(session, INTER_SESSION_REPO, false);
 
     if (sessionkey == NULL || session_repository_path == NULL) {
         if (session != NULL) session->free(session);
@@ -384,7 +390,7 @@ static bool _clear_repo(const char *session_repository_path)
     // clear old session data
     DIR *dp;
     qentry_t *session;
-    if ((dp = opendir(session_repository_path)) == NULL) {	/* Fortify [Path Manipulation]:: False Positive *//* Reason for False Positive - not accepting user inputs and not using invalid data while using the file */
+    if ((dp = opendir(session_repository_path)) == NULL) {	/* Fortify [Path Manipulation]:: False Positive */
         DEBUG_CODER("Can't open session repository %s", session_repository_path);
         return false;
     }
@@ -398,11 +404,11 @@ static bool _clear_repo(const char *session_repository_path)
                      "%s/%s", session_repository_path, dirp->d_name);
             if (_is_valid_session(timeoutpath) <= 0) { // expired
                 // remove timeout
-                _q_unlink(timeoutpath);/* Fortify [Path Manipulation]:: False Positive */  /* Fortify [Race Condition: File System Access]:: False Positive *//* Reason for Race Condition: File System Access False Positve - The file does not change between the calls of stat() and _q_unlink() */
+                _q_unlink(timeoutpath);
 
                 // remove properties
                 timeoutpath[strlen(timeoutpath) - strlen(SESSION_TIMEOUT_EXTENSION)] = '\0';
-                /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
+				/* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
 				/**
 				 * Reason for False Positive: 
 				 * Avoid buffer overflow once the total size of two strings without "the terminating null byte" equal or large the size of dest string.
@@ -411,20 +417,20 @@ static bool _clear_repo(const char *session_repository_path)
                     DEBUG_CODER("Buffer Overflow");
                     return false;
                 } else {
-                    /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
+					/* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
 					/**
 					 * Reason for False Positive: 
 					 * "strcat()" did not apend the terminating null byte to dest string.
 					 * Using "strncat()" instead of it.
 					 */
-                    strncat(timeoutpath, SESSION_STORAGE_EXTENSION, PATH_MAX - strlen(timeoutpath) - 1); /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
+                    strncat(timeoutpath, SESSION_STORAGE_EXTENSION, strlen(SESSION_TIMEOUT_EXTENSION)); /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
                 }
                 session = qEntry();
                 session->load(session, timeoutpath);
                 uint32 racsession_id = session->getint(session, "racsession_id");
                 racsessinfo_unregister_session(racsession_id, SESSION_UNREGISTER_REASON_LOGOUT);
 				if (session != NULL) session->free(session);
-                _q_unlink(timeoutpath);/* Fortify [Path Manipulation]:: False Positive */  /* Fortify [Race Condition: File System Access]:: False Positive *//* Reason for Race Condition: File System Access False Positve - The file does not change between the calls of stat() and _q_unlink() */
+                _q_unlink(timeoutpath);
 
             }
         }
@@ -450,7 +456,7 @@ static bool _clear_session(const char *session_repository_path, const char *sess
     // clear specific session data
     DIR *dp;
     qentry_t *session;
-    if ((dp = opendir(session_repository_path)) == NULL) {	/* Fortify [Path Manipulation]:: False Positive *//* Reason for False Positive - not accepting user inputs and not using invalid data while using the file */
+    if ((dp = opendir(session_repository_path)) == NULL) {	/* Fortify [Path Manipulation]:: False Positive */
         DEBUG_CODER("Can't open session repository %s", session_repository_path);
         return false;
     }
@@ -488,20 +494,20 @@ static bool _clear_session(const char *session_repository_path, const char *sess
                     DEBUG_CODER("Buffer Overflow");
                     return false;
                 } else {
-                    /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
+					/* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
 					/**
 					 * Reason for False Positive: 
 					 * "strcat()" did not apend the terminating null byte to dest string.
 					 * Using "strncat()" instead of it.
 					 */
-                    strncat(timeoutpath, SESSION_STORAGE_EXTENSION, PATH_MAX - strlen(timeoutpath) - 1); /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
+                    strncat(timeoutpath, SESSION_STORAGE_EXTENSION, strlen(SESSION_TIMEOUT_EXTENSION));/* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
                 }
                 session = qEntry();
                 session->load(session, timeoutpath);
                 uint32 racsession_id = session->getint(session, "racsession_id");
                 racsessinfo_unregister_session(racsession_id, SESSION_UNREGISTER_REASON_LOGOUT);
                 if (session != NULL) session->free(session);
-                _q_unlink(timeoutpath);/* Fortify [Path Manipulation]:: False Positive */  /* Fortify [Race Condition: File System Access]:: False Positive *//* Reason for Race Condition: File System Access False Positve - The file does not change between the calls of stat() and _q_unlink() */
+                _q_unlink(timeoutpath);
 
             }
         }
@@ -530,8 +536,8 @@ bool clear_session(const char *session_repository_path, const char *sessionkey)
  */
 bool qcgisess_clear(qentry_t *session)
 {
-    const char *sessionkey = session->getstr(session, INTER_SESSIONID, false);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Session memory cleared properly in end_handler. */
-    const char *session_repository_path = session->getstr(session, INTER_SESSION_REPO, false);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Session memory cleared properly in end_handler. */
+    const char *sessionkey = session->getstr(session, INTER_SESSIONID, false);
+    const char *session_repository_path = session->getstr(session, INTER_SESSION_REPO, false);
     if (sessionkey == NULL || session_repository_path == NULL) return false;
 
     char session_storage_path[PATH_MAX];
@@ -540,12 +546,7 @@ bool qcgisess_clear(qentry_t *session)
             session_repository_path,
             SESSION_PREFIX, sessionkey, SESSION_STORAGE_EXTENSION);
 
-    if (session->save(session, session_storage_path) == false) {
-        DEBUG_CODER("Can't save session file %s", session_storage_path);
-        return false;
-    }   
-
-    clear_session(session_repository_path, sessionkey);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Session memory cleared properly in end_handler. */
+    clear_session(session_repository_path, sessionkey);
     return true;
 }
 
@@ -572,7 +573,7 @@ int get_auth_str(char *uri, int uri_size, char *csrftoken)
     char uri_tmp[MAX_LINEBUF];
 
     memset(uri_tmp, 0, MAX_LINEBUF);
-    tempret = snprintf(uri_tmp, uri_size, "%s", uri);/* False Positive [Buffer Overflow: Format String] *//* format string argument and format specifier for the destination are same and condition to check buffer overflow/ underflow is present - Reason */
+    tempret = snprintf(uri_tmp, uri_size, "%s", uri);
     if(tempret < 0 || tempret >= MAX_LINEBUF)
         return -1;
 
@@ -637,14 +638,14 @@ int is_valid_authorization(char *qsession, char *csrftoken)
                 _q_urldecode(val);
                 if(strcmp(val, csrftoken) == 0) // valid session
 				{
-					fclose(fp);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive  closing the file properly in both failure and success cases. */
+					fclose(fp);
                     return 1;
 				}
             }
         }
     }    
 
-    fclose(fp);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive  closing the file properly in both failure and success cases. */
+    fclose(fp);
 
     // CSRFTOKEN not found
     return 0;
@@ -704,7 +705,7 @@ int is_valid_Qsession(char *qsession)
                 if(strcmp(val, substr) == 0) // valid session
 				{
 					free(dupstr);
-					fclose(fp);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive  closing the file properly in both failure and success cases. */
+					fclose(fp);
                     return 1;
 				}
             }
@@ -712,7 +713,7 @@ int is_valid_Qsession(char *qsession)
     }    
 
 	free(dupstr);
-    fclose(fp);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive  closing the file properly in both failure and success cases. */
+    fclose(fp);
 
     // Qsession not found
     return 0;
@@ -754,8 +755,8 @@ static char *_genuniqid(void)
 #else
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    unsigned int sec =(unsigned int) tv.tv_sec;
-    unsigned int usec =(unsigned int) tv.tv_usec;
+    unsigned int sec = tv.tv_sec;
+    unsigned int usec = tv.tv_usec;
 #endif
     unsigned int port = 0;
     const char *remote_port = getenv("REMOTE_PORT");
@@ -784,12 +785,10 @@ static char *_genuniqid(void)
 			TempRandomString[i] = tmpchar;
 		}
 		
-		fclose(rd);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive  closing the file properly in both failure and success cases. */
+		fclose(rd);
 	}
 
     char *uniqid = (char *)malloc(5+5+4+4+COOKIE_RANDOM_PORTION_LEN+1);
-    /* Fortify [String Termination Error]:: False Positive */
-    /* Reason for False Positive - once buffer overlow happened, we will make last char as null */
     if (snprintf(uniqid, 5+5+4+4+COOKIE_RANDOM_PORTION_LEN+1, "%05x%05x%04x%04x%12s",
                  usec%0x100000, sec%0x100000, getpid()%0x10000, port%0x10000, TempRandomString)
         >= 5+5+4+4+COOKIE_RANDOM_PORTION_LEN+1) uniqid[5+5+4+4+COOKIE_RANDOM_PORTION_LEN] = '\0';;

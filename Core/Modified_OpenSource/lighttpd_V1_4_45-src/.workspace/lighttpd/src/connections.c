@@ -332,39 +332,6 @@ static void connection_handle_errdoc_init(server *srv, connection *con) {
 			www_auth = buffer_init_buffer(ds->value);
 		}
 	}
-	buffer *frame_option = NULL;
-	buffer *xss_protection = NULL;
-	buffer *referrer_policy = NULL;
-	buffer *csp = NULL;
-	buffer *strict_transport_security = NULL;
-
-	if ((404 == con->http_status) || (403 == con->http_status) || (500 == con->http_status)) {
-		
-		data_string *ds = (data_string *)array_get_element(con->response.headers, "X-Frame-Options");
-		if (NULL != ds) {
-			frame_option = buffer_init_buffer(ds->value);
-		}
-		data_string *ds1 = (data_string *)array_get_element(con->response.headers, "X-XSS-Protection");
-		if (NULL != ds1) {
-			xss_protection = buffer_init_buffer(ds1->value);
-		}
-
-		data_string *ds2 = (data_string *)array_get_element(con->response.headers, "Referrer-Policy");
-		if (NULL != ds2) {
-			referrer_policy = buffer_init_buffer(ds2->value);
-		}
-
-		data_string *ds3 = (data_string *)array_get_element(con->response.headers, "Content-Security-Policy");
-		if (NULL != ds3) {
-			csp = buffer_init_buffer(ds3->value);
-		}
-		data_string *ds4 = (data_string *)array_get_element(con->response.headers, "Strict-Transport-Security");
-                if (NULL != ds4) {
-                        strict_transport_security = buffer_init_buffer(ds4->value);
-                }
-
-	}
-	
 	
 	con->response.transfer_encoding = 0;
 	buffer_reset(con->physical.path);
@@ -375,26 +342,7 @@ static void connection_handle_errdoc_init(server *srv, connection *con) {
 		response_header_insert(srv, con, CONST_STR_LEN("WWW-Authenticate"), CONST_BUF_LEN(www_auth));
 		buffer_free(www_auth);
 	}
-	if (NULL != frame_option) {
-		response_header_insert(srv, con, CONST_STR_LEN("X-Frame-Options"), CONST_BUF_LEN(frame_option));
-		buffer_free(frame_option);
-	}
-	if (NULL != xss_protection) {
-		response_header_insert(srv, con, CONST_STR_LEN("X-XSS-Protection"), CONST_BUF_LEN(xss_protection));
-		buffer_free(xss_protection);
-	}
-	if (NULL != referrer_policy) {
-		response_header_insert(srv, con, CONST_STR_LEN("Referrer-Policy"), CONST_BUF_LEN(referrer_policy));
-		buffer_free(referrer_policy);
-	}
-	if (NULL != csp) {
-		response_header_insert(srv, con, CONST_STR_LEN("Content-Security-Policy"), CONST_BUF_LEN(csp));
-		buffer_free(csp);
-	}
-	if (NULL != strict_transport_security) {
-		response_header_insert(srv, con, CONST_STR_LEN("Strict-Transport-Security"), CONST_BUF_LEN(strict_transport_security));
-                buffer_free(strict_transport_security);
-        }
+	
 }
 
 static int connection_handle_write_prepare(server *srv, connection *con) {

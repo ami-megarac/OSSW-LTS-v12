@@ -561,9 +561,11 @@ int as_master_xfer(struct i2c_adapter *i2c_adap,
 	as_data_ptr[i2c_adap->nr].TX_index = 0;
 
 	/* set RX buffer len as requested bytes lengh */
-
+#if defined(CONFIG_SPX_FEATURE_I2C_DMA_MODE)
+	as_data_ptr[i2c_adap->nr].MasterRX_len = (msgs[1].len + 1);
+#else
 	as_data_ptr[i2c_adap->nr].MasterRX_len = msgs[1].len;
-
+#endif
 	as_data_ptr[i2c_adap->nr].MasterRX_index = 0;
 
 	as_data_ptr[i2c_adap->nr].op_status = 0;
@@ -752,8 +754,6 @@ int as_smb_xfer( struct i2c_adapter *i2c_adap, u16 addr, unsigned short flags,
 		msgbuf0[1] = data->word & 0xff;
 		msgbuf0[2] = (data->word >> 8) & 0xff;
 		msg[1].len = 2;
-		msg[1].addr = addr;
-		msg[1].flags = I2C_M_RD | flags;
 		as_data_ptr[i2c_adap->nr].block_read = 0;
 		as_data_ptr[i2c_adap->nr].block_proc_call= 0;
 		break;
@@ -771,7 +771,7 @@ int as_smb_xfer( struct i2c_adapter *i2c_adap, u16 addr, unsigned short flags,
 			num = 2;
 			as_data_ptr[i2c_adap->nr].block_read = 1;
 			as_data_ptr[i2c_adap->nr].block_proc_call= 0;
-			as_data_ptr[i2c_adap->nr].master_read_with_PEC = flags & I2C_CLIENT_PEC? 1:0;
+			
 		}
 		else {
 			msg[0].len = data->block[0] + 2;
@@ -812,7 +812,6 @@ int as_smb_xfer( struct i2c_adapter *i2c_adap, u16 addr, unsigned short flags,
 		msg[1].flags = I2C_M_RD | flags;
 		as_data_ptr[i2c_adap->nr].block_read = 0;
 		as_data_ptr[i2c_adap->nr].block_proc_call= 1;
-		as_data_ptr[i2c_adap->nr].master_read_with_PEC = flags & I2C_CLIENT_PEC? 1:0;
 		break;
 	case I2C_SMBUS_I2C_BLOCK_DATA:
 		#if 0
@@ -863,13 +862,8 @@ int as_smb_xfer( struct i2c_adapter *i2c_adap, u16 addr, unsigned short flags,
 
 	
 	
-	if (size == 0 )	    
+	if (size == 0 )
 	{
-        as_data_ptr[i2c_adap->nr].TX_len = 0;
-        as_data_ptr[i2c_adap->nr].TX_index = 0;
-        
-        as_data_ptr[i2c_adap->nr].MasterRX_len = 0;
-        as_data_ptr[i2c_adap->nr].MasterRX_index = 0;
 		retval = send_slave_addr(i2c_adap, msg[0].addr, msg[0].flags);
 		if(retval != 0)
 			return -EIO;
@@ -878,14 +872,17 @@ int as_smb_xfer( struct i2c_adapter *i2c_adap, u16 addr, unsigned short flags,
 
 	else
 	{
-        retval = as_master_xfer(i2c_adap, msg, num);
-    
-        /* these are flags used by smbus, clear them after Smbus transfer finish*/
-        as_data_ptr[i2c_adap->nr].block_read = 0; 
-        as_data_ptr[i2c_adap->nr].block_proc_call = 0;
-        as_data_ptr[i2c_adap->nr].master_read_with_PEC = 0;
-        if (retval < 0)
-            return -1;
+		if ((retval = as_master_xfer(i2c_adap, msg, num)) < 0)
+		{
+			/* these are flags used by smbus, clear them after Smbus transfer finish*/
+			as_data_ptr[i2c_adap->nr].block_read = 0; 
+			as_data_ptr[i2c_adap->nr].block_proc_call = 0;
+			return -1;
+		}
+
+		/* these are flags used by smbus, clear them after Smbus transfer finish */
+		as_data_ptr[i2c_adap->nr].block_read = 0; 
+		as_data_ptr[i2c_adap->nr].block_proc_call = 0;
 		
 	}
 
@@ -895,15 +892,8 @@ int as_smb_xfer( struct i2c_adapter *i2c_adap, u16 addr, unsigned short flags,
 	/* Check PEC if last message is a read */
 	if (i && (msg[num-1].flags & I2C_M_RD)) {
 		//printk(" msg[num-1] data1 = %x data2 = %x\n",msgbuf0[0], msgbuf0[1]);
-	    if (((size == I2C_SMBUS_BLOCK_DATA) || (size == I2C_SMBUS_BLOCK_PROC_CALL)) && ((flags & I2C_CLIENT_PEC)))
-		{
-	        msg[num-1].len = as_data_ptr[i2c_adap->nr].MasterRX_len;
-		}
-
-		if (i2c_smbus_check_pec(partial_pec, &msg[num-1]) < 0) {
-		    //printk("SMBus PEC check error\n");
+		if (i2c_smbus_check_pec(partial_pec, &msg[num-1]) < 0)
 			return -1;
-		}
 	}
 
 	
@@ -1121,8 +1111,8 @@ int as_slave_recv( struct i2c_adapter *i2c_adap,
 		len = as_data_ptr[i2c_adap->nr].SlaveRX_len[FifoPtr];
 		if (len > 0)
 		{	
-			log_i2c_plain(i2c_adap, buf, len);
 			memcpy(buf,as_data_ptr[i2c_adap->nr].SlaveRX_data[FifoPtr],len);
+			log_i2c_plain(i2c_adap, buf, len);
 
 			#if 0
 			
@@ -1166,6 +1156,7 @@ int as_mctp_recv (struct i2c_adapter *i2c_adap,
 
 
 retry:
+	len = -1;	
 	/* Copy to user space buffer */
    	spin_lock_irqsave( &as_data_ptr[i2c_adap->nr ].data_lock , flags);
 
@@ -1175,8 +1166,8 @@ retry:
 		len = as_data_ptr[i2c_adap->nr].MCTPRX_Len[FifoPtr];
 		if (len > 0)
 		{
-			log_i2c_plain(i2c_adap, buf, len);
 			memcpy(buf,as_data_ptr[i2c_adap->nr].MCTPRX_data[FifoPtr],len);
+			log_i2c_plain(i2c_adap, buf, len);
 			#if 0
 			for ( i= 0; i < len; i++)
 			{
@@ -1228,6 +1219,7 @@ int as_smb_host_notify_recv (struct i2c_adapter *i2c_adap,
 
 
 retry:
+	len = -1;	
 	/* Copy to user space buffer */
    	spin_lock_irqsave( &as_data_ptr[i2c_adap->nr ].data_lock , flags);
 
@@ -1293,8 +1285,7 @@ int as_slave_send( struct i2c_adapter *i2c_adap,
 
 	for (i=0; i < size; i++)
 	{
-		as_data_ptr[i2c_adap->nr].SlaveTX_RES_data[i] = (unsigned char) buf[i]; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive */
-		/* Reason for False Positive - source variable is type casted with same type unsigned char as destination variable. */
+		as_data_ptr[i2c_adap->nr].SlaveTX_RES_data[i] = (unsigned char) buf[i];
 	}
 
 	as_data_ptr[i2c_adap->nr].SlaveTX_READ_DATA = 0;

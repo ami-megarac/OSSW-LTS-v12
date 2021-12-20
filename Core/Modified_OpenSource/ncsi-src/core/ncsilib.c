@@ -43,6 +43,8 @@ extern int is_async_reset;
 
 static UINT32 NCSIValidateCheckSum(NCSI_IF_INFO *info,UINT16* pData,int cs_offset);
 static void FormIntelOemNCSIPacket(NCSI_IF_INFO *info,UINT8 Channel,UINT8 *PayLoad, int LastByte_offset);
+static void FormMLXOemNCSIPacket(NCSI_IF_INFO *info, UINT8 Channel, UINT8 *PayLoad, int LastByte_offset);
+static void FormBCMOemNCSIPacket(NCSI_IF_INFO *info, UINT8 Channel, UINT8 *PayLoad, int LastByte_offset);
 UINT8 selected_pkg = MAX_PACKAGE_ID + 1; //set def val as unreal val
 
 extern struct workqueue_struct *ncsi_wq;
@@ -563,7 +565,7 @@ FormNCSIPacket(NCSI_IF_INFO *info,UINT8 Command,UINT8 Channel,UINT8 *PayLoad, in
 	NcsiHdr->HdrRev 	= NCSI_HDR_REV;
 	info->LastInstanceID++;
 	/* Instance ID  = 1 to 0xFF . 0 is invalid */
-	info->LastInstanceID= (UINT8)((info->LastInstanceID == 0)?1:info->LastInstanceID);	
+	info->LastInstanceID= (info->LastInstanceID == 0)?1:info->LastInstanceID;	
 	NcsiHdr->I_ID		= info->LastInstanceID;
 	NcsiHdr->Command 	= Command;
 	NcsiHdr->CH_ID		= Channel;
@@ -665,6 +667,302 @@ NCSI_Issue_SelectPackage(NCSI_IF_INFO *info,UINT8 PackageID,UINT8 HwArbitDisable
 	return retval;
 }
 
+int
+NCSI_Issue_Vendor_OEM_GetSystemEthMACAddrControl(NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID, UINT8 *EthMACAddr)
+{
+	UINT8 GetSysMAC[6];
+	UINT16 BMCMAC_HighData_Word={0};
+	UINT32 BMCMAC_LowData_DWord={0};
+	int retVal = -1;
+	UINT8 MACAddr[6];
+        struct net_device *dev;
+	dev  = info->dev;
+
+	/*NCSI Need in the reverse order */
+	MACAddr[0] = dev->dev_addr[5];
+	MACAddr[1] = dev->dev_addr[4];
+	MACAddr[2] = dev->dev_addr[3];
+	MACAddr[3] = dev->dev_addr[2];
+	MACAddr[4] = dev->dev_addr[1];
+	MACAddr[5] = dev->dev_addr[0];
+
+	/* Getting MAC address should always be called to the setting MAC is not match with OCP card */
+	switch (info->IANA_ManID)
+	{
+	/* For MELANOX Management Controller */
+	case VENDOR_ID_MELANOX:
+		if (NCSI_Issue_Mellanox_OEM_GetSystemEthMACAddrControl(info, PackageID, ChannelID, GetSysMAC) == 0)
+		{
+			/* Create BMC MAC from NCSI MAC */
+			BMCMAC_HighData_Word |= GetSysMAC[0]<<8;
+			BMCMAC_HighData_Word |= GetSysMAC[1];
+			BMCMAC_LowData_DWord |= GetSysMAC[2]<<24;
+			BMCMAC_LowData_DWord |= GetSysMAC[3]<<16;
+			BMCMAC_LowData_DWord |= GetSysMAC[4]<<8;
+			BMCMAC_LowData_DWord |= GetSysMAC[5];
+
+			EthMACAddr[5] = BMCMAC_HighData_Word>>8;
+			EthMACAddr[4] = BMCMAC_HighData_Word & (0x00FF);
+			EthMACAddr[3] = BMCMAC_LowData_DWord>>24;
+			EthMACAddr[2] = (BMCMAC_LowData_DWord & (0x00FF0000))>>16;
+			EthMACAddr[1] = (BMCMAC_LowData_DWord & (0x0000FF00))>>8;
+			EthMACAddr[0] = (BMCMAC_LowData_DWord & (0x000000FF));
+			return 0;
+		}
+		else
+		{
+			printk(KERN_DEBUG "NCSI(%s):%d.%d Get System MAC Addr Control Failed\n", info->dev->name, PackageID, ChannelID);
+			return retVal;
+		}
+	break;
+	case VENDOR_ID_BROADCOM:
+		if (NCSI_Issue_Broadcom_OEM_GetSystemEthMACAddrControl(info, PackageID, ChannelID, GetSysMAC) == 0)
+		{
+			/* Create BMC MAC from NCSI MAC */
+			BMCMAC_HighData_Word |= GetSysMAC[0]<<8;
+			BMCMAC_HighData_Word |= GetSysMAC[1];
+			BMCMAC_LowData_DWord |= GetSysMAC[2]<<24;
+			BMCMAC_LowData_DWord |= GetSysMAC[3]<<16;
+			BMCMAC_LowData_DWord |= GetSysMAC[4]<<8;
+			BMCMAC_LowData_DWord |= GetSysMAC[5];
+
+			EthMACAddr[5] = BMCMAC_HighData_Word>>8;
+			EthMACAddr[4] = BMCMAC_HighData_Word & (0x00FF);
+			EthMACAddr[3] = BMCMAC_LowData_DWord>>24;
+			EthMACAddr[2] = (BMCMAC_LowData_DWord & (0x00FF0000))>>16;
+			EthMACAddr[1] = (BMCMAC_LowData_DWord & (0x0000FF00))>>8;
+			EthMACAddr[0] = (BMCMAC_LowData_DWord & (0x000000FF));
+			return 0;
+		}
+	break;
+	default:
+		if ((MACAddr[0] == 0) && (MACAddr[1] == 0) && (MACAddr[2] == 0) &&
+			(MACAddr[3] == 0) && (MACAddr[4] == 0) && (MACAddr[5] == 0))
+		{
+			printk("NCSI(%s): Error! Mac Address is 0. Cannot enable NCSI\n",dev->name);
+			return retVal;
+		}
+	break;
+	}
+	return retVal;
+}
+
+int
+NCSI_Issue_Mellanox_OEM_GetSystemEthMACAddrControl(NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID, UINT8 *EthMACAddr)
+{
+	NCSI_REQ_MLX_OEM_PKT Pkt;
+	NCSI_RSP_MLX_OEM_PKT *ResPkt;
+
+	UINT8 Channel;
+	UINT8 *PayLoad;
+	int lastbyte_offset;
+	int retval;
+
+	/* Sleep for response or timeout */
+	wait_event_interruptible_timeout(NCSI_Process, (info->ProcessPending == 0), NCSI_TIMEOUT);
+	info->ProcessPending = 1;
+
+	/* Basic Initialization */
+	memset(&Pkt ,0, sizeof(Pkt));
+	PayLoad = ((UINT8 *)&Pkt) + sizeof(NCSI_HDR);
+	lastbyte_offset = (UINT32)(&(Pkt.CmdIndex)) - (UINT32)(&Pkt);
+
+	/* "Set Mellanox Management control" Specific Parameters */
+	Channel = MK_CH_ID(PackageID, ChannelID);
+	Pkt.ManufacturerId = cpu_to_be32(0x8119);
+	Pkt.CmdRev = 0x0;	/* CMD Rev for Get MAC */
+	Pkt.CmdID = 0x0;		/* CMD ID for GMA  */
+	Pkt.CmdParam = 0x1B;		/* Parameter for GMA  */
+	Pkt.CmdIndex = 0xFF;		/* 255 - Chassis Manager */
+
+	/* Form NCSI Packet and send */
+	FormMLXOemNCSIPacket(info, Channel, PayLoad, lastbyte_offset);
+	info->SendLen = sizeof(Pkt);
+
+	retval = SendNCSICommand (info);
+	if (retval != NCSI_ERR_SUCCESS)
+		goto exit;
+
+	/* Validate Response pkt */
+	ResPkt = (NCSI_RSP_MLX_OEM_PKT *)info->RecvData;
+	if (info->RecvLen != sizeof(NCSI_RSP_MLX_OEM_PKT))
+	{
+		printk("NCSI(%s): Expected Response Size = %d Got %d\n",info->dev->name,
+		sizeof(NCSI_RSP_MLX_OEM_PKT),info->RecvLen);
+		retval = NCSI_ERR_RESPONSE;
+		goto exit;
+	}
+
+	/* Check the Response code and reason */
+	retval = ProcessResponseCode(info, ResPkt->ResponseCode, ResPkt->ReasonCode);
+	if (retval == NCSI_ERR_SUCCESS)
+	{
+		*EthMACAddr = *(ResPkt->Data + 4);
+		*(EthMACAddr+1) = *(ResPkt->Data+5);
+		*(EthMACAddr+2) = *(ResPkt->Data+6);
+		*(EthMACAddr+3) = *(ResPkt->Data+7);
+		*(EthMACAddr+4) = *(ResPkt->Data+8);
+		*(EthMACAddr+5) = *(ResPkt->Data+9);
+	}
+
+	exit:
+	info->ProcessPending = 0;
+	wake_up_interruptible(&NCSI_Process);
+	return retval;
+}
+
+static void FormMLXOemNCSIPacket(NCSI_IF_INFO *info, UINT8 Channel, UINT8 *PayLoad, int LastByte_offset)
+{
+    ETH_HDR         *EthHdr;
+    NCSI_HDR        *NcsiHdr;
+    UINT8           *NcsiPkt,*NcsiPayLoad;
+    UINT32                  *LastByte;
+    UINT32          PayLoadLen;
+
+    memset(info->SendData,0,BUFFER_SIZE);
+    /* Get the locations of various fields */
+    EthHdr      = (ETH_HDR *)(info->SendData);
+    NcsiPkt        =  info->SendData + sizeof(ETH_HDR);
+    NcsiHdr     = (NCSI_HDR *)NcsiPkt;
+    NcsiPayLoad     =  info->SendData + sizeof(ETH_HDR) + sizeof(NCSI_HDR);
+    LastByte        = (UINT32 *)(NcsiPkt+LastByte_offset + 1);
+    PayLoadLen      =  (UINT32)LastByte - (UINT32)NcsiPayLoad;
+
+    /* Fill in Ethernet Header */
+    memset(EthHdr->DestMACAddr,0xFF,6);
+    memset(EthHdr->SrcMACAddr,0xFF,6);
+    EthHdr->EtherType = cpu_to_be16(NCSI_ETHER_TYPE);
+
+    /* Fill in NCSI Header */
+    memset(NcsiHdr,0, sizeof(NCSI_HDR));
+    NcsiHdr->MC_ID         = NCSI_MC_ID;
+    NcsiHdr->HdrRev     = NCSI_HDR_REV;
+    info->LastInstanceID++;
+
+    /* Instance ID  = 1 to 0xFF . 0 is invalid */
+    info->LastInstanceID= (info->LastInstanceID == 0)?1:info->LastInstanceID;
+    NcsiHdr->I_ID        = info->LastInstanceID;
+    NcsiHdr->Command     = CMD_OEM_CMD;
+    NcsiHdr->CH_ID        = Channel;
+    NcsiHdr->PayloadLen = cpu_to_be16(PayLoadLen);
+
+    /* Save some info */
+    info->LastCommand      = CMD_OEM_CMD;
+    info->LastChannelID    = Channel;
+    info->LastManagementID = NCSI_MC_ID;
+
+    /* Copy the PayLoad */
+    memcpy(NcsiPayLoad,PayLoad,PayLoadLen);
+    return;
+}
+
+int
+NCSI_Issue_Broadcom_OEM_GetSystemEthMACAddrControl(NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID, UINT8 *EthMACAddr)
+{
+	NCSI_REQ_BCM_OEM_PKT Pkt;
+	NCSI_RSP_BCM_OEM_PKT *ResPkt;
+
+	UINT8 Channel;
+	UINT8 *PayLoad;
+	int lastbyte_offset;
+	int retval;
+
+	/* Sleep for response or timeout */
+	wait_event_interruptible_timeout(NCSI_Process, (info->ProcessPending == 0), NCSI_TIMEOUT);
+	info->ProcessPending = 1;
+
+	/* Basic Initialization */
+	memset(&Pkt ,0, sizeof(Pkt));
+	PayLoad = ((UINT8 *)&Pkt) + sizeof(NCSI_HDR);
+	lastbyte_offset = (UINT32)(&(Pkt.OEMSpecificData[3])) - (UINT32)(&Pkt);
+
+	/* "Set Broadcom Management control" Specific Parameters */
+	Channel = MK_CH_ID(PackageID, ChannelID);
+	Pkt.ManufacturerId = cpu_to_be32(0x113d);
+	Pkt.OEMPayloadVer = 0;
+	Pkt.OEMPayloadLen = 0x400;
+	Pkt.OemCommandType = NCSI_OEM_BCM_CMD_GMA;	/* CMD ID for Get BMC MAC */
+
+	/* Form NCSI Packet and send */
+	FormBCMOemNCSIPacket(info, Channel, PayLoad, lastbyte_offset);
+	info->SendLen = sizeof(Pkt);
+
+	retval = SendNCSICommand (info);
+	if (retval != NCSI_ERR_SUCCESS)
+		goto exit;
+
+	/* Validate Response pkt */
+	ResPkt = (NCSI_RSP_BCM_OEM_PKT *)info->RecvData;
+	if (info->RecvLen != sizeof(NCSI_RSP_BCM_OEM_PKT))
+	{
+		printk("NCSI(%s): Expected Response Size = %d Got %d\n",info->dev->name,
+		sizeof(NCSI_RSP_BCM_OEM_PKT),info->RecvLen);
+		retval = NCSI_ERR_RESPONSE;
+		goto exit;
+	}
+
+	/* Check the Response code and reason */
+	retval = ProcessResponseCode(info, ResPkt->ResponseCode, ResPkt->ReasonCode);
+	if (retval == NCSI_ERR_SUCCESS)
+	{
+		*EthMACAddr = *(ResPkt->OEMSpecificData + 9);
+		*(EthMACAddr+1) = *(ResPkt->OEMSpecificData+8);
+		*(EthMACAddr+2) = *(ResPkt->OEMSpecificData+7);
+		*(EthMACAddr+3) = *(ResPkt->OEMSpecificData+6);
+		*(EthMACAddr+4) = *(ResPkt->OEMSpecificData+5);
+		*(EthMACAddr+5) = *(ResPkt->OEMSpecificData+4);
+	}
+
+	exit:
+	info->ProcessPending = 0;
+	wake_up_interruptible(&NCSI_Process);
+	return retval;
+}
+
+static void FormBCMOemNCSIPacket(NCSI_IF_INFO *info, UINT8 Channel, UINT8 *PayLoad, int LastByte_offset)
+{
+    ETH_HDR         *EthHdr;
+    NCSI_HDR        *NcsiHdr;
+    UINT8           *NcsiPkt,*NcsiPayLoad;
+    UINT32                  *LastByte;
+    UINT32          PayLoadLen;
+
+    memset(info->SendData,0,BUFFER_SIZE);
+    /* Get the locations of various fields */
+    EthHdr      = (ETH_HDR *)(info->SendData);
+    NcsiPkt        =  info->SendData + sizeof(ETH_HDR);
+    NcsiHdr     = (NCSI_HDR *)NcsiPkt;
+    NcsiPayLoad     =  info->SendData + sizeof(ETH_HDR) + sizeof(NCSI_HDR);
+    LastByte        = (UINT32 *)(NcsiPkt+LastByte_offset + 1);
+    PayLoadLen      =  (UINT32)LastByte - (UINT32)NcsiPayLoad;
+
+    /* Fill in Ethernet Header */
+    memset(EthHdr->DestMACAddr,0xFF,6);
+    memset(EthHdr->SrcMACAddr,0xFF,6);
+    EthHdr->EtherType = cpu_to_be16(NCSI_ETHER_TYPE);
+
+    /* Fill in NCSI Header */
+    memset(NcsiHdr,0, sizeof(NCSI_HDR));
+    NcsiHdr->MC_ID         = NCSI_MC_ID;
+    NcsiHdr->HdrRev     = NCSI_HDR_REV;
+    info->LastInstanceID++;
+
+    /* Instance ID  = 1 to 0xFF . 0 is invalid */
+    info->LastInstanceID= (info->LastInstanceID == 0)?1:info->LastInstanceID;
+    NcsiHdr->I_ID        = info->LastInstanceID;
+    NcsiHdr->Command     = CMD_OEM_CMD;
+    NcsiHdr->CH_ID        = Channel;
+    NcsiHdr->PayloadLen = cpu_to_be16(PayLoadLen);
+
+    /* Save some info */
+    info->LastCommand      = CMD_OEM_CMD;
+    info->LastChannelID    = Channel;
+    info->LastManagementID = NCSI_MC_ID;
+
+    /* Copy the PayLoad */
+    memcpy(NcsiPayLoad,PayLoad,PayLoadLen);
+    return;
+}
 
 int
 NCSI_Issue_DeSelectPackage(NCSI_IF_INFO *info,UINT8 PackageID)
@@ -1532,12 +1830,6 @@ NCSI_Issue_GetParameters(NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID, U
 	if (info->IANA_ManID == 0x210f0000) // Marvell
 	{
 		Marvell_ResPkt = (GET_MARVELL_PARAMETERS_RES_PKT *)info->RecvData;
-		if(Marvell_ResPkt == NULL)
-		{
-			printk("NCSI(%s): Unable to get the Marvell response packet\n",info->dev->name);
-			retval = NCSI_ERR_RESPONSE;
-			goto exit;
-		}
 		if (info->RecvLen != sizeof(GET_MARVELL_PARAMETERS_RES_PKT))
 		{
 			printk("NCSI(%s): Expected Response Size = %zu Got %d\n",info->dev->name,
@@ -1549,12 +1841,6 @@ NCSI_Issue_GetParameters(NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID, U
 	else if (info->IANA_ManID == 0x3d110000) // Broadcom
 	{
 		Broadcom_ResPkt = (GET_BROADCOM_PARAMETERS_RES_PKT *)info->RecvData;
-		if(Broadcom_ResPkt == NULL)
-		{
-			printk("NCSI(%s): Unable to get the Broadcom response packet\n",info->dev->name);
-			retval = NCSI_ERR_RESPONSE;
-			goto exit;
-		}
 		if (info->RecvLen != sizeof(GET_BROADCOM_PARAMETERS_RES_PKT))
 		{
 			printk("NCSI(%s): Expected Response Size = %zu Got %d\n",info->dev->name,
@@ -1566,12 +1852,6 @@ NCSI_Issue_GetParameters(NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID, U
 	else
 	{
 		ResPkt = (GET_PARAMETERS_RES_PKT *)info->RecvData;
-		if(ResPkt == NULL)
-		{
-			printk("NCSI(%s): Unable to get the response packet\n",info->dev->name);
-			retval = NCSI_ERR_RESPONSE;
-			goto exit;
-		}
 		if (info->RecvLen != sizeof(GET_PARAMETERS_RES_PKT))
 		{
 			printk("NCSI(%s): Expected Response Size = %zu Got %d\n",info->dev->name,
@@ -1583,14 +1863,11 @@ NCSI_Issue_GetParameters(NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID, U
 
 	/* Validate Response checksum */
 	if (info->IANA_ManID == 0x210f0000) // Marvell
-		cs_offset = (UINT32)(&(Marvell_ResPkt->CheckSum)) - (UINT32)(Marvell_ResPkt);  /* Fortify [Null Dereference]:: False Positive */
-		/* Reason for False Positive - Above check function ResPkt==NULL and sizeof(RES_PKT) have filtered Null Dereference problem. */
+		cs_offset = (UINT32)(&(Marvell_ResPkt->CheckSum)) - (UINT32)(Marvell_ResPkt);
 	else if (info->IANA_ManID == 0x3d110000) // Broadcom
-		cs_offset = (UINT32)(&(Broadcom_ResPkt->CheckSum)) - (UINT32)(Broadcom_ResPkt);  /* Fortify [Null Dereference]:: False Positive */
-		/* Reason for False Positive - Above check function ResPkt==NULL and sizeof(RES_PKT) have filtered Null Dereference problem. */
+		cs_offset = (UINT32)(&(Broadcom_ResPkt->CheckSum)) - (UINT32)(Broadcom_ResPkt);
 	else
-		cs_offset = (UINT32)(&(ResPkt->CheckSum)) - (UINT32)(ResPkt);  /* Fortify [Null Dereference]:: False Positive */
-		/* Reason for False Positive - Above check function ResPkt==NULL and sizeof(RES_PKT) have filtered Null Dereference problem. */
+		cs_offset = (UINT32)(&(ResPkt->CheckSum)) - (UINT32)(ResPkt);
 	retval = NCSIValidateCheckSum(info,(UINT16*)info->RecvData,cs_offset);
 	if (retval != NCSI_ERR_SUCCESS)
 		goto exit;
@@ -1598,8 +1875,7 @@ NCSI_Issue_GetParameters(NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID, U
 	/* Check the Response code and reason */
 	if (info->IANA_ManID == 0x210f0000) // Marvell
 	{
-		retval =  ProcessResponseCode(info,Marvell_ResPkt->ResponseCode,Marvell_ResPkt->ReasonCode);  /* Fortify [Null Dereference]:: False Positive */
-		/* Reason for False Positive - Above check function ResPkt==NULL and sizeof(RES_PKT) have filtered Null Dereference problem. */
+		retval =  ProcessResponseCode(info,Marvell_ResPkt->ResponseCode,Marvell_ResPkt->ReasonCode);
 		if (retval == NCSI_ERR_SUCCESS)
 		{
 			printk("NCSI(%s): Config = 0x%lx\n",info->dev->name,Marvell_ResPkt->ConfigurationFlags);
@@ -1610,8 +1886,7 @@ NCSI_Issue_GetParameters(NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID, U
 	}
 	else if (info->IANA_ManID == 0x3d110000) // Broadcom
 	{
-		retval =  ProcessResponseCode(info,Broadcom_ResPkt->ResponseCode,Broadcom_ResPkt->ReasonCode);  /* Fortify [Null Dereference]:: False Positive */
-		/* Reason for False Positive - Above check function ResPkt==NULL and sizeof(RES_PKT) have filtered Null Dereference problem. */
+		retval =  ProcessResponseCode(info,Broadcom_ResPkt->ResponseCode,Broadcom_ResPkt->ReasonCode);
 		if (retval == NCSI_ERR_SUCCESS)
 		{
 			printk("NCSI(%s): Config = 0x%lx\n",info->dev->name,Broadcom_ResPkt->ConfigurationFlags);
@@ -1622,8 +1897,7 @@ NCSI_Issue_GetParameters(NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID, U
 	}
 	else
 	{
-		retval =  ProcessResponseCode(info,ResPkt->ResponseCode,ResPkt->ReasonCode);  /* Fortify [Null Dereference]:: False Positive */
-		/* Reason for False Positive - Above check function ResPkt==NULL and sizeof(RES_PKT) have filtered Null Dereference problem. */
+		retval =  ProcessResponseCode(info,ResPkt->ResponseCode,ResPkt->ReasonCode);
 		if (retval == NCSI_ERR_SUCCESS)
 		{
 			printk("NCSI(%s): Config = 0x%lx\n",info->dev->name,ResPkt->ConfigurationFlags);
@@ -1726,7 +2000,7 @@ FormIntelOemNCSIPacket(NCSI_IF_INFO *info,UINT8 Channel,UINT8 *PayLoad, int Last
     NcsiHdr->HdrRev     = NCSI_HDR_REV; 
     info->LastInstanceID++; 
     /* Instance ID  = 1 to 0xFF . 0 is invalid */ 
-    info->LastInstanceID= (UINT8)((info->LastInstanceID == 0)?1:info->LastInstanceID);     
+    info->LastInstanceID= (info->LastInstanceID == 0)?1:info->LastInstanceID;     
     NcsiHdr->I_ID        = info->LastInstanceID; 
     NcsiHdr->Command     = CMD_OEM_CMD; 
     NcsiHdr->CH_ID        = Channel; 
@@ -2127,7 +2401,7 @@ NCSI_Issue_UserCommand (NCSI_IF_INFO *info,UINT8 PackageID, UINT8 ChannelID, uns
 	
 	ResPkt = (SEND_USER_COMMAND_RES_PKT *)info->RecvData;
 	UserLastResponse[0] = Command;
-	UserLastResponse[1] = (unsigned int)info->RecvLen;
+	UserLastResponse[1] = info->RecvLen;
 	for (i = 0; i < info->RecvLen; i++)
 	{
 		UserLastResponse[i + 2] = info->RecvData[i];
@@ -2189,7 +2463,7 @@ int IOCTL_issue_ncsi_command(NCSI_IF_INFO *info, ncsi_ioctl_data_T *ncsi_ioctl_d
 	
 	
 		UserLastResponse[0] = ncsi_ioctl_data->cmd;
-	UserLastResponse[1] = (unsigned int)info->RecvLen;
+	UserLastResponse[1] = info->RecvLen;
 	for (i = 0; i < info->RecvLen; i++)
 	{
 		UserLastResponse[i + 2] = info->RecvData[i];

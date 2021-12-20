@@ -19,6 +19,7 @@
 #include <linux/proc_fs.h>
 #include <linux/string.h>
 #include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #if (LINUX_VERSION_CODE >=  KERNEL_VERSION(2,6,24)) 
 #include <linux/slab.h>
 #include "../fs/proc/internal.h"

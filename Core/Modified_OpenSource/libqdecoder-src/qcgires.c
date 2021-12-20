@@ -76,7 +76,7 @@
 bool qcgires_setcookie(qentry_t *request, const char *name, const char *value,
                        int expire, const char *path, const char *domain, bool secure)
 {
-    if (qcgires_getcontenttype(request) != NULL) {/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Memory cleared properly in end_handler. */
+    if (qcgires_getcontenttype(request) != NULL) {
         DEBUG_CODER("Should be called before qcgires_setcontenttype().");
         return false;
     }
@@ -85,14 +85,8 @@ bool qcgires_setcookie(qentry_t *request, const char *name, const char *value,
     char *encvalue = _q_urlencode(value, strlen(value));
     char cookie[(4 * 1024) + 256];
     size_t offset = 0;
-
-    /*False Positive [Buffer Overflow]*//* Reason for False Positive  The size of buffer allocated is big enough cause of it is counting by two strings with the terminating null byte and snprintf() limits the length of string copied*/
+    
     offset = snprintf(cookie, sizeof(cookie), "%s=%s", encname, encvalue);
-     /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
-				/**
-				 * Reason for False Positive: 
-				 * Avoid buffer overflow once the total size of two strings without "the terminating null byte" equal or large the size of dest string.
-				 */
     if( offset >= (signed)sizeof(cookie)) {
         DEBUG_CODER("Buffer Overflow");
         free(encname), free(encvalue);
@@ -108,21 +102,12 @@ bool qcgires_setcookie(qentry_t *request, const char *name, const char *value,
         strftime(gmtstr, sizeof(gmtstr), "%a, %d %b %Y %H:%M:%S GMT", gmtm);
 
         const char *expires = "; expires=";
-        /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
-				/**
-				 * Reason for False Positive: 
-				 * Avoid buffer overflow once the total size of two strings without "the terminating null byte" adding the size of dest string.
-				 */
         offset += (strlen(expires) + sizeof(gmtstr));
-        /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
-				/**
-				 * Reason for False Positive: 
-				 * Avoid buffer overflow once the total size of two strings without "the terminating null byte" large the size of dest string.
-				 */
         if (offset > sizeof(cookie)) {
             DEBUG_CODER("Buffer Overflow");
             return false;
         } else {
+            /* Buffer overflow: false positive */
             strcat(cookie, "; expires=");
             strcat(cookie, gmtstr);
         }
@@ -133,22 +118,14 @@ bool qcgires_setcookie(qentry_t *request, const char *name, const char *value,
             DEBUG_CODER("Path string(%s) must start with '/' character.", path);
             return false;
         }
+
         const char *str_path = "; path=";
-         /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
-				/**
-				 * Reason for False Positive: 
-				 * Avoid buffer overflow once the total size of two strings without "the terminating null byte" adding the size of dest string.
-				 */
         offset += (strlen(str_path) + strlen(path));
-        /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
-				/**
-				 * Reason for False Positive: 
-				 * Avoid buffer overflow once the total size of two strings without "the terminating null byte" large the size of dest string.
-				 */
         if (offset > sizeof(cookie)) {
             DEBUG_CODER("Buffer Overflow");
             return false;
         } else {
+            /* Buffer overflow: false positive */
             strcat(cookie, "; path=");
             strcat(cookie, path);
         }
@@ -161,21 +138,12 @@ bool qcgires_setcookie(qentry_t *request, const char *name, const char *value,
         }
 
         const char *str_domain = "; domain=";
-         /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
-				/**
-				 * Reason for False Positive: 
-				 * Avoid buffer overflow once the total size of two strings without "the terminating null byte" adding the size of dest string.
-				 */
         offset += (strlen(str_domain) + strlen(domain));
-        /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
-				/**
-				 * Reason for False Positive: 
-				 * Avoid buffer overflow once the total size of two strings without "the terminating null byte" large the size of dest string.
-				 */
         if (offset > sizeof(cookie)) {
             DEBUG_CODER("Buffer Overflow");
             return false;
         } else {
+            /* Buffer overflow: false positive */
             strcat(cookie, "; domain=");
             strcat(cookie, domain);
         }
@@ -184,21 +152,12 @@ bool qcgires_setcookie(qentry_t *request, const char *name, const char *value,
     if (secure == true) {
         const char *str_secure = "; secure";
         const char *str_httponly = ";HttpOnly";
-         /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
-				/**
-				 * Reason for False Positive: 
-				 * Avoid buffer overflow once the total size of two strings without "the terminating null byte" adding the size of dest string.
-				 */
         offset += (strlen(str_secure) + strlen(str_httponly));
-         /* Fortify [Buffer Overflow: Off-by-One]:: False Positive */
-				/**
-				 * Reason for False Positive: 
-				 * Avoid buffer overflow once the total size of two strings without "the terminating null byte" large the size of dest string.
-				 */
         if (offset > sizeof(cookie)) {
             DEBUG_CODER("Buffer Overflow");
             return false;
         } else {
+            /* Buffer overflow: false positive */
             strcat(cookie, "; secure");
             strcat(cookie, ";HttpOnly"); //secure cookies alone with httponly flag set to resolve security issue.
         }
@@ -249,7 +208,7 @@ bool qcgires_removecookie(qentry_t *request, const char *name, const char *path,
 bool qcgires_setcontenttype(qentry_t *request, const char *mimetype)
 {
     if (request != NULL &&
-        request->getstr(request, "_Q_CONTENTTYPE", false) != NULL) {/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Memory cleared properly in end_handler. */
+        request->getstr(request, "_Q_CONTENTTYPE", false) != NULL) {
         DEBUG_CODER("alreay set.");
         return false;
     }
@@ -294,7 +253,7 @@ const char *qcgires_getcontenttype(qentry_t *request)
  */
 bool qcgires_redirect(qentry_t *request, const char *uri)
 {
-    if (qcgires_getcontenttype(request) != NULL) {/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Memory cleared properly in end_handler. */
+    if (qcgires_getcontenttype(request) != NULL) {
         DEBUG_CODER("Should be called before qcgires_setcontenttype().");
         return false;
     }
@@ -323,7 +282,7 @@ bool qcgires_redirect(qentry_t *request, const char *uri)
 int qcgires_download(qentry_t *request, const char *filepath,
                      const char *mimetype)
 {
-    if (qcgires_getcontenttype(request) != NULL) {/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive Memory cleared properly in end_handler. */
+    if (qcgires_getcontenttype(request) != NULL) {
         DEBUG_CODER("Should be called before qcgires_setcontenttype().");
         return -1;
     }

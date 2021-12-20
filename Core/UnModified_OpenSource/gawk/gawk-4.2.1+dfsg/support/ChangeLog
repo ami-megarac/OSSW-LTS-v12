@@ -1,0 +1,117 @@
+2018-02-25         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* 4.2.1: Release tar ball made.
+
+2017-12-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* getopt.c: Include <stdlib.h> to get declarations of
+	malloc and free.
+
+2017-12-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* regex.h: Restore GLIBC's use of '__' in parameter names. They
+	have to be that way since public headers can't use identifiers that
+	users might define as macros.  At least now I understand why
+	things are the way they are.
+
+2017-12-19  Paul Eggert  <eggert@cs.ucla.edu>
+
+	Small sync with gnulib based on mails in libc-alpha@sourceware.com.
+
+	Use re_malloc etc. consistently.
+
+	* regcomp.c (re_comp, analyze): Use re_malloc/re_free instead of
+	malloc/free.
+	* regexec.c (push_fail_stack): Use re_realloc instead of realloc.
+
+	Other changes:
+
+	* regex_internal.h: Synchronize on __libc_lock_define usage.
+
+2017-12-05         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* regex.h: Yes define __USE_GNU. Needed for non-GLIBC systems.
+
+2017-12-01         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* intprops.h: Sync with GNULIB.
+	* regcomp.c (init_word): Move general_case label inside ifdef.
+	* regex.h: Don't define __USE_GNU. Brings closer to GLIBC regex.
+
+2017-11-26         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* regcomp.c regex_internal.c, regex_internal.h, regexec.c: Sync
+	with GLIBC.
+	* verfiy.h: Sync with GNULIB.
+
+2017-10-19         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* 4.2.0: Release tar ball made.
+
+2017-10-08         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* regex_internal.h: Minor fix from Andreas for OS/2.
+
+2017-08-27         Juan Manuel Guerrero  <juan.guerrero@gmx.de>
+
+	* localeinfo.c [__DJGPP__]: Include mbsupport.h.
+
+2017-06-25         Andrew J. Schorr      <aschorr@telemetry-investments.com>
+
+	* dfa.c (dfaalloc): Replace xmalloc+memset with xzalloc.
+	* xalloc.h (xmalloc): New function moved here from gawkmisc.c.
+	(xcalloc): Replace xmalloc+memset with calloc.
+	(xzalloc): Replace xmalloc+memset with xcalloc.
+
+2017-06-22         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* regcomp.c, regex.c, regex.h, regex_internal.c, regex_internal.h,
+	regexec.c: Sync with GLIBC.
+
+2017-06-18         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* intprops.h: Sync with GNULIB.
+
+2017-05-22         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* dfa.c, dfa.h, intprops.h, verify.h: Sync with GNULIB.
+
+2017-03-23         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* dfa.c: Sync with GNULIB.
+	
+2017-01-19         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* localeinfo.h: Sync with GNULIB.
+	* localeinfo.c: Ditto.
+	* dfa.c: Ditto, to fix a memory leak.
+
+2017-01-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* dfa.c: Sync with GNULIB.
+
+2017-01-10         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* dfa.c: Sync with GNULIB.
+	Twice in one day!  Sigh.
+
+2017-01-03         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* dfa.c: Sync with GNULIB.
+
+2016-12-27         Juergen Kahrs         <Juergen.Kahrs@googlemail.com>
+
+	* CMakeLists.txt: New file.
+
+2016-12-22         John E. Malmberg      <wb8tyw@qsl.net>
+
+	* dfa.c fixes for OpenVMS
+
+2016-12-22         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* ChangeLog: Created.
+	* Makefile.am: New file.
+	* dfa.c, dfa.h, getopt.c, getopt.h, getopt1.c, getopt_int.h,
+	intprops.h, localeinfo.c, localeinfo.h, random.c, random.h,
+	regcomp.c, regex.c, regex.h, regex_internal.c, regex_internal.h,
+	regexec.c, verify.h, xalloc.h: Moved here from parent directory.

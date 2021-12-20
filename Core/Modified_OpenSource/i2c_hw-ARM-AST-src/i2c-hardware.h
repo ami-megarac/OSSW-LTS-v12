@@ -448,6 +448,8 @@
 
 #define DEFAULT_CLOCK_AC_2_VAL			0x0
 #define DEFAULT_BUF_CONTROL_VAL			0x0000
+#define CLOCK_AC_2_TIMEOUT_VAL			0xf
+#define CLOCK_AC_2_TIMEOUT_VAL_WITHOUT_NACK			0xf
 
 #define I2C_GLOBAL_CONTROL_REG		   (0x0C)
 #define I2C_FUNCTION_CONTROL_REG       (0x00)
@@ -527,6 +529,7 @@
 #define ENABLE_SMBUS_ARP_HOST_ADDR_RESP				(1 << 3)
 #define ENABLE_SMBUS_ALERT_RESP_ADDR				(1 << 4)
 #define ENABLE_SMBUS_DEFAULT_ADDR					(1 << 5)
+#define ENABLE_AUTORECOVERY							(1 << 17)
 #if defined(SOC_AST3100)	
 //AST3100 supports high speed (3.4Mbps). Can only act as Master in this mode. Should use buffer. 
 #define ENABLE_FAST_MODE						    (1 << 6)
@@ -570,9 +573,9 @@
 #endif
 #define ENABLE_SMBUS_DEVICE_ALERT_INTR				(1 << 12)
 #define ENABLE_BUS_RECOVER_DONE_INTR				(1 << 13)
-#if defined(SOC_AST3100)
+//#if defined(SOC_AST3100)
 #define ENABLE_SDA_LOW_TIMEOUT_INTR					(1 << 14)
-#endif
+//#endif
 
 /* I2CD10: Interrupt Status Register : Init = 0 */
 #define TX_DONE_WITH_ACK							(1 << 0)
@@ -589,9 +592,9 @@
 #define SMBUS_ARP_HOST_ADDR_MATCH					(1 << 11)
 #define SMBUS_DEVICE_ALERT							(1 << 12)
 #define BUS_RECOVER_DONE							(1 << 13)
-#if defined(SOC_AST3100)
+//#if defined(SOC_AST3100)
 #define SDA_LOW_TIMEOUT								(1 << 14)
-#endif
+//#endif
 
 /* I2CD14: Command-Status Register : Init = 0 */
 #define MASTER_START								(1 << 0)

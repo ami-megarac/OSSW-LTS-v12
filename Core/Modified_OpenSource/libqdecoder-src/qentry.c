@@ -71,7 +71,7 @@
 #include <sys/stat.h>
 #include "qdecoder.h"
 #include "internal.h"
-#include <stdint.h>
+
 /*
  * Member method protos
  */
@@ -197,12 +197,9 @@ static bool _put(qentry_t *entry, const char *name,
     // duplicate name
     char *dup_name = strdup(name);
     if (dup_name == NULL) return false;
-	
-	if(size > SIZE_MAX) return false;
 
     // duplicate object
-    void *dup_data = malloc(size);/* Fortify [Integer Overflow]:: False Positive */
-                                          /* Reason for False Positive – condition to check integer overflow of size is present. */
+    void *dup_data = malloc(size);
     if (dup_data == NULL) {
         free(dup_name);
         return false;
@@ -292,8 +289,6 @@ static bool _putstrf(qentry_t *entry, bool replace, const char *name,
 static bool _putint(qentry_t *entry, const char *name, int num, bool replace)
 {
     char str[20+1];
-    /* Fortify [String Termination Error]:: False Positive */
-    /* Reason for False Positive - once buffer overlow happened, we will make last char as null */
     if (snprintf(str, 20+1, "%d", num) >= 20+1) str[20] = '\0';
     return _put(entry, name, (void *)str, strlen(str) + 1, replace);
 }
@@ -339,9 +334,7 @@ static void *_get(qentry_t *entry, const char *name, size_t *size, bool newmem)
             if (size != NULL) *size = obj->size;
 
             if (newmem == true) {
-				if(obj->size > SIZE_MAX) break;
-                data = malloc(obj->size);/* Fortify [Integer Overflow]:: False Positive */
-                                          /* Reason for False Positive – condition to check integer overflow of size is present. */
+                data = malloc(obj->size);
                 memcpy(data, obj->data, obj->size);
             } else {
                 data = obj->data;
@@ -769,7 +762,7 @@ static bool _save(qentry_t *entry, const char *filepath)
         free(encval);
     }
 
-    fclose(fd);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive  closing the file properly in both failure and success cases. */
+    fclose(fd);
 
     return true;
 }
@@ -817,7 +810,7 @@ static int _load(qentry_t *entry, const char *filepath)
 		
     }
 
-	fclose(fp);/* Fortify [Memory Leak]:: False Positive *//* Reason for False Positive  closing the file properly in both failure and success cases. */
+	fclose(fp);
     return cnt;
 }
 

@@ -598,6 +598,11 @@ ipmi_isol_red_pill(struct ipmi_intf * intf)
 			{
 				/* ERROR */
 				perror("select");
+				if(buffer)
+				{
+					free(buffer);
+					buffer=NULL;
+				}
 				return -1;
 			}
 
@@ -674,7 +679,11 @@ ipmi_isol_red_pill(struct ipmi_intf * intf)
 	}
 	else
 		ipmi_isol_deactivate(intf);
-
+        if(buffer)
+       {
+		free(buffer);
+		buffer=NULL;
+        }
 	return 0;
 }
 

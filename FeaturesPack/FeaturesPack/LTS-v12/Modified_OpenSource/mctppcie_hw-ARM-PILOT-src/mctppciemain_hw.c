@@ -366,11 +366,6 @@ static void mctp_handle_overflow ( mctp_ringbuf * sdbuf  )
 	// printk ( "Overflow count = %lu\n", g_ds_overflow_count );
 	status = STATUS_DS_OVERFLOW | STATUS_DS_INT_ENABLE | STATUS_US_INT_ENABLE;
 	iowrite32 ( status, ( void * ) MCTP_STATUS_REG );
-
-#if defined(SOC_PILOT_IV)
-	if(g_chip_rev == PILOT_CHIP_A2)
-		mctp_do_reset ();
-#endif
 	// printk ( "===========[ Overflow Handled ]===========\n" );
 }
 

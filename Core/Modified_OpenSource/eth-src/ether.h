@@ -31,5 +31,5 @@ uint8 *EthGetHostMac(void);
 uint8 *EthGetDevMac(void);
 void  EthSetHostMac(uint8 *Mac);
 void  EthSetDevMac(uint8 *Mac);
-
+void ClearRNDISMsgQueue(void);
 #endif

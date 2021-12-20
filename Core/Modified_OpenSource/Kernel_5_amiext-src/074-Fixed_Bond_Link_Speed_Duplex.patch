@@ -1,0 +1,63 @@
+--- linux_old/drivers/net/phy/phy.c	2021-10-05 00:34:12.506047502 +0530
++++ linux/drivers/net/phy/phy.c	2021-10-05 00:40:58.422047361 +0530
+@@ -581,24 +581,12 @@
+ int phy_start_aneg(struct phy_device *phydev)
+ {
+ 	int err;
+-	int DuplexMode=-1;
+ 
+ 	if (!phydev->drv)
+ 		return -EIO;
+ 
+ 	mutex_lock(&phydev->lock);
+ 
+-	DuplexMode = phy_read(phydev, MII_BMCR);
+-	if(DuplexMode < 0)
+-	{
+-		err = DuplexMode;
+-		goto out_unlock;
+-	}
+-	else
+-	{
+-		DuplexMode = DuplexMode & BMCR_FULLDPLX ? 1 : 0;
+-	}
+-
+ 	if (AUTONEG_DISABLE == phydev->autoneg)
+ 		phy_sanitize_settings(phydev);
+ 
+@@ -609,16 +597,6 @@
+ 	if (phy_is_started(phydev))
+ 		err = phy_check_link_status(phydev);
+ 
+-	if(phydev->duplex == DUPLEX_FULL || phydev->duplex == DUPLEX_HALF)
+-	{
+-		if(phydev->duplex != DuplexMode)
+-		{
+-			phydev->link = 0;
+-			phydev->state = PHY_NOLINK;
+-			phy_link_down(phydev, true);
+-		}
+-	}
+-
+ out_unlock:
+ 	mutex_unlock(&phydev->lock);
+ 
+@@ -1246,11 +1224,17 @@
+ 				   const struct ethtool_link_ksettings *cmd)
+ {
+ 	struct phy_device *phydev = ndev->phydev;
++	int ret = 0;
+ 
+ 	if (!phydev)
+ 		return -ENODEV;
+ 
+-	return phy_ethtool_ksettings_set(phydev, cmd);
++	ret = phy_ethtool_ksettings_set(phydev, cmd);
++	
++	if(!ret)
++		call_netdevice_notifiers(NETDEV_CHANGE, ndev);
++	
++	return ret;
+ }
+ EXPORT_SYMBOL(phy_ethtool_set_link_ksettings);
+ 

@@ -507,7 +507,7 @@ long gpio_ioctlUnlocked_ext(struct gpio_dev *pdev, unsigned int cmd, unsigned lo
     unsigned char ret_gpio_int_triggered[64];
     unsigned long flags;
     int instance;
-    //int retval = 0;
+    int len;
 
     switch (cmd)
     {
@@ -551,14 +551,14 @@ long gpio_ioctlUnlocked_ext(struct gpio_dev *pdev, unsigned int cmd, unsigned lo
                 /* Reason for False Positive - destination and source are having same type */
                 memset(&newnode->AppName,0,16);
                 memset(&newnode->gpio_intr,0,sizeof(gpio_interrupt)*256);
-		/*ret = snprintf(newnode->AppName,strlen(current->comm),"%s",current->comm);
-		if(retval < 0 || retval >= sizeof(newnode->AppName))
-		{
-			printk("Buffer overflow\n");
-			kfree(newnode);
-			return -1;
-		}*/	
-                strncpy(newnode->AppName,current->comm,sizeof(newnode->AppName));
+
+                len = snprintf(newnode->AppName,sizeof(newnode->AppName),current->comm);
+				if (len < 0 || len >= sizeof(newnode->AppName))
+				{
+					printk("Buffer Overflow \n");
+					kfree(newnode);
+					return -1;
+				}
                 newnode->gpio_intr[gpio_intr.gpio_number].gpio_intr_enabled = 1;
                 newnode->gpio_intr[gpio_intr.gpio_number].trigger_method = gpio_intr.trigger_method;
                 newnode->gpio_intr[gpio_intr.gpio_number].trigger_type = gpio_intr.trigger_type;

@@ -172,7 +172,7 @@ get_sda_status(int bus)
 	return (i2c_as_read_reg( bus,I2C_CMD_STATUS_REG) & SAMPLE_SDA_LINE);
 }
 
-static int perform_slave_recovery(int bus)
+int perform_slave_recovery(int bus)
 {
 	int pulse_period = 5;
 	int pulse_num = 0; 
@@ -257,10 +257,6 @@ int as_i2c_bus_recovery(struct i2c_adapter *i2c_adap)
 	if (m_bus_recovery_info[i2c_adap->nr].enable_recovery == DISABLE_RECOVERY)
 		return -ENOSYS;
 
-	if(i2c_wait_for_bus_free(i2c_adap->nr) == 1)
-	{
-		return -ENOSYS;
-	}
 	return i2c_bus_recovery(i2c_adap->nr);
 }
 

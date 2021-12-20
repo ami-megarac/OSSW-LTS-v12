@@ -117,17 +117,24 @@ char *gtileinfo=NULL;
 
 INTERNAL_MODE Internal_Mode[] = {
 	// 1024x768
-	{1024, 768, 0, 65},
-	{1024, 768, 1, 65},
-	{1024, 768, 2, 75},
-	{1024, 768, 3, 79},
-	{1024, 768, 4, 95},
+	{1024, 768, 0, 79},
+	{1024, 768, 1, 79},
+	{1024, 768, 2, 79},
+	{1024, 768, 3, 115},
+	{1024, 768, 4, 115},
 
 	// 1280x1024
-	{1280, 1024, 0, 108},
-	{1280, 1024, 1, 108},
+	{1280, 1024, 0, 135},
+	{1280, 1024, 1, 135},
 	{1280, 1024, 2, 135},
 	{1280, 1024, 3, 158},
+
+	// 1440x900
+	{1440, 900, 0, 137},
+	{1440, 900, 1, 137},
+	{1440, 900, 2, 137},
+	{1440, 900, 3, 157},
+	{1440, 900, 4, 183},
 
 	// 1600x1200
 	{1600, 1200, 0, 162},
@@ -764,7 +771,9 @@ Redo:
 		if (color_depth == 0) {
 			printk("Color Depth is not 15 bpp or higher\n");
 			info->INFData.DirectMode = 0;
-	    } else {
+		} else {
+			if((info->src_mode.x == 1440) && (info->src_mode.y == 900))
+				mode_clock = 137;
 			mode_bandwidth = (mode_clock * (color_depth + 32)) / 8; //Video uses 32bits
 			if (info->MemoryBandwidth < mode_bandwidth) {
 				info->INFData.DirectMode = 1;
@@ -1954,7 +1963,7 @@ int ast_videocap_create_cursor_packet(struct ast_videocap_engine_info_t *info, u
 		(cursor_checksum != prev_cursor_checksum) || /* pattern changed */
 		(cursor_pos_x != prev_cursor_pos_x) || (cursor_pos_y != prev_cursor_pos_y)) { /* position changed */
 		cursor_info = (struct ast_videocap_cursor_info_t *) (AST_VIDEOCAP_HDR_BUF_ADDR + AST_VIDEOCAP_HDR_BUF_VIDEO_SZ);
-		cursor_info->type = (cursor_status & AST_VIDEOCAP_HW_CURSOR_STATUS_TYPE) ? AST_VIDEOCAP_HW_CURSOR_TYPE_COLOR : AST_VIDEOCAP_HW_CURSOR_TYPE_MONOCHROME; /* Fortify [Type Mismatch: Signed to Unsigned]:: False Positive */ /*cursor_info->type unsigned char and will be assigned with AST_VIDEOCAP_HW_CURSOR_TYPE_COLOR (1) AST_VIDEOCAP_HW_CURSOR_TYPE_MONOCHROME (0) which are in a limited range - Reason*/
+		cursor_info->type = (cursor_status & AST_VIDEOCAP_HW_CURSOR_STATUS_TYPE) ? AST_VIDEOCAP_HW_CURSOR_TYPE_COLOR : AST_VIDEOCAP_HW_CURSOR_TYPE_MONOCHROME;
 		cursor_info->pos_x = cursor_pos_x;
 		cursor_info->pos_y = cursor_pos_y;
 		cursor_info->offset_x = (uint16_t) ((cursor_status >> 24) & 0x3F); /* bits 29:24 */
@@ -2157,10 +2166,10 @@ int create_bonding_box(unsigned char *addr, struct ast_videocap_engine_info_t *i
 		// trigger partial JPEG capture & compression
 		if (partialjpeg(info, start_x, start_y, end_x, end_y) == 0)
 		{
-			tile_info[0].pos_x = (uint8_t)start_x;
-			tile_info[0].pos_y = (uint8_t)start_y;
-			tile_info[0].width = (uint32_t)width;
-			tile_info[0].height = (uint32_t)height;
+			tile_info[0].pos_x = start_x;
+			tile_info[0].pos_y = start_y;
+			tile_info[0].width = width;
+			tile_info[0].height = height;
 			tile_info[0].compressed_size = ast_videocap_read_reg(AST_VIDEOCAP_COMPRESSED_DATA_COUNT) * AST_VIDEOCAP_COMPRESSED_DATA_COUNT_UNIT;
 		}
 		else

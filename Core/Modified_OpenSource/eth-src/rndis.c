@@ -37,7 +37,6 @@ static uint32 OIDListSupported[] =
 	OID_GEN_VENDOR_ID,
 	OID_GEN_VENDOR_DESCRIPTION,
 	OID_GEN_VENDOR_DRIVER_VERSION,
-	OID_GEN_CURRENT_PACKET_FILTER,
 	OID_GEN_MAXIMUM_TOTAL_SIZE,
 	OID_GEN_MEDIA_CONNECT_STATUS,
 	OID_GEN_XMIT_OK,
@@ -220,7 +219,11 @@ static int HandleRndisQueryMsg(NET_DEVICE *pDev, RNDIS_MSG *pMsg)
 			if(AllocCmplt(count * sizeof(uint32)) == NULL)
 				break;
 			while(count--)
+			{
+				/* Reason for false positive - Buffer allocated is enough to store the data. */
+				/* coverity[overrun-local : FALSE] */
 				pDATA32[count] = cpu_to_le32(OIDListSupported[count]);
+			}
 		}
 		break;
 	

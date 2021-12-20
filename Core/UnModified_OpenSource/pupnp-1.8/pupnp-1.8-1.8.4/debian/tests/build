@@ -1,0 +1,26 @@
+#!/bin/sh
+# autopkgtest check: Build and run a simple program against pupnp
+
+set -e
+
+# Require $ADTTMP for temporary build files
+if [ -z "$ADTTMP" ]
+then
+	echo "Required envvar \"$ADTTMP\"is not set" >&2
+	exit 1
+fi
+
+cp debian/tests/pupnp-test.c "$ADTTMP"
+cd "$ADTTMP"
+
+# Build programs - once with raw libraries and once with pkg-config
+gcc -Wall -Werror -o pupnp-test1 pupnp-test.c -I/usr/include/upnp -lupnp
+echo "build1: OK"
+gcc -Wall -Werror -o pupnp-test2 pupnp-test.c $(pkg-config --cflags --libs libupnp)
+echo "build2: OK"
+
+# Run them
+./pupnp-test1
+echo "run1: OK"
+./pupnp-test2
+echo "run2: OK"

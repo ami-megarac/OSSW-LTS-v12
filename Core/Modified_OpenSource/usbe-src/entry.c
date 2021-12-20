@@ -27,7 +27,9 @@ IUSB_DEVICE_DETAILS_T IUSBDeviceDetails [MAX_IUSB_DEVICES];
 /*Desc Table access functions*/
 int IsDevCdrom(uint8 DevNo)
 {
-	if(DevNo > MAX_USB_HW)
+	/* Reason for false positive - Avoid the "Out-of-bounds read" with DevInfo[DevNo], Valid DevNo range: 0 ~ (MAX_USB_HW-1). */
+	/* coverity[overrun-local : FALSE] */
+	if(DevNo >= MAX_USB_HW)
 	{
 		TCRIT("Invalid check CDROM device number");
 		return 0;
@@ -44,8 +46,9 @@ int IsDevCdrom(uint8 DevNo)
 
 int IsDevFloppy(uint8 DevNo)
 {
-
-	if(DevNo > MAX_USB_HW)
+	/* Reason for false positive - Avoid the "Out-of-bounds read" with DevInfo[DevNo], Valid DevNo range: 0 ~ (MAX_USB_HW-1). */
+	/* coverity[overrun-local : FALSE] */
+	if(DevNo >= MAX_USB_HW)
 	{
 		TCRIT("Invalid check floppy device number");
 		return 0;
@@ -61,8 +64,9 @@ int IsDevFloppy(uint8 DevNo)
 
 int IsDevHid(uint8 DevNo)
 {
-
-	if(DevNo > MAX_USB_HW)
+	/* Reason for false positive - Avoid the "Out-of-bounds read" with DevInfo[DevNo], Valid DevNo range: 0 ~ (MAX_USB_HW-1). */
+	/* coverity[overrun-local : FALSE] */
+	if(DevNo >= MAX_USB_HW)
 	{
 		TCRIT("Invalid check Hid device number");
 		return 0;
@@ -79,8 +83,9 @@ int IsDevHid(uint8 DevNo)
 
 int IsDevBotCombo(uint8 DevNo)
 {
-
-	if(DevNo > MAX_USB_HW)
+	/* Reason for false positive - Avoid the "Out-of-bounds read" with DevInfo[DevNo], Valid DevNo range: 0 ~ (MAX_USB_HW-1). */
+	/* coverity[overrun-local : FALSE] */
+	if(DevNo >= MAX_USB_HW)
 	{
 		TCRIT("Invalid check CDROM device number");
 		return 0;
@@ -97,8 +102,9 @@ int IsDevBotCombo(uint8 DevNo)
 
 int IsDevSuperCombo(uint8 DevNo) /*All in one decice */
 {
-
-	if(DevNo > MAX_USB_HW)
+	/* Reason for false positive - Avoid the "Out-of-bounds read" with DevInfo[DevNo], Valid DevNo range: 0 ~ (MAX_USB_HW-1). */
+	/* coverity[overrun-local : FALSE] */
+	if(DevNo >= MAX_USB_HW)
 	{
 		TCRIT("Invalid check Hid device number");
 		return 0;
@@ -210,6 +216,8 @@ GetFreeInterfaces (uint8 DeviceType, uint8 LockType, IUSB_DEVICE_LIST *DevList)
 		if ((LockType == LOCK_TYPE_EXCLUSIVE) && (0 != IUSBDeviceDetails[iUSBDev].Used)) continue;
 		if (DeviceType != IUSBDeviceDetails[iUSBDev].iUSBDevInfo.DeviceType) continue;
 		if (LockType != IUSBDeviceDetails[iUSBDev].iUSBDevInfo.LockType) continue;
+		/* Reason for false positive - The buffer(iUsbDevListBuf[]) allocated is enough for the pointer casting to access the data. */
+		/* coverity[overrun-buffer-arg : FALSE] */
 		memcpy ((void*)&iUSBDevInfo[iUSBDevList->DevCount],
 					(void*)&IUSBDeviceDetails[iUSBDev].iUSBDevInfo, sizeof (IUSB_DEVICE_INFO));
 		iUSBDevList->DevCount++;

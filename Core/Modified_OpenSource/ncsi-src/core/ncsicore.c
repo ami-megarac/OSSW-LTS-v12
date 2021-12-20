@@ -660,7 +660,7 @@ EnableChannel(NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID)
         !defined(CONFIG_SPX_FEATURE_POLL_FOR_ASYNC_RESET )
 
 #ifndef CONFIG_SPX_FEATURE_DISABLE_AEN_SUPPORT
-	if (info->IANA_ManID == VENDOR_ID_INTEL || info->IANA_ManID == VENDOR_ID_MARVELL)
+	if (info->IANA_ManID == VENDOR_ID_INTEL || info->IANA_ManID == VENDOR_ID_MARVELL || info->IANA_ManID == VENDOR_ID_MELANOX)
 		info->AENEnabled = CheckAENSupport(info, PackageID, ChannelID);
 	else
 #endif
@@ -822,7 +822,7 @@ NCSI_Change_MacAddr(struct net_device *dev)
 	printk(KERN_DEBUG "NCSI(%s): Changing MAC Addr to  %02X:%02X:%02X:%02X:%02X:%02X\n",dev->name,
 		MACAddr[5],MACAddr[4],MACAddr[3],MACAddr[2],MACAddr[1],MACAddr[0]);
 
-	if(rtnl_trylock() == 0)
+	if(rtnl_trylock() == 1)
 	{	
 		flags = dev->flags;
 		if (!(flags & IFF_UP))
@@ -831,6 +831,7 @@ NCSI_Change_MacAddr(struct net_device *dev)
         #else
         	dev_open(dev);
         #endif
+        	rtnl_unlock();
 	}
 	else
 	{
@@ -959,17 +960,43 @@ void NSCI_Detect_Channel (NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID)
 void NCSI_Configure_Channel (NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID)
 {
     UINT8 MACAddr[6];
+    UINT8 GetSysMAC[6];
     struct net_device *dev;
     int retval, i;
+	static int oem_mac_fetch_success = 0;
 #ifndef CONFIG_SPX_FEATURE_NCSI_FORCE_LAN_SPEED_10G
     int NcsiSpeed = 0, NcsiDuplex = 0;
 #endif
-#ifndef CONFIG_SPX_FEATURE_DISABLE_AEN_SUPPORT
     UINT32 Caps, AENCaps;
     UINT8	ChannelCount;
-#endif
+
     dev  = info->dev;
+    /*
+     * Because BMC has one shared port on NIC, and the port doesn't have MAC address
+     * at BMC initialization. The BMC must retrieve the System MAC address used by NC.
+     * Then the MAC address will be got by adding an offset to System MAC address.
+     */
     /* Get MAC Address to use */
+	if(!oem_mac_fetch_success)
+	{
+		if (NCSI_Issue_Vendor_OEM_GetSystemEthMACAddrControl(info, PackageID, ChannelID, GetSysMAC) != 0)
+		{
+				printk(KERN_DEBUG "NCSI(%s):%d.%d Get System MAC Addr Control Failed\n",info->dev->name,PackageID, ChannelID);
+				return;
+		}
+		else
+		{
+				oem_mac_fetch_success = 1;
+				dev->dev_addr[5]=GetSysMAC[0];
+				dev->dev_addr[4]=GetSysMAC[1];
+				dev->dev_addr[3]=GetSysMAC[2];
+				dev->dev_addr[2]=GetSysMAC[3];
+				dev->dev_addr[1]=GetSysMAC[4];
+				dev->dev_addr[0]=GetSysMAC[5];
+				printk(KERN_WARNING"NCSI MAC: %02x.%02x.%02x.%02x.%02x.%02x\n", GetSysMAC[0], GetSysMAC[1], GetSysMAC[2], GetSysMAC[3], GetSysMAC[4], GetSysMAC[5]);
+		}
+	}
+
     /*NCSI Need in the reverse order */
     MACAddr[0] = dev->dev_addr[5];
     MACAddr[1] = dev->dev_addr[4];
@@ -978,12 +1005,12 @@ void NCSI_Configure_Channel (NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelI
     MACAddr[4] = dev->dev_addr[1];
     MACAddr[5] = dev->dev_addr[0];
 
-    if ((MACAddr[0] == 0) && (MACAddr[1] == 0) && (MACAddr[2] == 0) &&
-        (MACAddr[3] == 0) && (MACAddr[4] == 0) && (MACAddr[5] == 0))
-    {
-        printk("NCSI(%s): Error! Mac Address is 0. Cannot enable NCSI\n",dev->name);
-        return;
-    }
+  //  if ((MACAddr[0] == 0) && (MACAddr[1] == 0) && (MACAddr[2] == 0) &&
+  //     (MACAddr[3] == 0) && (MACAddr[4] == 0) && (MACAddr[5] == 0))
+  //  {
+  //      printk("NCSI(%s): Error! Mac Address is 0. Cannot enable NCSI\n",dev->name);
+  //      return;
+  //  }
     
     /* Issue Cleear Init State to enter into init state  */
     if (NCSI_Issue_ClearInitialState(info,PackageID,ChannelID) != 0)
@@ -1070,7 +1097,7 @@ void NCSI_Configure_Channel (NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelI
     }
 
 #ifndef CONFIG_SPX_FEATURE_DISABLE_AEN_SUPPORT
-    if (info->IANA_ManID == VENDOR_ID_INTEL || info->IANA_ManID == VENDOR_ID_MARVELL)
+    if (info->IANA_ManID == VENDOR_ID_INTEL || info->IANA_ManID == VENDOR_ID_MARVELL|| info->IANA_ManID == VENDOR_ID_MELANOX)
     {
     	if (NCSI_Issue_GetCapabilities(info,(UINT8)PackageID,(UINT8)ChannelID, &Caps, &AENCaps, &ChannelCount) != 0)
     	{
@@ -1246,6 +1273,7 @@ NCSI_Detect_Info(NCSI_IF_INFO *info)
 	UINT8 ChannelID;
 	UINT8 MACAddr[6];
 	int i;
+	struct file *f;
 
 	UINT8   HwArbit = 0;
 
@@ -1268,12 +1296,12 @@ NCSI_Detect_Info(NCSI_IF_INFO *info)
 	printk(KERN_DEBUG "NCSI(%s): MAC Addr = %02X:%02X:%02X:%02X:%02X:%02X\n",dev->name,
 		MACAddr[5],MACAddr[4],MACAddr[3],MACAddr[2],MACAddr[1],MACAddr[0]);
 					
-	if ((MACAddr[0] == 0) && (MACAddr[1] == 0) && (MACAddr[2] == 0) &&
-	    (MACAddr[3] == 0) && (MACAddr[4] == 0) && (MACAddr[5] == 0))
-	{
-		printk("NCSI(%s): Error! Mac Address is 0. Cannot enable NCSI\n",dev->name);
-		return;
-	}
+//	if ((MACAddr[0] == 0) && (MACAddr[1] == 0) && (MACAddr[2] == 0) &&
+//	    (MACAddr[3] == 0) && (MACAddr[4] == 0) && (MACAddr[5] == 0))
+//	{
+//		printk("NCSI(%s): Error! Mac Address is 0. Cannot enable NCSI\n",dev->name);
+//		return;
+//	}
 
 	if (strncmp (dev->name, CONFIG_SPX_FEATURE_NCSI_DEFAULT_INTERFACE, MAX_IF_NAME_LEN) != 0)
         {
@@ -1306,8 +1334,16 @@ NCSI_Detect_Info(NCSI_IF_INFO *info)
 	}
 
 	if (info->TotalChannels == 0)
+	{
+		f=filp_open("/var/tmp/NCSI_down", O_CREAT, 0600);
+		if(!f)
+		{
+			printk("fail to create NCSI_down file\n");
+			return;
+		}
+		filp_close(f,NULL);
 		printk(KERN_DEBUG "NCSI(%s): No NCSI Interfaces detected\n", dev->name);
-
+	}
 
 	EnableDetectTimer(info);
 	
@@ -1433,7 +1469,6 @@ NCSI_Enable_Info(NCSI_IF_INFO *info)
 				{
 					if (DisableChannel(info,PackageID,ChannelID) == 0){
 						info->ChannelInfo[i].Enabled = 0;
-						info->LinkStatus=0;
 						continue;
 					}
 				}
@@ -1768,24 +1803,55 @@ static void
 NCSI_SetMAC(struct work_struct *data)
 {
 	NCSI_IF_INFO *info = NULL;
-	SetUserSettingsReq_T *work;
-	int i = 0;
+	char interfaceName[MAX_IF_NAME_LEN];
+	int i;
+	int flags;
 	
-	if (data == NULL) return;
-
-	work = (SetUserSettingsReq_T *)data;
-	info = GetInterfaceInfoByName(work->InterfaceName);	
-
-	if (info != NULL){
-		for(i=0;i<info->TotalChannels;i++)
+	for (i = 0; i < MAX_NET_IF; i++)
+	{
+		sprintf(interfaceName,"eth%d",i);
+		if (strncmp (interfaceName, CONFIG_SPX_FEATURE_NCSI_DEFAULT_INTERFACE, MAX_IF_NAME_LEN) == 0)
 		{
-			if (info->ChannelInfo[i].Valid == 0)
-				continue;
+			info = GetInterfaceInfoByName(interfaceName);
+			if (info != NULL)
+			{
+				flags = info->dev->flags;
 				
-			NCSI_Configure_Channel(info, info->ChannelInfo[i].PackageID, info->ChannelInfo[i].ChannelID);
+				if(rtnl_trylock() == 1)
+				{
+					if (!(flags & IFF_UP))
+					{
+					#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,2,0))
+						dev_open(info->dev,NULL);
+        			#else
+						dev_open(info->dev);
+        			#endif
+					}
+					
+					if(!netif_carrier_ok(info->dev))
+						netif_carrier_on(info->dev);//make sure we can transmit
+            		
+					rtnl_unlock();
+				}
+				else
+				{
+					if (!(flags & IFF_UP))
+					{
+					#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,2,0))
+						dev_open(info->dev,NULL);
+					#else
+						dev_open(info->dev);
+					#endif
+					}
+					
+					if(!netif_carrier_ok(info->dev))
+						netif_carrier_on(info->dev);//make sure we can transmit
+				}
+
+				NCSI_Change_MacAddr(info->dev);
+			}
 		}
 	}
-
 	kfree((void *)data);
 	return;
 }
@@ -2102,8 +2168,6 @@ int SetReEnable(void)
 int SetMAC(void)
 {
 	SetUserSettingsReq_T *work = (SetUserSettingsReq_T *)kmalloc(sizeof(SetUserSettingsReq_T), GFP_KERNEL);
-	int destLen = 0;
-			
 	if (work == NULL)
 	{
 	    printk("NCSI:ERROR: Unable to allocate memory for the work queue item\n");
@@ -2113,14 +2177,6 @@ int SetMAC(void)
 	memset(work, 0, sizeof(SetUserSettingsReq_T));
 	INIT_WORK((struct work_struct *)work, NCSI_SetMAC);
 	queue_work(ncsi_wq, (struct work_struct *)work);
-
-	destLen = sizeof(work->InterfaceName);
-	strncpy(work->InterfaceName, UserInterface, destLen);
-	if (work->InterfaceName[destLen - 1] != 0) work->InterfaceName[destLen - 1] = 0;
-
-	work->AutoSelect = UserAuto;
-	work->PackageId = UserPackageID;
-	work->ChannelId = UserChannelID;	
 	
 	return 0;
 }
@@ -2230,7 +2286,7 @@ int Setflowcontrol(int Flowcontrol)
 	strncpy(work->InterfaceName, UserInterface, destLen);
 	if (work->InterfaceName[destLen - 1] != 0) work->InterfaceName[destLen - 1] = 0;
 		
-	work->Flowcontrol = (UINT8)Flowcontrol;
+	work->Flowcontrol = Flowcontrol;
 		
 	queue_work(ncsi_wq, (struct work_struct *)work);
 		

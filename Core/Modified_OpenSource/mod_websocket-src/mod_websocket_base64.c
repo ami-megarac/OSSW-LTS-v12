@@ -70,7 +70,7 @@ int mod_websocket_base64_encode(unsigned char **dst, size_t *dstsiz, const unsig
     for (; i % 4;) {
         pdst[i++] = '=';
     }
-    *dstsiz = (unsigned int)i;
+    *dstsiz = i;
     pdst[i] = '\0';
     return 0;
 }
@@ -103,7 +103,7 @@ int mod_websocket_base64_decode(unsigned char **dst, size_t *dstsiz, const unsig
             j += (src[i] == '=');
         }
         for (i = 3; i > j; i--, (*dstsiz)++) {
-            *pdst++ = (unsigned)base64.c[i - 1];
+            *pdst++ = base64.c[i - 1];
         }
     }
     *pdst = '\0';

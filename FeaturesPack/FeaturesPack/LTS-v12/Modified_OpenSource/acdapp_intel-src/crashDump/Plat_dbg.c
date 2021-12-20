@@ -428,6 +428,11 @@ static void doPlatformDebugLog(SPlatDBG* pSPlatDBG, char *crashdump_dir, char *c
 #else
             sprintf(jsonFilename, "%s/%s", crashdump_json_dir, RAM_CPUJSON_FILE);
 #endif
+            if (NULL != fpJson) 
+            {
+                fclose(fpJson);
+                fpJson = NULL;
+            }
             fpJson = fopen(jsonFilename, "w");
             if (fpJson != NULL) {
                 out = cJSON_Print(root);
@@ -611,13 +616,19 @@ static void only_one_instance(char *crashdump_json_dir)
 	if (fcntl(fd, F_SETLK, &fl) < 0)
 	{
 		printf("Another instance of this program is running.\n");
+        if(fd >=0)
+		{
+			close(fd);
+			fd=-1;
+		}
 		exit(1);
 	}
- 
-	/*
-	 * Run unlink(ooi_path) when the program exits. The program
-	 * always releases locks when it exits.
-	 */
+    if(fd >=0)
+	{
+		close(fd);
+		fd=-1;
+	}
+
 	atexit(ooi_unlink);
 }
 

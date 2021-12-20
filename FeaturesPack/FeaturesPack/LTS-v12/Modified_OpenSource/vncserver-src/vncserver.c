@@ -150,7 +150,7 @@ vnc_session_timercall()
 	{
 		timedout = 1;
 		update_time = 0;
-		if(cl->sock != -1){
+		if((cl->sock != -1) && (cl->authComplete == 1)){
 			update_time = getLastPacketTime(cl->sock);
 
 			if( !sysinfo(&sys_info)) {
@@ -545,7 +545,7 @@ void* updateVideo()
 	int capture = VIDEO_ERROR, cleanUp = 0;
 	rfbClientIteratorPtr i;
 	rfbClientPtr cl;
-	struct sysinfo incoming,current;
+	struct sysinfo incoming,current,sys_info;
 	unsigned int bCounter = 0;//Blank screen counter
 	double timedout = 0;
 	int no_signal_frame_cnt = 0;
@@ -794,6 +794,19 @@ void* updateVideo()
 			g_prv_capture_status =capture;
 			i = rfbGetClientIteratorWithClosed(rfbScreen);
 			cl=rfbClientIteratorHead(i);
+			
+			if((cl->authComplete == 0) && (cl->state > RFB_AUTHENTICATION))
+			{
+				if(!sysinfo(&sys_info))
+				{
+					if(setSessionInfo(cl->sock, sys_info.uptime, cl->host) != 0) {
+						printf("\nerror while setting session info...\n");
+					}else{
+						cl->authComplete = 1; 
+						sem_post(&mSessionTimer);
+					}
+				}
+			}		
 
 			#if defined(SOC_PILOT_III) || defined(SOC_PILOT_IV)
 			
@@ -838,6 +851,7 @@ void* updateVideo()
 				if ( ( ( g_kvm_client_state != VNC ) && ( cl->sock != -1 ) ) ||
 				 ( (cl->sock < 0 ) && (cl->clientData != NULL)) || (TRUE == cleanUp)) {
 					rfbCloseClient(cl);
+					cl->authComplete = 0;
 					rfbClientConnectionGone(cl);
 					cleanUp = FALSE;
 				}
@@ -1777,7 +1791,6 @@ int requestKVMClientstate()
 }
 
 static enum rfbNewClientAction newclient(rfbClientPtr cl) {
-	struct sysinfo sys_info;
 	struct timespec tv;
 #if defined(SOC_AST2400) || defined(SOC_AST2500)
 	FILE *fp=NULL;
@@ -1845,6 +1858,7 @@ static enum rfbNewClientAction newclient(rfbClientPtr cl) {
 		cl->clientData = (void*) calloc(sizeof(ClientData), 1);
 		cl->clientGoneHook = clientgone;
 		cl->enableSupportedMessages = TRUE;
+		cl->authComplete = 0;
 		seqno = 0;
 		m_btn_status = 0;
 		pCl = cl;
@@ -1893,14 +1907,6 @@ static enum rfbNewClientAction newclient(rfbClientPtr cl) {
 			** (Applicable only if hardware cursor feature is enabled) */
 			// if((cl->viewOnly == FALSE) )
 			// 	sem_post(&mStartCursorCapture);
-		}
-		if(!sysinfo(&sys_info))
-		{
-			if(setSessionInfo(cl->sock, sys_info.uptime, cl->host) != 0) {
-				printf("\nerror while setting session info...\n");
-			}else{
-				sem_post(&mSessionTimer);
-			}
 		}
 		return RFB_CLIENT_ACCEPT;
 	}

@@ -47,6 +47,8 @@ typedef unsigned char sha1_byte;
 # include "mod_websocket_base64.h"
 #endif	/* _MOD_WEBSOCKET_SPEC_RFC_6455_ */
 
+#include "nwcfg.h"
+
 #ifdef	_MOD_WEBSOCKET_SPEC_IETF_00_
 static int get_key3(handler_ctx *hctx) {
     int ret, timeout = 1000; /* XXX: poll timeout = 1000ms */
@@ -77,6 +79,105 @@ static int get_key3(handler_ctx *hctx) {
     return 0;
 }
 #endif	/* _MOD_WEBSOCKET_SPEC_IETF_00_ */
+
+static mod_websocket_bool_t is_allowed_origin_runtime_check(handler_ctx *hctx) {
+    char origin_ip[MAX_HOSTNAME_LEN+DNSCFG_MAX_DOMAIN_NAME_LEN]= {0};
+    char ifc_ipv4[INET_ADDRSTRLEN] = {0};
+    char ifc_ipv6[INET6_ADDRSTRLEN] = {0};
+    char full_ipv6[INET6_ADDRSTRLEN+2] = {0};
+    char hostname_domain[MAX_HOSTNAME_LEN+DNSCFG_MAX_DOMAIN_NAME_LEN]={0};
+    int i,j,ret;
+    NWCFG_STRUCT NWConfig;
+    NWCFG6_STRUCT NWConfig6;
+    IfcName_T Ifctable [MAX_CHANNEL];
+    HOSTNAMECONF HostnameConfig;
+    DOMAINCONF DomainConfig;
+    DNSCONF DnsIPConfig;
+    INT8U regBMC_FQDN[MAX_CHANNEL];
+
+    memset(&NWConfig, 0, sizeof(NWCFG_STRUCT));
+    memset(&NWConfig6, 0, sizeof(NWCFG6_STRUCT));
+    memset(Ifctable, 0, sizeof(IfcName_T));
+    memset(&HostnameConfig, 0, sizeof(HostnameConfig));
+    memset(&DomainConfig, 0, sizeof(DomainConfig));
+    memset(&DnsIPConfig, 0, sizeof(DnsIPConfig));
+    memset(regBMC_FQDN, 0, sizeof(regBMC_FQDN));
+
+    InitIfcNameTable();
+    GetIfcNameTable(Ifctable);
+
+    // TCRIT("hctx->handshake.origin->ptr = %s", hctx->handshake.origin->ptr);
+    if(strstr(hctx->handshake.origin->ptr, "https://") != NULL){
+        memcpy(origin_ip, hctx->handshake.origin->ptr + strlen("https://"), sizeof(origin_ip));
+    }else if(strstr(hctx->handshake.origin->ptr, "http://") != NULL){
+        memcpy(origin_ip, hctx->handshake.origin->ptr + strlen("http://"), sizeof(origin_ip));
+    }else{
+        DEBUG_LOG(MOD_WEBSOCKET_LOG_ERR, "s", "Invalid protocol");
+        return MOD_WEBSOCKET_FALSE;
+    }
+
+    // Check if the Origin header value can be found in IPv4 and IPv6
+    for(i=0;i<MAX_CHANNEL;i++){
+        // skip getting IP as long as the interface is empty from ifctable
+        if(strcmp(Ifctable[i].Ifcname, "") == 0){
+            continue;
+        }
+        ret = AMIGetAllIPAddress(&NWConfig,&NWConfig6,Ifctable[i].Ifcname);
+        if(ret != 0){
+            DEBUG_LOG(MOD_WEBSOCKET_LOG_WARN, "s", "Failed to get IPv4 and IPv6 address");
+            continue;
+        }
+
+        if(snprintf(ifc_ipv4, sizeof(ifc_ipv4), "%d.%d.%d.%d",NWConfig.IPAddr[0],NWConfig.IPAddr[1],NWConfig.IPAddr[2],NWConfig.IPAddr[3]) >= (signed)INET_ADDRSTRLEN){
+            DEBUG_LOG(MOD_WEBSOCKET_LOG_WARN, "s", "IPv4 Buffer overflow");
+        }else{
+            if(strcmp(ifc_ipv4, origin_ip) == 0 && strcmp("0.0.0.0", origin_ip) != 0){
+                DEBUG_LOG(MOD_WEBSOCKET_LOG_INFO, "ss",ifc_ipv4, "IPv4 is matched");
+                return MOD_WEBSOCKET_TRUE;
+            }
+        }
+
+        for(j=0;j<MAX_IPV6ADDRS;j++){
+            if(inet_ntop(AF_INET6, NWConfig6.GlobalIPAddr[j], ifc_ipv6, INET6_ADDRSTRLEN) == NULL){
+                DEBUG_LOG(MOD_WEBSOCKET_LOG_WARN, "s", "Invalid IPv6 address");
+            }
+
+            // skip the empty IPv6 address
+            if(strcmp(ifc_ipv6, "::") == 0){
+                continue;
+            }
+            if(snprintf(full_ipv6, sizeof(full_ipv6), "[%s]", ifc_ipv6) >= (signed)INET6_ADDRSTRLEN+2){
+                DEBUG_LOG(MOD_WEBSOCKET_LOG_WARN, "s", "IPv6 Buffer overflow");
+            }
+            if(strcmp(full_ipv6, origin_ip) == 0){
+                DEBUG_LOG(MOD_WEBSOCKET_LOG_INFO, "ss",full_ipv6, "IPv6 is matched");
+                return MOD_WEBSOCKET_TRUE;
+            }
+        }
+    }
+
+    // Get Hostname and domain name
+    nwGetAllDNSConf(&HostnameConfig, &DomainConfig, &DnsIPConfig, regBMC_FQDN);
+
+    //without domain name
+    if(strchr(origin_ip,'.') == NULL){
+        if(strcasecmp((char *)HostnameConfig.HostName, origin_ip) == 0){
+            DEBUG_LOG(MOD_WEBSOCKET_LOG_INFO, "ss",HostnameConfig.HostName, "Hostname is matched");
+            return MOD_WEBSOCKET_TRUE;
+        }
+    }else{ //with domain name
+        if(snprintf(hostname_domain, sizeof(hostname_domain), "%s.%s", HostnameConfig.HostName, DomainConfig.domainname)>=(signed)sizeof(hostname_domain)){
+            DEBUG_LOG(MOD_WEBSOCKET_LOG_WARN, "s", "Hostname with domain name Buffer overflow");
+        }
+        if(strcasecmp(hostname_domain, origin_ip) == 0){
+            DEBUG_LOG(MOD_WEBSOCKET_LOG_INFO, "ss",hostname_domain, "Hostname with domain is matched");
+            return MOD_WEBSOCKET_TRUE;
+        }
+    }
+
+    return MOD_WEBSOCKET_FALSE;
+}
+
 
 static mod_websocket_bool_t is_allowed_origin(handler_ctx *hctx) {
     size_t i;
@@ -206,13 +307,16 @@ mod_websocket_errno_t mod_websocket_handshake_check_request(handler_ctx *hctx) {
         DEBUG_LOG(MOD_WEBSOCKET_LOG_ERR, "s", "Origin header does not exist");
         return MOD_WEBSOCKET_BAD_REQUEST;
     }
+    if (is_allowed_origin_runtime_check(hctx) != MOD_WEBSOCKET_TRUE) {
+        return MOD_WEBSOCKET_FORBIDDEN;
+    }
     if (is_allowed_origin(hctx) != MOD_WEBSOCKET_TRUE) {
         return MOD_WEBSOCKET_FORBIDDEN;
     }
     if (buffer_is_empty(version_hdr_value)) {
         handshake->version = 0;
     } else {
-        handshake->version = (int)(strtol(version_hdr_value->ptr, NULL, 10) & INT_MAX); /* Fortify [Null Dereference]:: False Positive */ /* If condition is added to check version_hdr_value is free or not. If free handshake->version will be assigned with 0 and version_hdr_value->ptr will not be dereferenced. - Reason*/
+        handshake->version = (int)(strtol(version_hdr_value->ptr, NULL, 10) & INT_MAX);
     }
 
 #ifdef	_MOD_WEBSOCKET_SPEC_IETF_00_
@@ -519,7 +623,7 @@ static void append_x_forwarded_headers(handler_ctx *hctx) {
             buffer_append_string(x_forwarded_proto->value, "http");
         }
         DEBUG_LOG(MOD_WEBSOCKET_LOG_DEBUG, "ss", "append X-Forwarded-Proto:", x_forwarded_proto->value->ptr);
-        array_insert_unique(hdrs, (data_unset *)x_forwarded_proto); /* Fortify [Memory leak]:: False Positive */ /* Memory for x_forwarded_proto, X-Forwarded-For and x_forwarded_port is freed inside array_insert_unique function - Reason */
+        array_insert_unique(hdrs, (data_unset *)x_forwarded_proto);
     } else {
         if (((server_socket *)(hctx->con->srv_socket))->is_ssl) {
             buffer_append_string(x_forwarded_proto->value, ", https");
@@ -535,7 +639,7 @@ static void append_x_forwarded_headers(handler_ctx *hctx) {
         buffer_append_string(x_forwarded_for->value, ":");
         buffer_append_string_buffer(x_forwarded_for->value, port);
         DEBUG_LOG(MOD_WEBSOCKET_LOG_DEBUG, "ss", "append X-Forwarded-For:", x_forwarded_for->value->ptr);
-        array_insert_unique(hdrs, (data_unset *)x_forwarded_for);/* Fortify [Memory leak]:: False Positive */ /* Memory for x_forwarded_proto, X-Forwarded-For and x_forwarded_port is freed inside FREE_FUNC function - Reason */
+        array_insert_unique(hdrs, (data_unset *)x_forwarded_for);
     } else {
         buffer_append_string(x_forwarded_for->value, ", ");
         buffer_append_string_buffer(x_forwarded_for->value, addr);
@@ -548,7 +652,7 @@ static void append_x_forwarded_headers(handler_ctx *hctx) {
         buffer_append_string(x_forwarded_port->key, "X-Forwarded-Port");
         buffer_append_string_buffer(x_forwarded_port->value, port);
         DEBUG_LOG(MOD_WEBSOCKET_LOG_DEBUG, "ss", "append X-Forwarded-Port:", x_forwarded_port->value->ptr);
-        array_insert_unique(hdrs, (data_unset *)x_forwarded_port);/* Fortify [Memory leak]:: False Positive */ /* Memory for x_forwarded_proto, X-Forwarded-For and x_forwarded_port is freed inside FREE_FUNC function - Reason */
+        array_insert_unique(hdrs, (data_unset *)x_forwarded_port);
     } else {
         buffer_append_string(x_forwarded_port->value, ", ");
         buffer_append_string_buffer(x_forwarded_port->value, port);

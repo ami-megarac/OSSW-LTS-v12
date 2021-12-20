@@ -757,7 +757,7 @@ kcs_request (struct kcs_dev *pdev, char *pbuf)
 {
 	KCSBuf_T *pKCSBuffer = &pdev->pkcs_hal->pkcs_buf [pdev->ch_num];
 	unsigned long flags;
-
+	int ret = 0;
 	dbgprint ("kcs_request ch num: %d, kcs_buf addr : %p\n", pdev->ch_num, pKCSBuffer);
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(3,4,11))
 	GlobalKCSBuffer = &pdev->pkcs_hal->pkcs_buf [pdev->ch_num];
@@ -774,8 +774,11 @@ kcs_request (struct kcs_dev *pdev, char *pbuf)
 	pKCSBuffer->KcsIFActive     = 1;
 	spin_unlock_irqrestore(&pKCSBuffer->kcs_lock, flags);
 	
-	Kcs_OsSleepOnTimeout(&(pKCSBuffer->KcsReqWait),&(pKCSBuffer->KcsWakeup),0);
-	
+	ret = Kcs_OsSleepOnTimeout(&(pKCSBuffer->KcsReqWait),&(pKCSBuffer->KcsWakeup),0);
+	if(ret < 0)
+	{
+		memset((void *)pKCSBuffer->pKCSRcvPkt,0xff,pKCSBuffer->KCSRcvPktIx);
+	}
 	spin_lock_irqsave(&pKCSBuffer->kcs_lock, flags);
 	pKCSBuffer->KcsWakeup       = 0;
 	pKCSBuffer->KcsIFActive     = 0;

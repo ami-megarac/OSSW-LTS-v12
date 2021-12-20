@@ -429,8 +429,14 @@ CdromIoctl (unsigned int cmd,unsigned long arg, int* RetVal)
              ( strlen(CONFIG_SPX_FEATURE_CD_DVD_MEDIA_PRODUCT_REVISION) <= 4) && 
              ( strlen(CONFIG_SPX_FEATURE_CD_DVD_MEDIA_PRODUCT_INFO) <= 13 ) )
         {
+             /* Reason for false positive - To follow the spec, cannot add null terminated at end and the statememts for checking lengths were added. */
+             /* coverity[buffer_size : FALSE] */
              strncpy((char *)&Inquiry->VendorInfo[0], CONFIG_SPX_FEATURE_CD_DVD_MEDIA_VENDOR_INFO, strlen(CONFIG_SPX_FEATURE_CD_DVD_MEDIA_VENDOR_INFO));
+             /* Reason for false positive - To follow the spec, cannot add null terminated at end and the statememts for checking lengths were added. */
+             /* coverity[buffer_size : FALSE] */
              strncpy((char *)&Inquiry->ProductRev[0], CONFIG_SPX_FEATURE_CD_DVD_MEDIA_PRODUCT_REVISION, strlen(CONFIG_SPX_FEATURE_CD_DVD_MEDIA_PRODUCT_REVISION));
+             /* Reason for false positive - To follow the spec, cannot add null terminated at end and the statememts for checking lengths were added. */
+             /* coverity[buffer_size : FALSE] */
              strncpy((char *)&Inquiry->ProductInfo[0], CONFIG_SPX_FEATURE_CD_DVD_MEDIA_PRODUCT_INFO, strlen(CONFIG_SPX_FEATURE_CD_DVD_MEDIA_PRODUCT_INFO));
         }
         else
@@ -546,8 +552,14 @@ CreateCdromDescriptor(uint8 DevNo)
          ( strlen(CONFIG_SPX_FEATURE_CD_DVD_MEDIA_PRODUCT_REVISION) <= 4) && 
          ( strlen(CONFIG_SPX_FEATURE_CD_DVD_MEDIA_PRODUCT_INFO) <= 13 ) )
     {
+         /* Reason for false positive - To follow the spec, cannot add null terminated at end and the statememts for checking lengths were added. */
+         /* coverity[buffer_size : FALSE] */
          strncpy((char *)&Inquiry->VendorInfo[0], CONFIG_SPX_FEATURE_CD_DVD_MEDIA_VENDOR_INFO, strlen(CONFIG_SPX_FEATURE_CD_DVD_MEDIA_VENDOR_INFO));
+         /* Reason for false positive - To follow the spec, cannot add null terminated at end and the statememts for checking lengths were added. */
+         /* coverity[buffer_size : FALSE] */
          strncpy((char *)&Inquiry->ProductRev[0], CONFIG_SPX_FEATURE_CD_DVD_MEDIA_PRODUCT_REVISION, strlen(CONFIG_SPX_FEATURE_CD_DVD_MEDIA_PRODUCT_REVISION));
+         /* Reason for false positive - To follow the spec, cannot add null terminated at end and the statememts for checking lengths were added. */
+         /* coverity[buffer_size : FALSE] */
          strncpy((char *)&Inquiry->ProductInfo[0], CONFIG_SPX_FEATURE_CD_DVD_MEDIA_PRODUCT_INFO, strlen(CONFIG_SPX_FEATURE_CD_DVD_MEDIA_PRODUCT_INFO));
     }
     else

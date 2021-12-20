@@ -35,7 +35,7 @@
 ******************************************************************************/
 static void metadataJson(cJSON * pJsonChild)
 {
-    char logTime[64];
+    char logTime[64] = {0};
     time_t curtime;
     struct tm* loctime;
     char jsonItemString[MD_JSON_STRING_LEN];

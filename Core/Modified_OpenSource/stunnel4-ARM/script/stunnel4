@@ -36,14 +36,6 @@ get_pids() {
 }
 
 startdaemons() {
-  if [ -f /conf/singleport.conf ]; then
-    SINGLEPORT=`cat /conf/singleport.conf | grep enabled | cut -d"=" -f 2`
-    echo -n $SINGLEPORT
-    if [ $SINGLEPORT == 1 ]; then
-            echo -n "Single port is enabled, stop startdaemon."
-            exit 1
-    fi
-  fi
   if ! [ -d /var/run/stunnel4 ]; then
     rm -rf /var/run/stunnel4
     install -d -o stunnel4 -g stunnel4 /var/run/stunnel4

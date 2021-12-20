@@ -65,6 +65,15 @@
 #define SPI_FLASH_CMD_PAGE_PROGRAM_4B_MODE  0x12
 #define CMD_MX25XX_EN4B                     0xB7    /* Enter 4-byte address mode */
 #define CMD_MX25XX_EX4B                     0xE9    /* Exit 4-byte address mode */
+//AMP: Verify if dual BIOS SPI flash is supported
+#ifdef CONFIG_SPX_FEATURE_DUAL_BIOS_SPI_FLASH
+/* status register-2 of Winbond chip: W25Q256FV, W25Q128FV */
+#define SPI_FLASH_CMD_READ_STATUS_REG_2     0x35
+#define SPI_FLASH_CMD_WRITE_STATUS_REG_2    0x31
+#define SPI_FLASH_RESET_CMP                 0xBF  /* Clear CMP bit of status register-2 */
+#define SPI_FLASH_RESET_BP                  0xC3  /* BP[3:0] bits of status register-1 */
+#define SPI_FLASH_RESET_TB                  0xBF  /* TB bit of status register-1*/
+#endif // CONFIG_SPX_FEATURE_DUAL_BIOS_SPI_FLASH
 
 /* bits of SPI flash status register */
 #define SPI_FLASH_SR_WIP                    0x01
@@ -134,7 +143,6 @@ static struct host_spi_flash_info_t host_spi_flash_info_tab[] =
     { "AT25DF64",       0x00481F, 64 * 1024,    128,       FL_ERASE_ALL },      // Atmel 8MB
     { "W25Q128FV",      0x1840EF, 64 * 1024,    256,       FL_ERASE_ALL },      // Winbond 16MB
     { "W25Q256FV",      0x1940EF, 64 * 1024,    512,       FL_ERASE_ALL },      // Winbond 32MB
-	{ "W25Q512JV",      0x2040EF, 64 * 1024,    1024,      FL_ERASE_ALL },      // Winbond 64MB
     { "MX25L25635F",    0x1920C2, 64 * 1024,    512,       FL_ERASE_ALL },      // Macronix 32MB
     { "MX25L51245G",    0x1A20C2, 64 * 1024,    1024,      FL_ERASE_ALL },      // Macronix 64MB
     { "MT25QL512AB",    0x20BA20, 64 * 1024,    1024,      FL_ERASE_ALL },      // Micron 64MB
@@ -216,6 +224,86 @@ static int is_wel_enabled(struct host_spi_flash_hal_ops_t *hw_ops)
 	return 1;
 }
 
+//AMP: Verify if dual BIOS SPI flash is supported
+#ifdef CONFIG_SPX_FEATURE_DUAL_BIOS_SPI_FLASH
+/* AMP: Clear CMP bit of the status register-2,
+ * to prevent block memory is protected
+ */
+static void clear_cmp_bit(struct host_spi_flash_hal_ops_t *hw_ops)
+{
+    unsigned char cmd;
+    unsigned char status = 0;
+
+    if (wait_for_wip_status(hw_ops)) {
+        printk ("[clear_cmp_bit] fail\n");
+        return;
+    }
+
+    /* enable write */
+    cmd = SPI_FLASH_CMD_WRITE_ENABLE;
+    hw_ops->transfer(&cmd, 1, NULL, 0, 0);
+    /* check write enable latch is set */
+    if (is_wel_enabled(hw_ops) == 0)
+    {
+        if (wait_for_wip_status(hw_ops))
+            return;
+        /* read current status register-2 */
+        cmd = SPI_FLASH_CMD_READ_STATUS_REG_2;
+        if (hw_ops->transfer(&cmd, 1, &status, 1, 0) < 0)
+        {
+            printk ("Error reading the SPI Status Register 2\n");
+            return;
+        }
+        /* clear CMP bit */
+        status = status & SPI_FLASH_RESET_CMP;
+        cmd = SPI_FLASH_CMD_WRITE_STATUS_REG_2;
+        if (hw_ops->transfer(&cmd, 1, &status, 1, 1) < 0)
+            printk ("Error reseting CMP bit...\n");
+        else
+            printk ("Done reseting CMP bit: 0x%x\n", status);
+    }
+}
+
+/* AMP: Clear BP[3:0], TB bits of the status register-1.
+ * To prevent block memory is protected, clear the bit to possibly erase/write
+ * the SPI NOR.
+ */
+static void clear_bp_tb_bit(struct host_spi_flash_hal_ops_t *hw_ops)
+{
+    unsigned char cmd;
+    unsigned char status = 0;
+
+    if (wait_for_wip_status(hw_ops)) {
+        printk ("[clear_bp_tb_bit] fail\n");
+        return;
+    }
+
+    /* enable write */
+    cmd = SPI_FLASH_CMD_WRITE_ENABLE;
+    hw_ops->transfer(&cmd, 1, NULL, 0, 0);
+    /* check write enable latch is set */
+    if (is_wel_enabled(hw_ops) == 0)
+    {
+        if (wait_for_wip_status(hw_ops))
+            return;
+
+        /* read current status register-1 */
+        cmd = SPI_FLASH_CMD_READ_STATUS_REG;
+        if (hw_ops->transfer(&cmd, 1, &status, 1, 0) < 0)
+        {
+            printk ("Error reading the SPI Status Register 1\n");
+            return;
+        }
+        /* clear BP[3:0] and TB bits */
+        status = (status & SPI_FLASH_RESET_BP) & SPI_FLASH_RESET_TB;
+        cmd = SPI_FLASH_CMD_WRITE_STATUS_REG;
+        if (hw_ops->transfer(&cmd, 1, &status, 1, 1) < 0)
+            printk ("Error reseting BP, TB bits...\n");
+        else
+            printk ("Done reseting BP, TB bits 0x%x\n", status);
+    }
+}
+#endif // CONFIG_SPX_FEATURE_DUAL_BIOS_SPI_FLASH
 
 static void enable_write(struct host_spi_flash_hal_ops_t *hw_ops)
 {
@@ -731,6 +819,9 @@ static struct mtd_info *host_spi_flash_probe(struct host_spi_flash_hal_ops_t *hw
     uint32_t id;
     int i;
 
+    /* wait complete by check write in progress bit is clean */
+    wait_for_wip_status(hw_ops);
+
     id = read_id(hw_ops);
     for (i = 0, info = host_spi_flash_info_tab; i < ARRAY_SIZE(host_spi_flash_info_tab); i ++, info ++)
     {
@@ -774,6 +865,114 @@ static struct mtd_info *host_spi_flash_probe(struct host_spi_flash_hal_ops_t *hw
     return new_mtd;
 }
 
+//AMP: Verify if dual BIOS SPI flash is supported
+#ifdef CONFIG_SPX_FEATURE_DUAL_BIOS_SPI_FLASH
+/* AMP: The rescanning SPI device function.
+ * If the partition is already existed, do delete it; then
+ * try to probe the current spi device, do create new partition if device exists
+ */
+int host_spi_flash_rescan(struct host_spi_flash_hal_ops_t *hw_ops, struct host_spi_flash_hal_t *hw_hal)
+{
+    if (hw_ops == NULL || hw_hal == NULL)
+    {
+        return -ENOMEM;
+    }
+
+    if (hw_hal->mtd != NULL)
+    {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0))
+        	del_mtd_partitions(hw_hal->mtd);        
+#else
+			mtd_device_unregister( hw_hal->mtd );
+#endif
+        kfree(hw_hal->mtd);
+    }
+
+    hw_hal->ops = hw_ops;
+    hw_hal->mtd = host_spi_flash_probe(hw_hal->ops);
+    if (hw_hal->mtd == NULL)
+    {
+        return -ENODEV;
+    }
+
+    hw_hal->mtd->owner = THIS_MODULE;
+    hw_hal->mtd->priv = hw_ops;
+
+    hw_hal->partitions.name = CONFIG_SPX_FEATURE_HOST_SPI_FLASH_MTD_NAME;
+    hw_hal->partitions.offset = 0;
+    hw_hal->partitions.size = hw_hal->mtd->size;
+    hw_hal->partitions.mask_flags = 0;
+#if !(LINUX_VERSION_CODE >=  KERNEL_VERSION(3,4,11))
+    hw_hal->partitions.mtdp = NULL;
+#endif
+
+	#if (LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0))
+		add_mtd_partitions(hw_hal->mtd, &hw_hal->partitions, 1);
+	#else
+		mtd_device_register(hw_hal->mtd, &hw_hal->partitions, 0);
+		// mtd_device_register has a MTD_PARTITIONED_MASTER(enable by default) kernel configuration condition checking to execute add_mtd_device
+		// If nr_parts be set, goes to find partitions and calls add_mtd_device once again. 
+		// It will have two identical mtd be registerd but with different name in table. 
+		// Here has nr_parts be null, execute add_mtd_device one time to add mtd device for host spi flash.
+	#endif
+
+    // Why we may need to set the CS addressable range for some SOC ?
+    // Depending on SOC, we might have to set the SPI CS Addressable range
+    // Without setting the proper range we might not be able to access the full SPI capacity
+    // By default, the CS addressable range could be set to just access 32MB of the SPI capacity.
+    // So if user has a 64MB SPI Part for example, user will not be able to access the remaining 32 MB SPI at all.
+    // MTD read will work, but if you directly try to access the SPI beyond 32MB by its SPI Flash address
+    // that may fail if the CS addressable range is not properly set.
+#if defined(SOC_AST2500)
+    hw_hal->ops->set_cs_range(hw_hal->partitions.size);
+#endif
+
+    hw_hal->ops->configure_clock(hw_hal->ops->max_clock);
+
+    // If the SPI Size is more than 16MB, then setting the SPI and Controller to 4B mode
+    // Also set a flag to indicate to other read/write/erase functions to identify the mode
+    if (hw_hal->partitions.size > ADDR_16MB)
+    {
+        spi_ctrl_4b_mode = 1;
+        enter_4byte_addr_mode(hw_ops);
+    }
+
+    /* AMP: Winbond chip: W25Q256FV, W25Q128FV:
+     * Clear CMP, BP[3:0], TB bits to prevent memory is protected
+     */
+    if (current_flash_id == 0x1940EF || current_flash_id == 0x1840EF) {
+        clear_cmp_bit(hw_ops);
+        clear_bp_tb_bit(hw_ops);
+    }
+    return 0;
+}
+
+/* AMP: When register module, only need to allocate memory for hardware hal data
+ * and configure the hardware controller to max clock,
+ * don't need to probe spi device at this phase.
+ */
+int host_spi_flash_register(unsigned char num, void *hw_ops, void **hw_data)
+{
+    struct host_spi_flash_hal_t *hw_hal;
+
+    if (hw_ops == NULL)
+    {
+        return -ENOMEM;
+    }
+
+    hw_hal = (struct host_spi_flash_hal_t *) kmalloc(sizeof(struct host_spi_flash_hal_t), GFP_KERNEL);
+    if (hw_hal == NULL)
+    {
+        return -ENOMEM;
+    }
+    hw_hal->ops = (struct host_spi_flash_hal_ops_t *) hw_ops;
+    hw_hal->mtd = NULL;
+    *hw_data = (void *) hw_hal;
+    hw_hal->ops->configure_clock(hw_hal->ops->max_clock);
+
+    return 0;
+}
+#else
 int host_spi_flash_register(unsigned char num, void *hw_ops, void **hw_data)
 {
     struct host_spi_flash_hal_t *hw_hal;
@@ -844,6 +1043,7 @@ int host_spi_flash_register(unsigned char num, void *hw_ops, void **hw_data)
 
     return 0;
 }
+#endif
 
 int host_spi_flash_unregister(void *hw_data)
 {
@@ -993,6 +1193,20 @@ host_spi_flash_module_ioctlUnlocked(struct file *file, uint cmd, ulong arg)
             if (pdev->phost_spi_flash_hal->ops->host_spi_flash_change_mode)
                 pdev->phost_spi_flash_hal->ops->host_spi_flash_change_mode(host_spi_access);
             break;
+//AMP: Verify if dual BIOS SPI flash is supported
+#ifdef CONFIG_SPX_FEATURE_DUAL_BIOS_SPI_FLASH
+        // AMP: invoke handler for rescan command from user
+        case RESCAN_HOST_SPI:
+            {
+                struct host_spi_flash_hal_t *phost_spi_flash_hal = pdev->phost_spi_flash_hal;
+                struct host_spi_flash_hal_ops_t *ops = pdev->phost_spi_flash_hal->ops;
+                if (host_spi_flash_rescan(ops, phost_spi_flash_hal)) {
+                    printk("RESCAN_HOST_SPI: Error rescan host spi flash \n");
+                    return -EFAULT;
+                }
+            }
+            break;
+#endif
 
          default:
              printk("ERROR: host_spi_flash: Invalid IOCTL \n");

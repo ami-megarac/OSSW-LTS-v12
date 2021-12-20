@@ -868,8 +868,8 @@ UsbRxHandler(uint8 DevNo,uint8 ep)
 					printk("Invalid end point index received");
 			}
 		}
-	}
-
+	} /* Reason for false positive - Buffer allocated will be freed in UsbCoreDumpEthData() with kernel work queue. */
+      /* coverity[leaked_storage : FALSE] */
 	/* Ep 0 is handled seperately */
 	CallInterfaceRxHandler(DevNo,ep);
 
@@ -2042,6 +2042,8 @@ FormiUsbHeader(IUSB_HEADER *Header, uint32 DataLen, uint8 DevNo, uint8 ifnum,
 	static uint32 SeqNo=1;
 
 	memset(Header,0,sizeof(IUSB_HEADER));
+	/* Reason for false positive - To follow the spec, cannot add null terminated at end. */
+	/* coverity[buffer_size : FALSE] */
 	strncpy(Header->Signature,IUSB_SIG,8);
 	Header->Major 		= 1;
 	Header->Minor 		= 0;
@@ -2049,11 +2051,11 @@ FormiUsbHeader(IUSB_HEADER *Header, uint32 DataLen, uint8 DevNo, uint8 ifnum,
 	Header->DataPktLen 	= usb_long(DataLen);
 	Header->DeviceType 	= DeviceType;
 	Header->Protocol   	= Protocol;
-	Header->Direction	= TO_REMOTE;	
+	Header->Direction	= TO_REMOTE;
 	Header->DeviceNo	= DevNo;
 	Header->InterfaceNo	= ifnum;
 	Header->SeqNo	   	= usb_long(SeqNo);
-	SeqNo++;	
+	SeqNo++;
 	if (SeqNo == 0xffffffff)
 		SeqNo=1;
 	Header->HeaderCheckSum = CalculateModulo100((uint8 *)Header,sizeof(IUSB_HEADER));

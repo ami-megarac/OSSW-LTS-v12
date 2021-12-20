@@ -1,14 +1,14 @@
---- uboot/drivers/spi/aspeed_spi.c	2021-04-22 13:36:05.313487339 +0530
-+++ uboot_new/drivers/spi/aspeed_spi.c	2021-04-22 13:01:38.771708090 +0530
+--- uboot/drivers/spi/aspeed_spi.c	2021-10-18 16:40:27.341907543 +0530
++++ uboot_new/drivers/spi/aspeed_spi.c	2021-10-18 16:47:59.410119722 +0530
 @@ -856,6 +856,8 @@
  		seg_addr = G6_SEGMENT_ADDR_VALUE((u32)flash->ahb_base,
  					      (u32)flash->ahb_base + flash->ahb_size);
  	} else {
 +		flash->ahb_base = flash->cs ? (void *)SEGMENT_ADDR_END(readl(&priv->regs->segment_addr[flash->cs -1])) :
-+				flash->ahb_base;
++                                	flash->ahb_base;
  		seg_addr = SEGMENT_ADDR_VALUE((u32)flash->ahb_base,
  						  (u32)flash->ahb_base + flash->ahb_size);
- 	}
+ 		//AMI check address overlap and correct address if overlap
 --- uboot/include/configs/aspeed-common.h	2021-04-22 13:36:05.345487624 +0530
 +++ uboot_new/include/configs/aspeed-common.h	2021-04-22 13:07:32.403238956 +0530
 @@ -107,4 +107,12 @@
@@ -98,121 +98,10 @@
 +//#endif
      return 0;
  }
- 
---- uboot/oem/ami/fmh/cmd_fmh.c	2021-04-22 13:36:05.365487804 +0530
-+++ uboot_new/oem/ami/fmh/cmd_fmh.c	2021-04-22 13:21:34.918431243 +0530
-@@ -237,7 +237,12 @@
- ListFMH(void)
- {
-     //unsigned char buf[64*1024] = {0};
--    struct spi_flash *flash;
-+#ifdef CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
-+    struct spi_flash *flash[CONFIG_SYS_MAX_FLASH_BANKS]= {NULL};
-+#else
-+    struct spi_flash *flash=NULL;
-+#endif
-+
-     unsigned long flashsize=0,SectorCount=0;
-     unsigned long SectorSize=0;
-     int i=0;
-@@ -245,7 +250,86 @@
-     unsigned char Name[9] = {0};
-     MODULE_INFO *mod;
-     long SkipSize;
--	
-+
-+#ifdef CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
-+    int cs=0;
-+    for(cs=0; cs < CONFIG_SYS_MAX_FLASH_BANKS ; cs++)
-+    {
-+    flash[cs] = spi_flash_probe(CONFIG_ENV_SPI_BUS, cs,
-+                            CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
-+        if (flash[cs] == NULL)
-+        {
-+            printf("\nspi_flash_probe failed on cs = %d\n",cs);
-+            continue;
-+        }
-+
-+        flashsize = flash[cs]->size;
-+        SectorSize = 0x10000; //flash->erase_size;//0x10000;//flash->sector_size;
-+        SectorCount = flashsize/SectorSize;
-+        printf("chip %d Flash size 0x%lx Sector size 0x%lx SectorCount 0x%lx\n",cs,flashsize,SectorSize,SectorCount);
-+
-+        for(i=0;i<SectorCount;)
-+        {
-+            #if 0
-+            fmh = ScanforFMH((unsigned char *)(CONFIG_SYS_FLASH_BASE+(i*SectorSize)),SectorSize);
-+            if (fmh == NULL)
-+            {
-+                i++;
-+                continue;
-+            }
-+            #endif
-+	    fmh = ScanforFMH(flash[cs],((i*SectorSize)),SectorSize);
-+            if (fmh == NULL)
-+            {
-+                i++;
-+                continue;
-+            }
-+
-+
-+            /* Print Information about the FMH and its module */
-+            printf("\nFMH Located at 0x%08lx of Size 0x%08x\n",
-+                    (unsigned long)((i*SectorSize)),le32_to_host(fmh->FMH_AllocatedSize));
-+
-+            mod = &(fmh->Module_Info);
-+            strncpy((char *)Name,(char *)mod->Module_Name,8);
-+            Name[8]=0;
-+            printf("Name    : %s\n",Name);
-+
-+            if( FMH_MAJOR==1 && FMH_MINOR>=7 )
-+                printf("Ver     : %d.%02d.%.6s\n",mod->Module_Ver_Major,mod->Module_Ver_Minor,mod->Module_Ver_Aux);
-+            else if( FMH_MAJOR==1 && FMH_MINOR==6 )
-+                printf("Ver     : %d.%02d.%.2s\n",mod->Module_Ver_Major,mod->Module_Ver_Minor,mod->Module_Ver_Aux);
-+            else
-+                printf("Ver     : %d.%02d\n",mod->Module_Ver_Major,mod->Module_Ver_Minor);
-+
-+            printf("Type    : 0x%04x\n",le16_to_host(mod->Module_Type));
-+            printf("Flags   : 0x%04x\n",le16_to_host(mod->Module_Flags));
-+            printf("Size    : 0x%08x\n",le32_to_host(mod->Module_Size));
-+
-+            if ((fmh->FMH_Ver_Major == 1) && (fmh->FMH_Ver_Minor >= 8))
-+                printf("Location: 0x%08x\n", le32_to_host(mod->Module_Location));
-+            else
-+                printf("Location: 0x%08lx\n",((i*SectorSize)) + le32_to_host(mod->Module_Location));
-+
-+            printf("LoadAddr: 0x%08x\n",le32_to_host(mod->Module_Load_Address));
-+            printf("--------------------------------------------------\n");
-+
-+
-+            if (i*SectorSize > le32_to_host(mod->Module_Location)) /* Special case of AltFMH (FMH location > Module_Location */
-+                SkipSize=SectorSize;
-+            else
-+                /* Skip the Sectors occupied by the Module */
-+                SkipSize = le32_to_host(fmh->FMH_AllocatedSize);
-+
-+            while ((SkipSize > 0) && (i < SectorCount))
-+            {
-+                SkipSize-=SectorSize;
-+                i++;
-+            }
-+
-+        } /* sector */
-+    }
-+#else
-     flash = spi_flash_probe((CONFIG_ENV_SPI_BUS), (CONFIG_ENV_SPI_CS+1),
-                         CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
-     if (flash == NULL) 
-@@ -327,7 +411,7 @@
-         }
-     
-     } /* sector */
--
-+#endif
- 
- #if 0
-     if(0)
-@@ -444,7 +528,7 @@
+
+--- uboot/oem/ami/fmh/cmd_fmh.c	2021-11-08 16:10:42.968668038 +0530
++++ uboot_new/oem/ami/fmh/cmd_fmh.c	2021-11-08 17:40:52.232903382 +0530
+@@ -523,7 +523,7 @@
  int
  GetFMHSectorLocationSize(char * Name, unsigned long * Location, unsigned long * Size)
  {
@@ -221,7 +110,7 @@
          //flash_info_t *flinfo;
  		struct spi_flash *flash;
          unsigned long SectorSize=CONFIG_SPX_FEATURE_GLOBAL_ERASE_BLOCK_SIZE;
-@@ -522,7 +606,7 @@
+@@ -601,7 +601,7 @@
  
          return (i >= SectorCount) ? -1 : 0;
  #endif
@@ -230,7 +119,7 @@
  }
  
  /****************************************************************************/
-@@ -736,11 +820,17 @@
+@@ -815,11 +815,17 @@
  	unsigned long i=0,SectorSize=CONFIG_SPX_FEATURE_GLOBAL_ERASE_BLOCK_SIZE;
  	unsigned long SectorCount=0,flashsize=0;
  	unsigned long watchdog_reset_status = 0;
@@ -250,7 +139,7 @@
  #ifdef CONFIG_SPX_FEATURE_FAIL_SAFE_BOOTING
  #ifdef CONFIG_SPX_FEATURE_SW_FAILSAFE_BOOT
      Enable_watchdog(&watchdog_reset_status);
-@@ -750,6 +840,88 @@
+@@ -829,6 +835,88 @@
  #endif
  #endif
  
@@ -339,7 +228,7 @@
      flash = spi_flash_probe(CONFIG_ENV_SPI_BUS, CONFIG_ENV_SPI_CS,
                          CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
      if (flash == NULL)
-@@ -830,8 +1002,8 @@
+@@ -918,8 +1006,8 @@
  				}
  			}
  		}
@@ -350,11 +239,9 @@
          /* check whether reboot caused by watchdog modules reset */
  		if(watchdog_reset_status)
  		{
-@@ -1112,13 +1284,24 @@
-     }
+@@ -1206,12 +1294,18 @@
      else//for image2
      {
-+    	
  #ifdef CONFIG_SPX_FEATURE_DEDICATED_SPI_FLASH_BANK
 -        flash = flashspi[1];
 -        StartingSector=flash->size;
@@ -362,8 +249,6 @@
 -        startaddress=CE1_ADDRESS_SEGMENT;
 -        StartingSector/=SectorSize;
 -        SectorCount/=SectorSize;
-+    	// startaddress=flash->size ;
-+//    	 printf("startaddress=%lx\n",startaddress);
 +    	flash =NULL;
 +    	flash = spi_flash_probe(CONFIG_ENV_SPI_BUS, 1,
 +    			CONFIG_ENV_SPI_MAX_HZ, CONFIG_ENV_SPI_MODE);
@@ -374,8 +259,6 @@
 +    	}
 +    	SectorCount = (CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE/SectorSize);
 +    	StartingSector = 0;
-+    	//startaddress=CONFIG_SYS_FLASH_BASE;
-+//    	startaddress=0;
 +    	startaddress=CONFIG_SYS_FLASH_BASE + CONFIG_SPX_FEATURE_GLOBAL_USED_FLASH_SIZE ;
 +
  #else

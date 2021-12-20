@@ -31,8 +31,7 @@
 
 unsigned char slave_mode[BUS_COUNT];
 extern struct i2c_as_data as_data_ptr[BUS_COUNT];
-extern  int i2c_dma_mode_select[ BUS_COUNT ];
-
+extern int perform_slave_recovery(int bus);
 #define AST_I2C_GLOBAL_VA_BASE 		IO_ADDRESS(AST_I2C_GLOBAL_BASE)
 #if defined(GROUP_AST1070_COMPANION)
 #define AST_BMCCC0_I2C_GLOBAL_VA_BASE 		IO_ADDRESS2(AST_BMCCC0_I2C_GLOBAL_BASE)
@@ -162,7 +161,7 @@ i2cTXEMPTY_master_process(int bus, u32 status)
 		}
 		
 		i2c_as_write_reg(bus, as_data_ptr[bus].dma_addr, I2C_DMA_MODE_CONTROL_REG );
-		if (i2c_dma_mode_select[bus] == I2C_DMA_MODE)
+		if (as_data_ptr[bus].i2c_dma_mode == I2C_DMA_MODE)
 			i2c_as_write_reg(bus, as_data_ptr[bus].TX_len, I2C_DMA_MODE_STATUS_REG );
 		else
 			i2c_as_write_reg(bus, as_data_ptr[bus].TX_len-1, I2C_DMA_MODE_STATUS_REG );
@@ -218,11 +217,9 @@ i2cRXFULL_master_process(int bus,u32 status)
 				as_data_ptr[bus].MasterRX_data[0] = as_data_ptr[bus].dma_buff[0]; 
 				as_data_ptr[bus].MasterRX_index ++;;
 				as_data_ptr[bus].MasterRX_len = as_data_ptr[bus].MasterRX_data[0];
-                if (as_data_ptr[bus].master_read_with_PEC)
-                    as_data_ptr[bus].MasterRX_len += 1;
 
                 i2c_as_write_reg(bus, as_data_ptr[bus].dma_addr, I2C_DMA_MODE_CONTROL_REG );
-                i2c_as_write_reg(bus, as_data_ptr[bus].MasterRX_len, I2C_DMA_MODE_STATUS_REG );
+                i2c_as_write_reg(bus, as_data_ptr[bus].MasterRX_data[0]-1, I2C_DMA_MODE_STATUS_REG );
 				i2c_as_write_reg( bus, ENABLE_MASTER_SLAVE_RX_DMA_BUF|MASTER_STOP|MASTER_RECEIVE| MASTER_SLAVE_RECEIVE_COMMAND_LAST, I2C_CMD_STATUS_REG );
 				
                 return 0;
@@ -294,9 +291,7 @@ i2cRXFULL_master_process(int bus,u32 status)
 			{
 				as_data_ptr[bus].MasterRX_data[as_data_ptr[bus].MasterRX_index]= i2c_as_read_reg(bus,I2C_DATA_REG)>>8;
 				as_data_ptr[bus].MasterRX_len = as_data_ptr[bus].MasterRX_data[as_data_ptr[bus].MasterRX_index] + 1;
-                if (as_data_ptr[bus].master_read_with_PEC)
-                    as_data_ptr[bus].MasterRX_len += 1;
-                
+				
 				if (as_data_ptr[bus].MasterRX_index < (as_data_ptr[bus].MasterRX_len -1))
 				{
 					i2c_as_write_reg( bus, MASTER_RECEIVE, I2C_CMD_STATUS_REG );
@@ -349,7 +344,7 @@ i2cRXFULL_slave_process(int bus,u32 status)
 
 				as_data_ptr[bus].Linear_SlaveRX_index = 2;
 				as_data_ptr[bus].Linear_SlaveRX_data[0] = slave_addr_w;
-				as_data_ptr[bus].Linear_SlaveRX_data[1] = (unsigned char)as_data_ptr[bus].SlaveTX_REQ_cmd;
+				as_data_ptr[bus].Linear_SlaveRX_data[1] = as_data_ptr[bus].SlaveTX_REQ_cmd; /* Foritfy [Type Mismatched: signed to unsigned] :: False Positive */
 				//Start to prepare response data and clear RX_DONE interrupt status till data is ready afterwards
 				as_data_ptr[bus].SlaveTX_READ_DATA = 1;
 				i2c_as_disable_interrupt(bus, RX_DONE);
@@ -411,7 +406,7 @@ i2cRXFULL_slave_process(int bus,u32 status)
 
 							as_data_ptr[bus].Linear_SlaveRX_index = 2;
 							as_data_ptr[bus].Linear_SlaveRX_data[0] = slave_addr_w;
-							as_data_ptr[bus].Linear_SlaveRX_data[1] = (unsigned char)as_data_ptr[bus].SlaveTX_REQ_cmd;
+							as_data_ptr[bus].Linear_SlaveRX_data[1] = as_data_ptr[bus].SlaveTX_REQ_cmd; /* Fortify [Type Mistmatched: signed to unsigned] :: False Positive */
 							//Start to prepare response data and clear RX_DONE interrupt status till data is ready afterwards
 							as_data_ptr[bus].SlaveTX_READ_DATA = 1;
 							i2c_as_disable_interrupt(bus, RX_DONE);
@@ -437,6 +432,14 @@ i2cRXFULL_slave_process(int bus,u32 status)
 					}
 					else
 					{
+#if defined(CONFIG_SPX_FEATURE_SSIF_NACK_SUPPORT)					
+						if(!as_data_ptr[bus].Slave_data_ready && as_data_ptr[bus].Linear_SlaveRX_index == 0){
+							i2c_as_write_reg(bus, MASTER_SLAVE_RECEIVE_COMMAND_LAST, I2C_CMD_STATUS_REG); //Sending NACK
+						}else if(as_data_ptr[bus].Linear_SlaveRX_index == 1 && (as_data_ptr[bus].Linear_SlaveRX_data[1] == IPMI_SSIF_SINGLE_PART_WRITE_SSIF_CMD || as_data_ptr[bus].Linear_SlaveRX_data[1]== IPMI_SSIF_MULTI_PART_WRITE_START_SSIF_CMD) && !as_data_ptr[bus].Slave_data_ready)
+						{
+							as_data_ptr[bus].Slave_data_ready= 1; 
+						}
+#endif
 						as_data_ptr[bus].Linear_SlaveRX_index++;
 					}
 					return 0;
@@ -466,7 +469,7 @@ if (as_data_ptr[bus].host_notify_flag == 0)
 		return;
 	}
 
-	length = (unsigned long)as_data_ptr[bus].Linear_SlaveRX_index;
+	length = as_data_ptr[bus].Linear_SlaveRX_index; /* Fortify [Type Mismatched: signed to unsigned] :: False Positive */
 	if (length==0)
 	{
 		/* Dummy STOP or Master STOP ?*/
@@ -526,10 +529,17 @@ if (as_data_ptr[bus].host_notify_flag == 0)
 
 		DataBuffer = as_data_ptr[bus].SlaveRX_data[FifoPtr];
 	
-		/* Read the Length and oopy to buffer */
+		/* Read the Length and Copy to buffer */
 		if(length)
 			memcpy(&DataBuffer[0],as_data_ptr[bus].Linear_SlaveRX_data,length);
-		
+#if defined(CONFIG_SPX_FEATURE_SSIF_NACK_SUPPORT)			
+		if(as_data_ptr[bus].Linear_SlaveRX_data[1]==IPMI_SSIF_SINGLE_PART_WRITE_SSIF_CMD){
+				as_data_ptr[bus].Slave_data_ready = 0; //Enable NACK
+		}
+		else if((as_data_ptr[bus].Linear_SlaveRX_data[1] == IPMI_SSIF_MULTI_PART_WRITE_MIDDLE_SSIF_CMD && as_data_ptr[bus].Linear_SlaveRX_data[2] < 0x20 ) || as_data_ptr[bus].Linear_SlaveRX_data[1] == IPMI_SSIF_MULTI_PART_WRITE_END_SSIF_CMD ){
+			as_data_ptr[bus].Slave_data_ready = 0; //Enable NACK
+		}	
+#endif	
 		as_data_ptr[bus].SlaveRX_index[FifoPtr] = as_data_ptr[bus].SlaveRX_len[FifoPtr]= length;
 		as_data_ptr[bus].Linear_SlaveRX_index = 0;
 
@@ -649,6 +659,9 @@ as_handler(int bus)
 			i2c_as_write_reg( bus, (status2 |TX_DONE_WITH_NACK),I2C_INTR_STATUS_REG );	
 			wake_up( &as_data_ptr[bus].as_wait );
 		}
+#if (LINUX_VERSION_CODE > KERNEL_VERSION(5,0,0))
+		return;
+#endif
 	}
 
 	/* the following 2 interrupt are for smbus specs */
@@ -665,18 +678,36 @@ as_handler(int bus)
 		/* clear status bit */
 		i2c_as_write_reg( bus, (status2 |SMBUS_ARP_HOST_ADDR_MATCH),I2C_INTR_STATUS_REG );
 	}
-
+	if(i2c_int & SDA_LOW_TIMEOUT)
+	{
+		printk("i2c bus 0x%x: SDA_LOW TIMEOUT \n",bus);
+		if(! as_data_ptr[bus].SlaveTX_Enable)
+		{
+			if(0 != perform_slave_recovery(bus))
+			{
+				printk(KERN_DEBUG "Cannot recover %d Bus \n",bus);
+			}
+			i2c_init_hardware(bus);
+		}
+		/* clear status bit */
+		i2c_as_write_reg( bus, (status2 |ENABLE_SDA_LOW_TIMEOUT_INTR),I2C_INTR_STATUS_REG );
+	}
 	if (i2c_int & SCL_LOW_TIMEOUT)
 	{
-		printk("i2c bus 0x%x: SMB TIMEOUT \n",bus);
+		printk("i2c bus 0x%x: SCL_LOW TIMEOUT \n",bus);
+		
 		/* clear status bit */
 		i2c_as_write_reg( bus, (status2 |SCL_LOW_TIMEOUT),I2C_INTR_STATUS_REG );
-		
-		if(i2c_bus_recovery(bus) != 0)
+
+		if(! as_data_ptr[bus].SlaveTX_Enable)
 		{
-			printk("SMBus timeout. cannot recover %x bus \n",bus);
+			if(i2c_bus_recovery(bus) != 0)
+			{
+				printk("SMBus timeout. cannot recover %x bus \n",bus);
+			}
+			i2c_init_hardware(bus);
 		}
-		i2c_init_hardware(bus);
+		
 	}
 
 	if (status2 & SLAVE_ADDR_MATCH)
@@ -691,7 +722,7 @@ as_handler(int bus)
 				as_data_ptr[bus].SlaveTX_REQ_cmd = as_data_ptr[bus].Linear_SlaveRX_data[1];
 			else
 			{
-				if (i2c_dma_mode_select[bus] == I2C_DMA_MODE){
+				if (as_data_ptr[bus].i2c_dma_mode == I2C_DMA_MODE){
 					if (as_data_ptr[bus].SlaveTX_READ_DATA != 1)
 						as_data_ptr[bus].SlaveTX_REQ_cmd = 0;
 				}else
@@ -722,11 +753,9 @@ as_handler(int bus)
 					slave_mode[bus] = 1;
 					as_data_ptr[bus].Linear_SlaveRX_index = 0;
 					
-					if (i2c_dma_mode_select[bus] == I2C_DMA_MODE){
 					/* Set 1 byte length of DMA buffer for indicating receiving slave address byte */
 					if (as_data_ptr[bus].i2c_dma_mode == I2C_DMA_MODE)
 						i2c_as_write_reg(bus, 1, I2C_DMA_MODE_STATUS_REG );
-					}
 				}
 
 
@@ -783,7 +812,7 @@ as_handler(int bus)
 		}
 		if ((status2 & TX_DONE_WITH_ACK) != TX_DONE_WITH_ACK)
 		{
-			if (i2c_dma_mode_select[bus] == I2C_DMA_MODE){	
+			if (as_data_ptr[bus].i2c_dma_mode == I2C_DMA_MODE){
 				if (( as_data_ptr[bus].SlaveTX_READ_DATA == 0 ) && (as_data_ptr[bus].SlaveTX_REQ_cmd == 0))
 				{
 					/* clear status bit */
@@ -851,7 +880,7 @@ as_handler(int bus)
 					if (as_data_ptr[bus].i2c_dma_mode == I2C_DMA_MODE)
                     {
 			i2c_as_write_reg(bus, as_data_ptr[bus].dma_addr, I2C_DMA_MODE_CONTROL_REG );
-                    	i2c_as_write_reg(bus, as_data_ptr[bus].MasterRX_len, I2C_DMA_MODE_STATUS_REG );
+                    	i2c_as_write_reg(bus, as_data_ptr[bus].MasterRX_len-1, I2C_DMA_MODE_STATUS_REG );
                         i2c_as_write_reg( bus, ENABLE_MASTER_SLAVE_RX_DMA_BUF|MASTER_STOP|MASTER_RECEIVE| MASTER_SLAVE_RECEIVE_COMMAND_LAST, I2C_CMD_STATUS_REG );
                     }
                     else
@@ -875,7 +904,7 @@ as_handler(int bus)
 						}
 						else
 						{
-							i2c_as_write_reg(bus, as_data_ptr[bus].MasterRX_len, I2C_DMA_MODE_STATUS_REG );
+							i2c_as_write_reg(bus, as_data_ptr[bus].MasterRX_len-1, I2C_DMA_MODE_STATUS_REG );
 							i2c_as_write_reg( bus, ENABLE_MASTER_SLAVE_RX_DMA_BUF|MASTER_STOP|MASTER_RECEIVE| MASTER_SLAVE_RECEIVE_COMMAND_LAST, I2C_CMD_STATUS_REG );
 						}
 					}
@@ -916,7 +945,7 @@ as_handler(int bus)
 	/* TX_ABRT geenrated as master */
 	if(i2c_int & MASTER_ARBITRATION_LOST)
 	{
-		printk("\ni2c bus 0x%x: !!!!!master-abort!!!!!!!!!\n",bus);
+		printk("\n !!!!!master-abort!!!!!!!!!\n");
 		
 		/* clear status bit */
 		i2c_as_write_reg( bus, (status2 | MASTER_ARBITRATION_LOST),I2C_INTR_STATUS_REG );
@@ -928,7 +957,7 @@ as_handler(int bus)
 
 	if(i2c_int & ABNORMAL_START_STOP_DETECTED)
 	{
-		printk("\ni2c bus 0x%x: !!!!!! master-abnormal stop-start !!!!!!!!!\n",bus);
+		printk("\n !!!!!! master-abnormal stop-start !!!!!!!!!\n");
 
 		/* clear status bit */
 		i2c_as_write_reg( bus, (status2 |ABNORMAL_START_STOP_DETECTED),I2C_INTR_STATUS_REG );

@@ -177,6 +177,11 @@ typedef struct
 #define VENDOR_ID_INTEL 0x57010000
 #define VENDOR_ID_BROADCOM 0x3d110000
 #define VENDOR_ID_MARVELL 0x210f0000
+#define VENDOR_ID_MELANOX 0x19810000
+
+/*------------------------ Broadcom specific OEM Command  ----------*/
+/* CMD ID for Get MAC */
+#define NCSI_OEM_BCM_CMD_GMA           0x16
 
 /*------------------------ NCSI Header  -----------------------------*/
 typedef struct
@@ -838,6 +843,71 @@ typedef struct
     UINT8           Pad[PAD_SIZE-(2+2+4+2+sizeof(NCSI_HDR))]; 
 } PACKED INTEL_OEM_SET_MANAGEMENT_CONTROL_RES_PKT; 
 
+/*******************************************
+ *               Mellanox
+ *******************************************/
+/* Mellanox Request Data */
+typedef struct
+{
+    NCSI_HDR        NcsiHdr;
+    UINT32          ManufacturerId;
+    UINT8           CmdRev;
+    UINT8           CmdID;
+    UINT8           CmdParam;
+    UINT8           CmdIndex;
+    UINT8           Pad[PAD_SIZE-(4+1+1+1+1+sizeof(NCSI_HDR))];
+} PACKED NCSI_REQ_MLX_OEM_PKT;
+
+/* Mellanox Response Data */
+typedef struct
+{
+    NCSI_HDR        NcsiHdr;
+    UINT16          ResponseCode;
+    UINT16          ReasonCode;
+    UINT32          ManufacturerId;
+    UINT8           Reserve[4];
+    UINT8           Data[16];
+    UINT8           Pad[PAD_SIZE-(4+4+4+16+sizeof(NCSI_HDR))];
+} PACKED NCSI_RSP_MLX_OEM_PKT;
+
+/*******************************************
+ *              End Mellanox
+ *******************************************/
+
+/*******************************************
+ *               Broadcom
+ *******************************************/
+/* Broadcom Request Data */
+typedef struct
+{
+    NCSI_HDR        NcsiHdr;
+    UINT32          ManufacturerId;
+    UINT8           OEMPayloadVer;
+    UINT8           OemCommandType;
+    UINT16          OEMPayloadLen;
+    UINT8           Reserved0[4];
+    UINT8           OEMSpecificData[4];
+    UINT8           Pad[PAD_SIZE-(4+4+4+4+sizeof(NCSI_HDR))];
+} PACKED NCSI_REQ_BCM_OEM_PKT;
+
+/* Broadcom Response Data */
+typedef struct
+{
+    NCSI_HDR        NcsiHdr;
+    UINT16          ResponseCode;
+    UINT16          ReasonCode;
+    UINT32          ManufacturerId;
+    UINT8           OEMPayloadVer;
+    UINT8           OemCommandType;
+    UINT16          OEMPayloadLen;
+    UINT8           OEMSpecificData[16];
+    UINT8           Pad[PAD_SIZE-(4+4+4+16+sizeof(NCSI_HDR))];
+} PACKED NCSI_RSP_BCM_OEM_PKT;
+
+/*******************************************
+ *              End Broadcom
+ *******************************************/
+
 typedef struct  
 { 
     NCSI_HDR        NcsiHdr;
@@ -885,6 +955,9 @@ int NCSI_Issue_GetParameters		(NCSI_IF_INFO *info, UINT8 PackageID, UINT8 Channe
 int NCSI_Issue_SetLink				(NCSI_IF_INFO *info,UINT8 PackageID,UINT8 ChannelID,
 											UINT8 AutoNeg,UINT32 Speed, UINT32 Duplex);
 int NCSI_Issue_OEM_SetIntelManagementControlCommand(NCSI_IF_INFO *info,UINT8 PackageID, UINT8 ChannelID,UINT8 IntelManagementControl);
+int NCSI_Issue_Vendor_OEM_GetSystemEthMACAddrControl(NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID, UINT8 *EthMACAddr);
+int NCSI_Issue_Mellanox_OEM_GetSystemEthMACAddrControl(NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID, UINT8 *EthMACAddr);
+int NCSI_Issue_Broadcom_OEM_GetSystemEthMACAddrControl(NCSI_IF_INFO *info, UINT8 PackageID, UINT8 ChannelID, UINT8 *EthMACAddr);
 
 void ProcessNCSI(NCSI_IF_INFO *info, struct sk_buff *skb);
 int SendNCSICommand(NCSI_IF_INFO *info);
