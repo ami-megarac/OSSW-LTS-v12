@@ -1,0 +1,12 @@
+libnetfilter-cttimeout (1.0.0-2) unstable; urgency=low
+
+  * [071be6d] Add vcs links
+  * [0bc7182] Add watch file
+
+ -- Alexander Wirt <formorer@debian.org>  Sun, 19 May 2013 07:52:48 +0200
+
+libnetfilter-cttimeout (1.0.0-1) unstable; urgency=low
+
+  * Initial upload
+
+ -- Alexander Wirt <formorer@debian.org>  Mon, 04 Jun 2012 22:18:59 +0200
