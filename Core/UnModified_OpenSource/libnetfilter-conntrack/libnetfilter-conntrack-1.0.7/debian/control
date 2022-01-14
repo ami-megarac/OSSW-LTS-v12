@@ -1,0 +1,39 @@
+Source: libnetfilter-conntrack
+Section: libs
+Priority: optional
+Maintainer: Debian Netfilter Packaging Team <pkg-netfilter-team@lists.alioth.debian.org>
+Uploaders: Alexander Wirt <formorer@debian.org>, Arturo Borrero Gonzalez <arturo@debian.org>
+Homepage: http://www.netfilter.org/projects/libnetfilter_conntrack/
+Build-Depends: debhelper (>= 9),
+               dh-autoreconf,
+               libmnl-dev (>= 1.0.3),
+               libnfnetlink-dev (>= 1.0.0),
+               libtool
+Standards-Version: 3.9.8
+Vcs-Git: https://salsa.debian.org:pkg-netfilter-team/pkg-libnetfilter-conntrack.git
+Vcs-Browser: https://salsa.debian.org:pkg-netfilter-team/pkg-libnetfilter-conntrack.git
+
+Package: libnetfilter-conntrack3
+Architecture: any
+Multi-Arch: same
+Pre-Depends: ${misc:Pre-Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: Netfilter netlink-conntrack library
+ libnetfilter_conntrack is a userspace library providing a programming
+ interface (API) to the in-kernel connection tracking state table.
+
+Package: libnetfilter-conntrack-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends: libnetfilter-conntrack3 (= ${binary:Version}),
+         libnfnetlink-dev (>= 1.0.0),
+         pkg-config,
+         ${misc:Depends},
+         ${misc:Pre-Depends},
+         ${shlibs:Depends}
+Description: Development files for libnetfilter-conntrack3
+ libnetfilter_conntrack is a userspace library providing a programming
+ interface (API) to the in-kernel connection tracking state table.
+ .
+ This package provides development files and static libraries.

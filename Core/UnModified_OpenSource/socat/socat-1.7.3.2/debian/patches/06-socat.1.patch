@@ -1,0 +1,70 @@
+--- socat-1.7.3.0.orig/doc/socat.1
++++ socat-1.7.3.0/doc/socat.1
+@@ -688,18 +688,12 @@ PIPE,
+ EXEC, SYSTEM
+ .IP "\fB\f(CWREADLINE\fP\fP"
+ Uses GNU readline and history on stdio to allow editing and reusing input
+-lines (example)\&. This requires the GNU readline and 
+-history libraries\&. Note that stdio should be a (pseudo) terminal device,
+-otherwise readline does not seem to work\&.
++lines (example)\&.
++.br
++Due to licensing restrictions the readline feature is disabled in Debian\&.
++See BUGS\&.
+ .br 
+-Option groups: FD,READLINE,TERMIOS 
+-.br 
+-Useful options:
+-history,
+-noecho
+-.br 
+-See also:
+-STDIO
++You can use STDIO instead\&.
+ .IP "\fB\f(CWSCTP\-CONNECT:<host>:<port>\fP\fP"
+ Establishes an SCTP stream connection to the specified <host> [IP
+ address] and <port> [TCP service]
+@@ -2003,6 +1997,8 @@ Makes the process the leader of a new se
+ .PP 
+ \fI\fBREADLINE option group\fP\fP
+ .PP 
++Due to licensing restrictions the readline feature is disabled in Debian (see BUGS)\&.
++.br
+ These options apply to the readline address type\&.
+ .IP "\fB\f(CWhistory=<filename>\fP\fP"
+ Reads and writes history from/to <filename> (example)\&.
+@@ -3259,7 +3259,6 @@ modem\&. rawer sets the console\(cq\&s a
+ ttyS0\(cq\&s terminal parameters to practicable values, crnl 
+ converts to correct newline characters\&. escape allows
+ terminating the socat process with character control\-O\&. 
+-Consider using READLINE instead of the first address\&.
+ .IP 
+ \.LP
+ \.nf
+@@ -3318,16 +3313,6 @@ If the file does not exist, socat creat\
+ Option reuseaddr allows immediate restart of the server
+ process\&. 
+ .IP 
+-.IP "\fB\f(CWsocat READLINE,noecho=\(cq\&[Pp]assword:\(cq\& EXEC:\(cq\&ftp ftp\&.server\&.com\(cq\&,pty,setsid,ctty\fP\fP"
+-
+-.IP 
+-wraps a command line history (READLINE) around the EXEC\(cq\&uted ftp client utility\&.
+-This allows editing and reuse of FTP commands for relatively comfortable
+-browsing through the ftp directory hierarchy\&. The password is echoed!
+-pty is required to have ftp issue a prompt\&.
+-Nevertheless, there may occur some confusion with the password and FTP
+-prompts\&.
+-.IP 
+ \.LP
+ \.nf
+ \fBsocat PTY,link=$HOME/dev/vmodem0,rawer,wait-slave \\\bf
+@@ -3733,7 +3718,8 @@ Verbose modes (\-x and/or \-v) display l
+ when address options cr or crnl are used: They show the data \fIafter\fP
+ conversion in either direction\&.
+ .PP 
+-The data transfer blocksize setting (\-b) is ignored with address readline\&.
++The licenses of OpenSSL and GNU Readline are incompatible\&. Therefore readline
++support is disabled in Debian\&.
+ .PP 
+ Send bug reports to <socat@dest\-unreach\&.org>
+ .PP 

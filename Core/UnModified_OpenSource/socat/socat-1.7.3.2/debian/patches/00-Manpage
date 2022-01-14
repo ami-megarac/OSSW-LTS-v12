@@ -1,0 +1,99 @@
+Port changes in manpage from previous versions to a quilt patch.
+Also fix errors in manpage.
+
+Author: Chris Taylor <ctaylor@debian.org>
+Date: 10FEB2010
+Last-Update: 2017-07-09
+--- socat-1.7.2.4.orig/doc/socat.1
++++ socat-1.7.2.4/doc/socat.1
+@@ -95,7 +95,7 @@ Writes messages to syslog instead of std
+ option\&. With optional <facility>, the syslog type can
+ be selected, default is \(dq\&daemon\(dq\&\&. Third party libraries might not obey this
+ option\&.
+-.IP "\fB\f(CW\-lf\fP\fP\f(CW <logfile>\fP"
++.IP "\fB\f(CW\-lf<logfile>\fP"
+ Writes messages to <logfile> [filename] instead of
+ stderr\&. Some third party libraries, in particular libwrap, might not obey
+ this option\&.
+@@ -3170,7 +3170,7 @@ close the relay with ^D or abort it with
+ .IP 
+ \.LP
+ \.nf
+-\fBsocat -d -d READLINE,history=$HOME/.http_history \\ 
++\fBsocat \-d \-d READLINE,history=$HOME/.http_history \\ 
+ TCP4:www.domain.org:www,crnl\fP
+ \.fi
+ .IP 
+@@ -3188,11 +3188,11 @@ installs a simple TCP port forwarder\&.
+ TCP4\-LISTEN it listens on local port \(dq\&www\(dq\& until a
+ connection comes in, accepts it, then connects to the remote host
+ (TCP4) and starts data transfer\&. It will not accept
+-a econd connection\&. 
++a second connection\&. 
+ .IP 
+ \.LP
+ \.nf
+-\fBsocat -d -d -lmlocal2 \\ 
++\fBsocat \-d \-d \-lmlocal2 \\ 
+ TCP4-LISTEN:80,bind=myaddr1,reuseaddr,fork,su=nobody,range=10.0.0.0/8 \\ 
+ TCP4:www.domain.org:80,bind=myaddr2\fP
+ \.fi
+@@ -3297,7 +3297,7 @@ might also be a listening UNIX domain so
+ \.LP
+ \.nf
+ \fB(sleep 5; echo PASSWORD; sleep 5; echo ls; sleep 1) | 
+-socat - EXEC:'ssh -l user server',pty,setsid,ctty\fP
++socat - EXEC:'ssh \-l user server',pty,setsid,ctty\fP
+ \.fi
+ .IP 
+ EXEC\(cq\&utes an ssh session to server\&. Uses a pty for communication between \fBsocat\fP and
+@@ -3307,7 +3307,7 @@ a new process group (setsid), so ssh acc
+ .IP 
+ \.LP
+ \.nf
+-\fBsocat -u TCP4-LISTEN:3334,reuseaddr,fork \\ 
++\fBsocat \-u TCP4-LISTEN:3334,reuseaddr,fork \\ 
+ OPEN:/tmp/in.log,creat,append\fP
+ \.fi
+ .IP 
+@@ -3354,7 +3354,7 @@ through the proxy daemon listening on po
+ CONNECT method, where they are authenticated as \(dq\&user\(dq\& with \(dq\&pass\(dq\& (proxyauth)\&. The proxy 
+ should establish connections to host www\&.domain\&.org on port 22 then\&.
+ .IP 
+-.IP "\fB\f(CWsocat \- SSL:server:4443,cafile=server\&.crt,cert=client\&.pem\fP\fP"
++.IP "\fB\f(CWsocat \- OPENSSL:server:4443,cafile=server\&.crt,cert=client\&.pem\fP\fP"
+ 
+ .IP 
+ is an OpenSSL client that tries to establish a secure connection to an SSL
+@@ -3398,7 +3398,7 @@ connection, invokes a shell\&. This shel
+ connected to the TCP socket (nofork)\&.  The shell starts filan and lets it print the socket addresses to
+ stderr (your terminal window)\&.
+ .IP 
+-.IP "\fB\f(CWecho \-e \(dq\&\e0\e14\e0\e0\ec\(dq\& |socat \-u \- file:/usr/bin/squid\&.exe,seek=0x00074420\fP\fP"
++.IP "\fB\f(CWecho \-en \(dq\&\e0\e14\e0\e0\ec\(dq\& |socat \-u \- file:/usr/bin/squid\&.exe,seek=0x00074420\fP\fP"
+ 
+ .IP 
+ functions as primitive binary editor: it writes the 4 bytes 000 014 000 000 to
+@@ -3426,8 +3426,9 @@ connection)\&.
+ sends a broadcast to the network 192\&.168\&.1\&.0/24 and receives the replies of the
+ timeservers there\&. Ignores NTP packets from hosts outside this network\&.
+ .IP 
+-.IP "\fB\f(CWsocat \- SOCKET\-DATAGRAM:2:2:17:x007bxc0a80100x0000000000000000,bind=x007bx00000000x0000000000000000,setsockopt\-int=1:6:1,range=x0000xc0a80100x0000000000000000:x0000xffffff00x0000000000000000\fP\fP"
+-
++.ad l
++.IP "\fB\f(CWsocat \- SOCKET\-DATAGRAM:2:2:17:x007bxc0a80100x0000000000000000,b\%ind=x007bx00000000x0000000000000000,setsockopt\-int=1:6:1,r\%ange=x0000xc0a80100x0000000000000000:x0000xffffff00x0000000000000000\fP\fP"
++.na
+ .IP 
+ is semantically equivalent to the previous
+ example, but all parameters are
+@@ -3469,8 +3470,9 @@ socat creates a PTY to make pppd happy,
+ interface \f(CWhdlc0\fP, and can transfer data between
+ both devices\&. Use pppd on device \f(CW/var/run/ppp\fP then\&.
+ .IP 
++.ad l
+ .IP "\fB\f(CWsocat \-T 1 \-d \-d TCP\-L:10081,reuseaddr,fork,crlf SYSTEM:\(dq\&echo \-e \e\(dq\&\e\e\e\(dq\&HTTP/1\&.0 200 OK\e\e\enDocumentType: text/plain\e\e\en\e\e\endate: \e$\e(date\e)\e\e\enserver:\e$SOCAT_SOCKADDR:\e$SOCAT_SOCKPORT\e\e\enclient: \e$SOCAT_PEERADDR:\e$SOCAT_PEERPORT\e\e\en\e\e\e\(dq\&\e\(dq\&; cat; echo \-e \e\(dq\&\e\e\e\(dq\&\e\e\en\e\e\e\(dq\&\e\(dq\&\(dq\&\fP\fP"
+-
++.na
+ .IP 
+ creates a simple HTTP echo server: each HTTP client that connects gets a valid
+ HTTP reply that contains information about the client address and port as it is

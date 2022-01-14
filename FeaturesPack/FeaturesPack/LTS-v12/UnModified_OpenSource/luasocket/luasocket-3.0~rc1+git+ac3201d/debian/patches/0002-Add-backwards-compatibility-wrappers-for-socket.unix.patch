@@ -1,0 +1,135 @@
+From: Courtney Bane <git-1691@cbane.org>
+Date: Wed, 25 Jan 2017 18:04:35 -0600
+Subject: Add backwards compatibility wrappers for socket.unix
+
+Add backwards compatibility aliases "tcp" and "udp" for the recently renamed
+"stream" and "dgram" functions, as well as a wrapper function and metatable
+setup so that socket.unix() calls socket.unix.stream().
+
+(cherry picked from commit ea0064625b2a4cf279977477fe2ca627afbd5ad0)
+---
+ src/unix.c | 50 +++++++++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 45 insertions(+), 5 deletions(-)
+
+diff --git a/src/unix.c b/src/unix.c
+index 2009c19..d362a3b 100644
+--- a/src/unix.c
++++ b/src/unix.c
+@@ -17,14 +17,54 @@ static const luaL_Reg mod[] = {
+     {NULL, NULL}
+ };
+ 
++static void add_alias(lua_State *L, int index, const char *name, const char *target)
++{
++    lua_getfield(L, index, target);
++    lua_setfield(L, index, name);
++}
++
++static int compat_socket_unix_call(lua_State *L)
++{
++    /* Look up socket.unix.stream in the socket.unix table (which is the first
++     * argument). */
++    lua_getfield(L, 1, "stream");
++
++    /* Replace the stack entry for the socket.unix table with the
++     * socket.unix.stream function. */
++    lua_replace(L, 1);
++
++    /* Call socket.unix.stream, passing along any arguments. */
++    int n = lua_gettop(L);
++    lua_call(L, n-1, LUA_MULTRET);
++
++    /* Pass along the return values from socket.unix.stream. */
++    n = lua_gettop(L);
++    return n;
++}
++
+ /*-------------------------------------------------------------------------*\
+ * Initializes module
+ \*-------------------------------------------------------------------------*/
+ int luaopen_socket_unix(lua_State *L)
+ {
+-	int i;
+-	lua_newtable(L);
+-    for (i = 0; mod[i].name; i++) mod[i].func(L);
+-	return 1;
+-}
++    int i;
++    lua_newtable(L);
++    int socket_unix_table = lua_gettop(L);
++
++    for (i = 0; mod[i].name; i++)
++        mod[i].func(L);
+ 
++    /* Add backwards compatibility aliases "tcp" and "udp" for the "stream" and
++     * "dgram" functions. */
++    add_alias(L, socket_unix_table, "tcp", "stream");
++    add_alias(L, socket_unix_table, "udp", "dgram");
++
++    /* Add a backwards compatibility function and a metatable setup to call it
++     * for the old socket.unix() interface. */
++    lua_pushcfunction(L, compat_socket_unix_call);
++    lua_setfield(L, socket_unix_table, "__call");
++    lua_pushvalue(L, socket_unix_table);
++    lua_setmetatable(L, socket_unix_table);
++
++    return 1;
++}
+-- 
+2.11.0
+
+From: Mathieu Parent <math.parent@gmail.com>
+Date: Thu, 26 Jan 2017 08:04:52 +0100
+Subject: Change backward compat by forward compat
+
+---
+ src/unix.c | 18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
+
+diff --git a/src/unix.c b/src/unix.c
+index d362a3b..74c5392 100644
+--- a/src/unix.c
++++ b/src/unix.c
+@@ -25,19 +25,19 @@ static void add_alias(lua_State *L, int index, const char *name, const char *tar
+ 
+ static int compat_socket_unix_call(lua_State *L)
+ {
+-    /* Look up socket.unix.stream in the socket.unix table (which is the first
++    /* Look up socket.unix.tcp in the socket.unix table (which is the first
+      * argument). */
+-    lua_getfield(L, 1, "stream");
++    lua_getfield(L, 1, "tcp");
+ 
+     /* Replace the stack entry for the socket.unix table with the
+-     * socket.unix.stream function. */
++     * socket.unix.tcp function. */
+     lua_replace(L, 1);
+ 
+-    /* Call socket.unix.stream, passing along any arguments. */
++    /* Call socket.unix.tcp, passing along any arguments. */
+     int n = lua_gettop(L);
+     lua_call(L, n-1, LUA_MULTRET);
+ 
+-    /* Pass along the return values from socket.unix.stream. */
++    /* Pass along the return values from socket.unix.tcp. */
+     n = lua_gettop(L);
+     return n;
+ }
+@@ -54,10 +54,10 @@ int luaopen_socket_unix(lua_State *L)
+     for (i = 0; mod[i].name; i++)
+         mod[i].func(L);
+ 
+-    /* Add backwards compatibility aliases "tcp" and "udp" for the "stream" and
+-     * "dgram" functions. */
+-    add_alias(L, socket_unix_table, "tcp", "stream");
+-    add_alias(L, socket_unix_table, "udp", "dgram");
++    /* Add forward compatibility aliases "stream" and "dgram" for the "tcp" and
++     * "udp" functions. */
++    add_alias(L, socket_unix_table, "stream", "tcp");
++    add_alias(L, socket_unix_table, "dgram", "udp");
+ 
+     /* Add a backwards compatibility function and a metatable setup to call it
+      * for the old socket.unix() interface. */
+-- 
+2.11.0
+

@@ -1,0 +1,2 @@
+no-arm-unaligned-access
+0002-mips-o32-fix-build.patch

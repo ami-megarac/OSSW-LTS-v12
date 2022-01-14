@@ -1,0 +1,27 @@
+Description: Two spelling mistakes in rsync.yo
+Author: Paul Slootman <paul@debian.org>
+Forwarded: https://bugzilla.samba.org/show_bug.cgi?id=13734
+Origin: other
+Bug: https://bugzilla.samba.org/show_bug.cgi?id=13734
+Last-Update: 2019-01-01
+
+--- rsync-3.1.3.orig/rsync.yo
++++ rsync-3.1.3/rsync.yo
+@@ -1324,7 +1324,7 @@ batch-writing option is in effect.
+ 
+ dit(bf(--checksum-choice=STR)) This option overrides the checksum algoriths.
+ If one algorithm name is specified, it is used for both the transfer checksums
+-and (assuming bf(--checksum) is specifed) the pre-transfer checksumming. If two
++and (assuming bf(--checksum) is specified) the pre-transfer checksumming. If two
+ comma-separated names are supplied, the first name affects the transfer
+ checksums, and the second name affects the pre-transfer checksumming.
+ 
+@@ -2334,7 +2334,7 @@ units of 1024.
+ 
+ The default is human-readable level 1.  Each bf(-h) option increases the level
+ by one.  You can take the level down to 0 (to output numbers as pure digits) by
+-specifing the bf(--no-human-readable) (bf(--no-h)) option.
++specifying the bf(--no-human-readable) (bf(--no-h)) option.
+ 
+ The unit letters that are appended in levels 2 and 3 are: K (kilo), M (mega),
+ G (giga), or T (tera).  For example, a 1234567-byte file would output as 1.23M

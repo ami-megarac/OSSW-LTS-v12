@@ -1,0 +1,41 @@
+From 18450d0abe36757fe6e4eb08f6b15f8ce943f9cb Mon Sep 17 00:00:00 2001
+From: Qi Wang <interwq@gwu.edu>
+Date: Tue, 19 Feb 2019 15:58:13 -0800
+Subject: [PATCH] Guard libgcc unwind init with opt_prof.
+
+Only triggers libgcc unwind init when prof is enabled.  This helps workaround
+some bootstrapping issues.
+---
+ src/prof.c | 14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
+
+diff --git a/src/prof.c b/src/prof.c
+index 71de2d34..296de527 100644
+--- a/src/prof.c
++++ b/src/prof.c
+@@ -2382,16 +2382,14 @@ prof_boot2(tsd_t *tsd) {
+ 				return true;
+ 			}
+ 		}
+-	}
+-
+ #ifdef JEMALLOC_PROF_LIBGCC
+-	/*
+-	 * Cause the backtracing machinery to allocate its internal state
+-	 * before enabling profiling.
+-	 */
+-	_Unwind_Backtrace(prof_unwind_init_callback, NULL);
++		/*
++		 * Cause the backtracing machinery to allocate its internal
++		 * state before enabling profiling.
++		 */
++		_Unwind_Backtrace(prof_unwind_init_callback, NULL);
+ #endif
+-
++	}
+ 	prof_booted = true;
+ 
+ 	return false;
+-- 
+2.20.1
+

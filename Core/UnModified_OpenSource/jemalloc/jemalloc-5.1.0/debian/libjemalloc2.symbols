@@ -1,0 +1,46 @@
+libjemalloc.so.2 libjemalloc2 #MINVER#
+* Build-Depends-Package: libjemalloc-dev
+ (c++)"operator delete[](void*)@Base" 5.0.0
+ (c++)"operator delete[](void*, std::nothrow_t const&)@Base" 5.0.0
+ (c++)"operator delete(void*)@Base" 5.0.0
+ (c++)"operator delete(void*, std::nothrow_t const&)@Base" 5.0.0
+ (c++|arch-bits=32)"operator delete[](void*, unsigned int)@Base" 5.0.0
+ (c++|arch-bits=32)"operator delete(void*, unsigned int)@Base" 5.0.0
+ (c++|arch-bits=32)"operator new[](unsigned int)@Base" 5.0.0
+ (c++|arch-bits=32)"operator new[](unsigned int, std::nothrow_t const&)@Base" 5.0.0
+ (c++|arch-bits=32)"operator new(unsigned int)@Base" 5.0.0
+ (c++|arch-bits=32)"operator new(unsigned int, std::nothrow_t const&)@Base" 5.0.0
+ (c++|arch-bits=64)"operator delete[](void*, unsigned long)@Base" 5.0.0
+ (c++|arch-bits=64)"operator delete(void*, unsigned long)@Base" 5.0.0
+ (c++|arch-bits=64)"operator new[](unsigned long)@Base" 5.0.0
+ (c++|arch-bits=64)"operator new[](unsigned long, std::nothrow_t const&)@Base" 5.0.0
+ (c++|arch-bits=64)"operator new(unsigned long)@Base" 5.0.0
+ (c++|arch-bits=64)"operator new(unsigned long, std::nothrow_t const&)@Base" 5.0.0
+ (arch=gnu-any-any gnuabi64-any-any gnuabin32-any-any gnueabi-any-any gnueabihf-any-any gnuspe-any-any gnux33-any-any)__free_hook@Base 3.0.0
+ (arch=gnu-any-any gnuabi64-any-any gnuabin32-any-any gnueabi-any-any gnueabihf-any-any gnuspe-any-any gnux33-any-any)__malloc_hook@Base 3.0.0
+ (arch=gnu-any-any gnuabi64-any-any gnuabin32-any-any gnueabi-any-any gnueabihf-any-any gnuspe-any-any gnux33-any-any)__memalign_hook@Base 3.0.0
+ (arch=gnu-any-any gnuabi64-any-any gnuabin32-any-any gnueabi-any-any gnueabihf-any-any gnuspe-any-any gnux33-any-any)__realloc_hook@Base 3.0.0
+ aligned_alloc@Base 3.0.0
+ calloc@Base 2.1.1
+ dallocx@Base 3.5.0
+ free@Base 2.1.1
+ je_hooks_arena_new_hook@Base 5.0.0
+ je_hooks_libc_hook@Base 5.0.0
+ mallctl@Base 2.1.1
+ mallctlbymib@Base 2.1.1
+ mallctlnametomib@Base 2.1.1
+ malloc@Base 2.1.1
+ malloc_conf@Base 2.1.1
+ malloc_message@Base 2.1.1
+ malloc_stats_print@Base 2.1.1
+ malloc_usable_size@Base 2.1.1
+ mallocx@Base 3.5.0
+ memalign@Base 2.1.1
+ nallocx@Base 3.5.0
+ posix_memalign@Base 2.1.1
+ rallocx@Base 3.5.0
+ realloc@Base 2.1.1
+ sallocx@Base 3.5.0
+ sdallocx@Base 4.0.0
+ valloc@Base 2.1.1
+ xallocx@Base 3.5.0

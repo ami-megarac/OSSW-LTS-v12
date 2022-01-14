@@ -1,0 +1,20 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+export BUILD_DATE = $(shell LC_ALL=C date -u --date="`dpkg-parsechangelog -SDate`" +'%b %e %Y %H:%M:%S')
+
+# upsteram maintains config.h.in manually
+export AUTOHEADER = true
+
+%:
+	dh $@ --with=autoreconf
+
+override_dh_auto_configure:
+	dh_auto_configure -- --disable-readline
+
+override_dh_auto_test:
+
+.PHONY: override_dh_auto_configure override_dh_auto_test

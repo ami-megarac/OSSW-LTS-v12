@@ -1,0 +1,37 @@
+Source: bc
+Section: math
+Priority: standard
+Maintainer: Ryan Kavanagh <rak@debian.org>
+Standards-Version: 4.1.3
+Build-Depends: bison
+ , debhelper (>= 11)
+ , ed
+ , file
+ , flex
+ , libreadline-dev | libreadline6-dev
+ , texinfo
+Homepage: http://ftp.gnu.org/gnu/bc/
+Vcs-Git: https://salsa.debian.org/debian/bc.git
+Vcs-Browser: https://salsa.debian.org/debian/bc
+
+Package: bc
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Multi-Arch: foreign
+Description: GNU bc arbitrary precision calculator language
+ GNU bc is an interactive algebraic language with arbitrary precision which
+ follows the POSIX 1003.2 draft standard, with several extensions including
+ multi-character variable names, an `else' statement and full Boolean 
+ expressions.  GNU bc does not require the separate GNU dc program.
+
+Package: dc
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Multi-Arch: foreign
+Description: GNU dc arbitrary precision reverse-polish calculator
+ GNU dc is a reverse-polish desk calculator which supports unlimited 
+ precision arithmetic.  It also allows you to define and call macros. 
+ .
+ A reverse-polish calculator stores numbers on a stack. Entering a number
+ pushes it on the stack.  Arithmetic operations pop arguments off the 
+ stack and push the results.

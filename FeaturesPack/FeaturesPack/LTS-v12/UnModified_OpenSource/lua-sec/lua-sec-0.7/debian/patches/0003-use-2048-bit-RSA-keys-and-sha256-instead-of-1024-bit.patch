@@ -1,0 +1,370 @@
+From: Daniel Kahn Gillmor <dkg@fifthhorseman.net>
+Date: Thu, 30 Aug 2018 14:53:01 -0400
+Subject: use 2048-bit RSA keys and sha256 instead of 1024-bit RSA and sha1
+
+According to Kurt Roeckx in https://bugs.debian.org/906997, the test
+suite is failing when built against libssl 1.1.1 because we require at
+least 2048-bit keys.
+
+We also move from sha1 to sha256, as we're updating our cryptographic
+primitives.
+---
+ samples/certs/clientA.bat  | 4 ++--
+ samples/certs/clientA.cnf  | 4 ++--
+ samples/certs/clientA.sh   | 4 ++--
+ samples/certs/clientB.bat  | 4 ++--
+ samples/certs/clientB.cnf  | 4 ++--
+ samples/certs/clientB.sh   | 4 ++--
+ samples/certs/rootA.bat    | 4 ++--
+ samples/certs/rootA.cnf    | 4 ++--
+ samples/certs/rootA.sh     | 4 ++--
+ samples/certs/rootB.bat    | 4 ++--
+ samples/certs/rootB.cnf    | 4 ++--
+ samples/certs/rootB.sh     | 4 ++--
+ samples/certs/serverA.bat  | 4 ++--
+ samples/certs/serverA.cnf  | 4 ++--
+ samples/certs/serverA.sh   | 4 ++--
+ samples/certs/serverB.bat  | 4 ++--
+ samples/certs/serverB.cnf  | 4 ++--
+ samples/certs/serverB.sh   | 4 ++--
+ samples/dhparam/params.sh  | 2 +-
+ samples/dhparam/server.lua | 4 ++--
+ 20 files changed, 39 insertions(+), 39 deletions(-)
+
+diff --git a/samples/certs/clientA.bat b/samples/certs/clientA.bat
+index 112cdef..f70a832 100644
+--- a/samples/certs/clientA.bat
++++ b/samples/certs/clientA.bat
+@@ -1,8 +1,8 @@
+ rem #!/bin/sh
+ 
+-openssl req -newkey rsa:1024 -sha1 -keyout clientAkey.pem -out clientAreq.pem -nodes -config ./clientA.cnf -days 365 -batch
++openssl req -newkey rsa:2048 -sha256 -keyout clientAkey.pem -out clientAreq.pem -nodes -config ./clientA.cnf -days 365 -batch
+ 
+-openssl x509 -req -in clientAreq.pem -sha1 -extfile ./clientA.cnf -extensions usr_cert -CA rootA.pem -CAkey rootAkey.pem -CAcreateserial -out clientAcert.pem -days 365
++openssl x509 -req -in clientAreq.pem -sha256 -extfile ./clientA.cnf -extensions usr_cert -CA rootA.pem -CAkey rootAkey.pem -CAcreateserial -out clientAcert.pem -days 365
+ 
+ copy clientAcert.pem + rootA.pem clientA.pem
+ 
+diff --git a/samples/certs/clientA.cnf b/samples/certs/clientA.cnf
+index f938d90..d88219c 100644
+--- a/samples/certs/clientA.cnf
++++ b/samples/certs/clientA.cnf
+@@ -67,7 +67,7 @@ cert_opt 	= ca_default		# Certificate field options
+ 
+ default_days	= 365			# how long to certify for
+ default_crl_days= 30			# how long before next CRL
+-default_md	= sha1			# which md to use.
++default_md	= sha256			# which md to use.
+ preserve	= no			# keep passed DN ordering
+ 
+ # A few difference way of specifying how similar the request should look
+@@ -98,7 +98,7 @@ emailAddress		= optional
+ 
+ ####################################################################
+ [ req ]
+-default_bits		= 1024
++default_bits		= 2048
+ default_keyfile 	= privkey.pem
+ distinguished_name	= req_distinguished_name
+ attributes		= req_attributes
+diff --git a/samples/certs/clientA.sh b/samples/certs/clientA.sh
+index 0350ede..118e186 100755
+--- a/samples/certs/clientA.sh
++++ b/samples/certs/clientA.sh
+@@ -1,9 +1,9 @@
+ #!/bin/sh
+ 
+-openssl req -newkey rsa:1024 -sha1 -keyout clientAkey.pem -out clientAreq.pem \
++openssl req -newkey rsa:2048 -sha256 -keyout clientAkey.pem -out clientAreq.pem \
+   -nodes -config ./clientA.cnf -days 365 -batch
+ 
+-openssl x509 -req -in clientAreq.pem -sha1 -extfile ./clientA.cnf \
++openssl x509 -req -in clientAreq.pem -sha256 -extfile ./clientA.cnf \
+   -extensions usr_cert -CA rootA.pem -CAkey rootAkey.pem -CAcreateserial \
+   -out clientAcert.pem -days 365
+ 
+diff --git a/samples/certs/clientB.bat b/samples/certs/clientB.bat
+index 9f341f6..ded7537 100644
+--- a/samples/certs/clientB.bat
++++ b/samples/certs/clientB.bat
+@@ -1,8 +1,8 @@
+ rem #!/bin/sh
+ 
+-openssl req -newkey rsa:1024 -sha1 -keyout clientBkey.pem -out clientBreq.pem -nodes -config ./clientB.cnf -days 365 -batch
++openssl req -newkey rsa:2048 -sha256 -keyout clientBkey.pem -out clientBreq.pem -nodes -config ./clientB.cnf -days 365 -batch
+ 
+-openssl x509 -req -in clientBreq.pem -sha1 -extfile ./clientB.cnf -extensions usr_cert -CA rootB.pem -CAkey rootBkey.pem -CAcreateserial -out clientBcert.pem -days 365
++openssl x509 -req -in clientBreq.pem -sha256 -extfile ./clientB.cnf -extensions usr_cert -CA rootB.pem -CAkey rootBkey.pem -CAcreateserial -out clientBcert.pem -days 365
+ 
+ copy clientBcert.pem + rootB.pem clientB.pem
+ 
+diff --git a/samples/certs/clientB.cnf b/samples/certs/clientB.cnf
+index 40405d1..dfa07eb 100644
+--- a/samples/certs/clientB.cnf
++++ b/samples/certs/clientB.cnf
+@@ -67,7 +67,7 @@ cert_opt 	= ca_default		# Certificate field options
+ 
+ default_days	= 365			# how long to certify for
+ default_crl_days= 30			# how long before next CRL
+-default_md	= sha1			# which md to use.
++default_md	= sha256			# which md to use.
+ preserve	= no			# keep passed DN ordering
+ 
+ # A few difference way of specifying how similar the request should look
+@@ -98,7 +98,7 @@ emailAddress		= optional
+ 
+ ####################################################################
+ [ req ]
+-default_bits		= 1024
++default_bits		= 2048
+ default_keyfile 	= privkey.pem
+ distinguished_name	= req_distinguished_name
+ attributes		= req_attributes
+diff --git a/samples/certs/clientB.sh b/samples/certs/clientB.sh
+index 94f8986..a39ae83 100755
+--- a/samples/certs/clientB.sh
++++ b/samples/certs/clientB.sh
+@@ -1,9 +1,9 @@
+ #!/bin/sh
+ 
+-openssl req -newkey rsa:1024 -sha1 -keyout clientBkey.pem -out clientBreq.pem \
++openssl req -newkey rsa:2048 -sha256 -keyout clientBkey.pem -out clientBreq.pem \
+   -nodes -config ./clientB.cnf -days 365 -batch
+ 
+-openssl x509 -req -in clientBreq.pem -sha1 -extfile ./clientB.cnf \
++openssl x509 -req -in clientBreq.pem -sha256 -extfile ./clientB.cnf \
+   -extensions usr_cert -CA rootB.pem -CAkey rootBkey.pem -CAcreateserial \
+   -out clientBcert.pem -days 365
+ 
+diff --git a/samples/certs/rootA.bat b/samples/certs/rootA.bat
+index 6449bfa..d884e54 100644
+--- a/samples/certs/rootA.bat
++++ b/samples/certs/rootA.bat
+@@ -1,7 +1,7 @@
+ REM #!/bin/sh
+ 
+-openssl req -newkey rsa:1024 -sha1 -keyout rootAkey.pem -out rootAreq.pem -nodes -config ./rootA.cnf -days 365 -batch
++openssl req -newkey rsa:2048 -sha256 -keyout rootAkey.pem -out rootAreq.pem -nodes -config ./rootA.cnf -days 365 -batch
+ 
+-openssl x509 -req -in rootAreq.pem -sha1 -extfile ./rootA.cnf -extensions v3_ca -signkey rootAkey.pem -out rootA.pem -days 365
++openssl x509 -req -in rootAreq.pem -sha256 -extfile ./rootA.cnf -extensions v3_ca -signkey rootAkey.pem -out rootA.pem -days 365
+ 
+ openssl x509 -subject -issuer -noout -in rootA.pem
+diff --git a/samples/certs/rootA.cnf b/samples/certs/rootA.cnf
+index a16a6de..7e68d7a 100644
+--- a/samples/certs/rootA.cnf
++++ b/samples/certs/rootA.cnf
+@@ -67,7 +67,7 @@ cert_opt 	= ca_default		# Certificate field options
+ 
+ default_days	= 365			# how long to certify for
+ default_crl_days= 30			# how long before next CRL
+-default_md	= sha1			# which md to use.
++default_md	= sha256			# which md to use.
+ preserve	= no			# keep passed DN ordering
+ 
+ # A few difference way of specifying how similar the request should look
+@@ -98,7 +98,7 @@ emailAddress		= optional
+ 
+ ####################################################################
+ [ req ]
+-default_bits		= 1024
++default_bits		= 2048
+ default_keyfile 	= privkey.pem
+ distinguished_name	= req_distinguished_name
+ attributes		= req_attributes
+diff --git a/samples/certs/rootA.sh b/samples/certs/rootA.sh
+index 7b588bf..fcfcd73 100755
+--- a/samples/certs/rootA.sh
++++ b/samples/certs/rootA.sh
+@@ -1,7 +1,7 @@
+ #!/bin/sh
+ 
+-openssl req -newkey rsa:1024 -sha1 -keyout rootAkey.pem -out rootAreq.pem -nodes -config ./rootA.cnf -days 365 -batch
++openssl req -newkey rsa:2048 -sha256 -keyout rootAkey.pem -out rootAreq.pem -nodes -config ./rootA.cnf -days 365 -batch
+ 
+-openssl x509 -req -in rootAreq.pem -sha1 -extfile ./rootA.cnf -extensions v3_ca -signkey rootAkey.pem -out rootA.pem -days 365
++openssl x509 -req -in rootAreq.pem -sha256 -extfile ./rootA.cnf -extensions v3_ca -signkey rootAkey.pem -out rootA.pem -days 365
+ 
+ openssl x509 -subject -issuer -noout -in rootA.pem
+diff --git a/samples/certs/rootB.bat b/samples/certs/rootB.bat
+index 99f358a..7226a8b 100644
+--- a/samples/certs/rootB.bat
++++ b/samples/certs/rootB.bat
+@@ -1,7 +1,7 @@
+ rem #!/bin/sh
+ 
+-openssl req -newkey rsa:1024 -sha1 -keyout rootBkey.pem -out rootBreq.pem -nodes -config ./rootB.cnf -days 365 -batch
++openssl req -newkey rsa:2048 -sha256 -keyout rootBkey.pem -out rootBreq.pem -nodes -config ./rootB.cnf -days 365 -batch
+ 
+-openssl x509 -req -in rootBreq.pem -sha1 -extfile ./rootB.cnf -extensions v3_ca -signkey rootBkey.pem -out rootB.pem -days 365
++openssl x509 -req -in rootBreq.pem -sha256 -extfile ./rootB.cnf -extensions v3_ca -signkey rootBkey.pem -out rootB.pem -days 365
+ 
+ openssl x509 -subject -issuer -noout -in rootB.pem
+diff --git a/samples/certs/rootB.cnf b/samples/certs/rootB.cnf
+index 3627abc..703a8ee 100644
+--- a/samples/certs/rootB.cnf
++++ b/samples/certs/rootB.cnf
+@@ -67,7 +67,7 @@ cert_opt 	= ca_default		# Certificate field options
+ 
+ default_days	= 365			# how long to certify for
+ default_crl_days= 30			# how long before next CRL
+-default_md	= sha1			# which md to use.
++default_md	= sha256			# which md to use.
+ preserve	= no			# keep passed DN ordering
+ 
+ # A few difference way of specifying how similar the request should look
+@@ -98,7 +98,7 @@ emailAddress		= optional
+ 
+ ####################################################################
+ [ req ]
+-default_bits		= 1024
++default_bits		= 2048
+ default_keyfile 	= privkey.pem
+ distinguished_name	= req_distinguished_name
+ attributes		= req_attributes
+diff --git a/samples/certs/rootB.sh b/samples/certs/rootB.sh
+index 53969b3..07b53a4 100755
+--- a/samples/certs/rootB.sh
++++ b/samples/certs/rootB.sh
+@@ -1,7 +1,7 @@
+ #!/bin/sh
+ 
+-openssl req -newkey rsa:1024 -sha1 -keyout rootBkey.pem -out rootBreq.pem -nodes -config ./rootB.cnf -days 365 -batch
++openssl req -newkey rsa:2048 -sha256 -keyout rootBkey.pem -out rootBreq.pem -nodes -config ./rootB.cnf -days 365 -batch
+ 
+-openssl x509 -req -in rootBreq.pem -sha1 -extfile ./rootB.cnf -extensions v3_ca -signkey rootBkey.pem -out rootB.pem -days 365
++openssl x509 -req -in rootBreq.pem -sha256 -extfile ./rootB.cnf -extensions v3_ca -signkey rootBkey.pem -out rootB.pem -days 365
+ 
+ openssl x509 -subject -issuer -noout -in rootB.pem
+diff --git a/samples/certs/serverA.bat b/samples/certs/serverA.bat
+index 78934d5..c2cc9ba 100644
+--- a/samples/certs/serverA.bat
++++ b/samples/certs/serverA.bat
+@@ -1,8 +1,8 @@
+ rem #!/bin/sh
+ 
+-openssl req -newkey rsa:1024 -keyout serverAkey.pem -out serverAreq.pem -config ./serverA.cnf -nodes -days 365 -batch
++openssl req -newkey rsa:2048 -keyout serverAkey.pem -out serverAreq.pem -config ./serverA.cnf -nodes -days 365 -batch
+ 
+-openssl x509 -req -in serverAreq.pem -sha1 -extfile ./serverA.cnf -extensions usr_cert -CA rootA.pem -CAkey rootAkey.pem -CAcreateserial -out serverAcert.pem -days 365
++openssl x509 -req -in serverAreq.pem -sha256 -extfile ./serverA.cnf -extensions usr_cert -CA rootA.pem -CAkey rootAkey.pem -CAcreateserial -out serverAcert.pem -days 365
+ 
+ copy serverAcert.pem + rootA.pem serverA.pem
+ 
+diff --git a/samples/certs/serverA.cnf b/samples/certs/serverA.cnf
+index b8d18fc..ee05b80 100644
+--- a/samples/certs/serverA.cnf
++++ b/samples/certs/serverA.cnf
+@@ -67,7 +67,7 @@ cert_opt 	= ca_default		# Certificate field options
+ 
+ default_days	= 365			# how long to certify for
+ default_crl_days= 30			# how long before next CRL
+-default_md	= sha1			# which md to use.
++default_md	= sha256			# which md to use.
+ preserve	= no			# keep passed DN ordering
+ 
+ # A few difference way of specifying how similar the request should look
+@@ -98,7 +98,7 @@ emailAddress		= optional
+ 
+ ####################################################################
+ [ req ]
+-default_bits		= 1024
++default_bits		= 2048
+ default_keyfile 	= privkey.pem
+ distinguished_name	= req_distinguished_name
+ attributes		= req_attributes
+diff --git a/samples/certs/serverA.sh b/samples/certs/serverA.sh
+index 7fa04e0..ac2b09d 100755
+--- a/samples/certs/serverA.sh
++++ b/samples/certs/serverA.sh
+@@ -1,9 +1,9 @@
+ #!/bin/sh
+ 
+-openssl req -newkey rsa:1024 -keyout serverAkey.pem -out serverAreq.pem \
++openssl req -newkey rsa:2048 -keyout serverAkey.pem -out serverAreq.pem \
+    -config ./serverA.cnf -nodes -days 365 -batch
+ 
+-openssl x509 -req -in serverAreq.pem -sha1 -extfile ./serverA.cnf \
++openssl x509 -req -in serverAreq.pem -sha256 -extfile ./serverA.cnf \
+    -extensions usr_cert -CA rootA.pem -CAkey rootAkey.pem -CAcreateserial \
+    -out serverAcert.pem -days 365
+ 
+diff --git a/samples/certs/serverB.bat b/samples/certs/serverB.bat
+index 294be57..232303a 100644
+--- a/samples/certs/serverB.bat
++++ b/samples/certs/serverB.bat
+@@ -1,8 +1,8 @@
+ rem #!/bin/sh
+ 
+-openssl req -newkey rsa:1024 -keyout serverBkey.pem -out serverBreq.pem -config ./serverB.cnf -nodes -days 365 -batch
++openssl req -newkey rsa:2048 -keyout serverBkey.pem -out serverBreq.pem -config ./serverB.cnf -nodes -days 365 -batch
+ 
+-openssl x509 -req -in serverBreq.pem -sha1 -extfile ./serverB.cnf -extensions usr_cert -CA rootB.pem -CAkey rootBkey.pem -CAcreateserial -out serverBcert.pem -days 365
++openssl x509 -req -in serverBreq.pem -sha256 -extfile ./serverB.cnf -extensions usr_cert -CA rootB.pem -CAkey rootBkey.pem -CAcreateserial -out serverBcert.pem -days 365
+ 
+ copy serverBcert.pem + rootB.pem serverB.pem
+ 
+diff --git a/samples/certs/serverB.cnf b/samples/certs/serverB.cnf
+index 344c140..c9efa4c 100644
+--- a/samples/certs/serverB.cnf
++++ b/samples/certs/serverB.cnf
+@@ -67,7 +67,7 @@ cert_opt 	= ca_default		# Certificate field options
+ 
+ default_days	= 365			# how long to certify for
+ default_crl_days= 30			# how long before next CRL
+-default_md	= sha1			# which md to use.
++default_md	= sha256			# which md to use.
+ preserve	= no			# keep passed DN ordering
+ 
+ # A few difference way of specifying how similar the request should look
+@@ -98,7 +98,7 @@ emailAddress		= optional
+ 
+ ####################################################################
+ [ req ]
+-default_bits		= 1024
++default_bits		= 2048
+ default_keyfile 	= privkey.pem
+ distinguished_name	= req_distinguished_name
+ attributes		= req_attributes
+diff --git a/samples/certs/serverB.sh b/samples/certs/serverB.sh
+index c75b00a..091f1ac 100755
+--- a/samples/certs/serverB.sh
++++ b/samples/certs/serverB.sh
+@@ -1,9 +1,9 @@
+ #!/bin/sh
+ 
+-openssl req -newkey rsa:1024 -keyout serverBkey.pem -out serverBreq.pem \
++openssl req -newkey rsa:2048 -keyout serverBkey.pem -out serverBreq.pem \
+    -config ./serverB.cnf -nodes -days 365 -batch
+ 
+-openssl x509 -req -in serverBreq.pem -sha1 -extfile ./serverB.cnf \
++openssl x509 -req -in serverBreq.pem -sha256 -extfile ./serverB.cnf \
+    -extensions usr_cert -CA rootB.pem -CAkey rootBkey.pem -CAcreateserial \
+    -out serverBcert.pem -days 365
+ 
+diff --git a/samples/dhparam/params.sh b/samples/dhparam/params.sh
+index 8e4f031..d8f46d1 100755
+--- a/samples/dhparam/params.sh
++++ b/samples/dhparam/params.sh
+@@ -1,4 +1,4 @@
+ #!/bin/sh
+ 
+ openssl dhparam -2 -out dh-512.pem  -outform PEM 512
+-openssl dhparam -2 -out dh-1024.pem -outform PEM 1024
++openssl dhparam -2 -out dh-2048.pem -outform PEM 2048
+diff --git a/samples/dhparam/server.lua b/samples/dhparam/server.lua
+index 37661d5..2585ddc 100644
+--- a/samples/dhparam/server.lua
++++ b/samples/dhparam/server.lua
+@@ -20,8 +20,8 @@ local function dhparam_cb(export, keylength)
+   local filename
+   if keylength == 512 then
+     filename = "dh-512.pem"
+-  elseif keylength == 1024 then
+-    filename = "dh-1024.pem"
++  elseif keylength == 2048 then
++    filename = "dh-2048.pem"
+   else
+     -- No key
+     return nil

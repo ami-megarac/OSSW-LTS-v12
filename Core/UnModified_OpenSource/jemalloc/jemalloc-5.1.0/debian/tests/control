@@ -1,0 +1,2 @@
+Tests: run-tests
+Depends: @,gcc,perl,libc6-dev,sharness

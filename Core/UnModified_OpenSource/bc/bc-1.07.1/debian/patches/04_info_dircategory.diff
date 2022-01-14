@@ -1,0 +1,30 @@
+Description: Set the dircategory of info pages to Math
+ Converted from an inline patch introduced in 1.06.95-3 (git commit 9be25538) 
+Author: John G. Hasler <jhasler@debian.org>
+Origin: vendor
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+Index: bc/doc/bc.texi
+===================================================================
+--- bc.orig/doc/bc.texi	2017-07-24 15:07:31.538340044 -0400
++++ bc/doc/bc.texi	2017-07-24 15:07:31.538340044 -0400
+@@ -16,6 +16,7 @@
+ @c end tex
+ 
+ @ifinfo
++@dircategory Math
+ @direntry
+ * bc: (bc).                    An arbitrary precision calculator language.
+ @end direntry
+Index: bc/doc/dc.texi
+===================================================================
+--- bc.orig/doc/dc.texi	2017-07-24 15:07:31.538340044 -0400
++++ bc/doc/dc.texi	2017-07-24 15:07:40.846398420 -0400
+@@ -19,6 +19,7 @@
+ @syncodeindex tp fn
+ 
+ @direntry
++@dircategory Math
+ * dc: (dc).                   Arbitrary precision RPN ``Desktop Calculator''.
+ @end direntry
+ 

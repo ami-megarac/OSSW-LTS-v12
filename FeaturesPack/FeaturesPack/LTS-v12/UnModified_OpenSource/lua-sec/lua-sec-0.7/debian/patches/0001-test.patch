@@ -1,0 +1,38 @@
+From: Enrico Tassi <gareuselesinge@debian.org>
+Date: Fri, 9 Aug 2013 17:47:14 +0200
+Subject: test
+
+---
+ test.lua |  2 ++
+ test.sh  | 13 +++++++++++++
+ 2 files changed, 15 insertions(+)
+ create mode 100644 test.lua
+ create mode 100644 test.sh
+
+diff --git a/test.lua b/test.lua
+new file mode 100644
+index 0000000..7b00731
+--- /dev/null
++++ b/test.lua
+@@ -0,0 +1,2 @@
++rc=os.execute("sh test.sh")
++if rc == true then os.exit(0) elseif rc== 0 then os.exit(0) else os.exit(1); end
+diff --git a/test.sh b/test.sh
+new file mode 100644
+index 0000000..5af8612
+--- /dev/null
++++ b/test.sh
+@@ -0,0 +1,13 @@
++#!/bin/sh
++
++set -e
++set -x
++
++cd samples/oneshot/
++
++lua server.lua &
++sleep 1
++ret=0
++lua client.lua || ret=$?
++kill -9 %1 || true
++exit $ret

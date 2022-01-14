@@ -1,0 +1,26 @@
+From: Steve Langasek <steve.langasek@ubuntu.com>
+Date: Sun, 13 Jan 2019 10:26:19 +0100
+Subject: Don't allow unaligned access on ARM in the tests
+
+Last-Update: 2017-06-16
+
+The testsuite already handles alignment requirements on POWER and Sparc, add
+ARM to the list as well.  Not all ARM environments raise SIGBUS on unaligned
+access, but some (including the Ubuntu autobuilders) do.
+---
+ tests/perf_event_open.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/tests/perf_event_open.c b/tests/perf_event_open.c
+index ab8043f..c8859c9 100644
+--- a/tests/perf_event_open.c
++++ b/tests/perf_event_open.c
+@@ -489,7 +489,7 @@ end:
+ }
+ 
+ /* These require aligned access, so no byte-grain checks possible */
+-# if defined SPARC || defined SPARC64 || defined POWERPC || defined POWERPC64
++# if defined SPARC || defined SPARC64 || defined POWERPC || defined POWERPC64 || defined ARM
+ #  define ATTR_REC(sz) { tail_alloc((sz + 7) & ~7), sz }
+ # else
+ #  define ATTR_REC(sz) { tail_alloc(sz), sz }

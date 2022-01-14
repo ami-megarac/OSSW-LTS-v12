@@ -1,0 +1,54 @@
+Source: lua-sec
+Section: interpreters
+Priority: optional
+Maintainer: Enrico Tassi <gareuselesinge@debian.org>
+Uploaders:
+ Ondřej Surý <ondrej@debian.org>,
+ Mathieu Parent <sathieu@debian.org>,
+ Victor Seva <vseva@debian.org>,
+Build-Depends:
+ debhelper (>= 10~),
+ dh-lua (>= 18),
+ libssl-dev,
+ lua-socket-dev (>= 3.0~rc),
+ openssl,
+Standards-Version: 4.2.1
+Homepage: https://github.com/brunoos/luasec
+Vcs-Git: https://salsa.debian.org/lua-team/lua-sec.git
+Vcs-Browser: https://salsa.debian.org/lua-team/lua-sec
+
+Package: lua-sec
+Architecture: any
+Multi-Arch: same
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ lua-socket,
+ ${misc:Depends},
+ ${shlibs:Depends},
+Provides:
+ ${lua:Provides},
+Breaks:
+ prosody (<< 0.9.11~),
+XB-Lua-Versions: ${lua:Versions}
+Description: SSL socket library for the Lua language
+ This package contains the luasec library, that adds on top of
+ the luasocket library SSL support.
+
+Package: lua-sec-dev
+Architecture: any
+Multi-Arch: same
+Pre-Depends:
+ ${misc:Pre-Depends},
+Depends:
+ lua-sec (= ${binary:Version}),
+ ${misc:Depends},
+Provides:
+ ${lua:Provides},
+XB-Lua-Versions: ${lua:Versions}
+Section: libdevel
+Description: SSL socket library devel files for the Lua language
+ This package contains the development files of the Lua sec SSL socket library,
+ useful to create a statically linked binary (like a C application or a
+ standalone Lua interpreter).  Documentation is also shipped within this
+ package.

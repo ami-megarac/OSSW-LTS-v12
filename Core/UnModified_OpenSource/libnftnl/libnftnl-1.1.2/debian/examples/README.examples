@@ -1,0 +1,15 @@
+These are examples C codes of what you can achieve with libnftnl.
+Basic functions are:
+ * fetch the ruleset from the kernel.
+ * update (add/delete) the ruleset.
+ * Set-up an event listener environment.
+ * Play with nftables sets infraestructure
+
+To compile the examples, run:
+ $ gcc -lmnl -lnftnl nft-rule-add.c -o nft-rule-add
+
+You will need the Linux kernel nf_tables.h header:
+ * linux/netfilter/nf_tables.h
+
+Then you can run:
+ $ sudo ./nft-rule-add ip filter input

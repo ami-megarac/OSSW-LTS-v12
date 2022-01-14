@@ -1,0 +1,64 @@
+#!/usr/bin/make -f
+
+include /usr/share/dpkg/buildflags.mk
+
+# Try and use these Lua modules shipped in Debian...
+LUA_LIBS_DEBIAN = cjson bitop
+
+# ... which are not always called their "C" names
+LUA_LIBS_DEBIAN_NAMES = cjson bit
+
+# ... but fallback to these currently unpackaged ones.
+LUA_LIBS_BUNDLED = struct cmsgpack
+
+LUA_OBJECTS = $(addprefix lua_,$(addsuffix .o,$(LUA_LIBS_BUNDLED)))
+LUA_LDFLAGS = $(addprefix -llua5.1-,$(LUA_LIBS_DEBIAN)) $(addprefix ../deps/lua/src/,$(LUA_OBJECTS))
+
+export CFLAGS CPPFLAGS LDFLAGS
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+export DEB_LDFLAGS_MAINT_APPEND = -Wl,-no-as-needed -ldl -latomic $(LUA_LDFLAGS)
+
+ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+	NUMJOBS = $(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+	MAKEFLAGS += -j$(NUMJOBS)
+	export MAKEFLAGS
+endif
+
+%:
+	dh $@
+
+debian/lua_libs_debian.c:
+	echo "// Automatically generated; do not edit." >$@
+	echo "luaLoadLib(lua, LUA_LOADLIBNAME, luaopen_package);" >>$@
+	set -e; for X in $(LUA_LIBS_DEBIAN_NAMES); do \
+		echo "if (luaL_dostring(lua, \"$$X = require('$$X');\"))" >>$@; \
+		echo "    serverLog(LL_NOTICE, \"Error loading $$X library\");" >>$@; \
+	done
+	echo 'luaL_dostring(lua, "module = nil; require = nil;");' >>$@
+
+override_dh_auto_clean:
+	dh_auto_clean
+	rm -f src/release.h debian/*.service debian/lua_libs_debian.c
+
+override_dh_auto_build: debian/lua_libs_debian.c
+	# Build the non-bundled Lua libraries
+	dh_auto_build --sourcedirectory=deps/lua/src -- $(LUA_OBJECTS)
+	
+	dh_auto_build --parallel -- V=1 USE_SYSTEM_JEMALLOC=yes USE_SYSTEM_LUA=yes USE_SYSTEM_HIREDIS=yes
+
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	# Avoid race conditions in upstream testsuite.
+	./runtest --clients 1 || true
+	./runtest-cluster || true
+	./runtest-sentinel || true
+endif
+
+override_dh_auto_install:
+	debian/bin/generate-systemd-service-files
+
+override_dh_compress:
+	dh_compress -Xredis-trib.rb
+
+override_dh_installchangelogs:
+	dh_installchangelogs --keep 00-RELEASENOTES

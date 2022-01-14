@@ -1,0 +1,11 @@
+#!/usr/bin/make -f
+%:
+	dh $@  --with autoreconf
+
+override_dh_strip:
+	dh_strip --dbgsym-migration='libnetfilter-conntrack3-dbg (<< 1.0.6-2~)'
+
+override_dh_installdocs:
+	        dh_installdocs --link-doc=libnetfilter-conntrack3
+
+

@@ -1,0 +1,43 @@
+Description: fix circular dependency in makefile
+ The upstream makefile is unhelpfully relying on make to allow it to break
+ target dependency loops in a particular manner.  Instead, be explicit about
+ the relationship between the targets.
+Author: Steve Langasek <steve.langasek@ubuntu.com>
+Last-Modified: 2018-03-21
+Bug-Debian: https://bugs.debian.org/889176
+
+Index: bc-1.07.1/bc/Makefile.am
+===================================================================
+--- bc-1.07.1.orig/bc/Makefile.am
++++ bc-1.07.1/bc/Makefile.am
+@@ -8,7 +8,7 @@
+              sbc.y
+ noinst_HEADERS = libmath.h
+ 
+-DISTCLEANFILES = sbc sbc.c sbc.h libmath.h
++DISTCLEANFILES = sbc sbc.c sbc.h libmath.h global_foo.c
+ 
+ MAINTAINERCLEANFILES = Makefile.in bc.c bc.h scan.c \
+ 	bc.y bcdefs.h const.h execute.c fix-libmath_h \
+@@ -28,16 +28,18 @@
+ 
+ scan.o: bc.h
+ global.o: libmath.h
++global_foo.c: global.c
++	cp -a global.c global_foo.c
+ 
+ fbcOBJ = main.o bc.o scan.o execute.o load.o storage.o util.o warranty.o
+ 
+ libmath.h: libmath.b $(fbcOBJ) $(LIBBC)
+ 	echo '{0}' > libmath.h
+-	$(MAKE) global.o
+-	$(LINK) -o fbc $(fbcOBJ) global.o $(LIBBC) $(LIBL) $(READLINELIB) $(LIBS)
++	$(MAKE) global_foo.o
++	$(LINK) -o fbc $(fbcOBJ) global_foo.o $(LIBBC) $(LIBL) $(READLINELIB) $(LIBS)
+ 	./fbc -c $(srcdir)/libmath.b </dev/null >libmath.h
+ 	$(srcdir)/fix-libmath_h
+-	rm -f ./fbc ./global.o
++	rm -f ./fbc ./global_foo.o
+ 
+ sbcOBJ = main.o sbc.o scan.o execute.o global.o load.o storage.o util.o \
+          warranty.o

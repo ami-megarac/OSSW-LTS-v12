@@ -1,0 +1,204 @@
+lua-sec (0.7-1) unstable; urgency=medium
+
+  * New upstream version 0.7 (Closes: #907656)
+  * remove patches already applied
+  * add myself to uploaders, wrap-and-sort -sat
+  * debhelper compat 10
+  * update debian patches
+  * update standard-version. No changes
+
+ -- Victor Seva <vseva@debian.org>  Mon, 22 Oct 2018 10:50:40 +0200
+
+lua-sec (0.6-4.2) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * move to stronger cryptographic digests too
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Thu, 30 Aug 2018 17:41:53 -0400
+
+lua-sec (0.6-4.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * use 2048-bit keys in test suite (Closes: #906997)
+  * point Vcs-* to salsa
+  * gbp: use upstream git tags
+  * debian/copyright: use https form of Format URI
+  * debian/changelog: strip trailing whitespace
+  * debian/watch: use github tags
+
+ -- Daniel Kahn Gillmor <dkg@fifthhorseman.net>  Thu, 30 Aug 2018 15:13:38 -0400
+
+lua-sec (0.6-4) unstable; urgency=medium
+
+  * Team upload.
+  * Drop luasandbox support as the package is going away (see #891191).
+
+ -- Raphaël Hertzog <hertzog@debian.org>  Fri, 23 Feb 2018 11:23:20 +0100
+
+lua-sec (0.6-3) unstable; urgency=medium
+
+  * Add me to uploaders
+  * Add luasandbox support
+  * test.sh: Run client.lua synchronously
+  * test.lua: Ensure errors are catched on lua5.1
+
+ -- Mathieu Parent <sathieu@debian.org>  Fri, 06 Jan 2017 21:31:14 +0100
+
+lua-sec (0.6-2) unstable; urgency=medium
+
+  * Add Lua 5.3 support (Closes: #808136)
+  * Add myself to Uploaders
+  * Re-wrap with wrap-and-sort -a
+  * Merge full OpenSSL 1.1.0 support and some crash fixes from upstream
+
+ -- Ondřej Surý <ondrej@debian.org>  Sun, 06 Nov 2016 16:34:48 +0100
+
+lua-sec (0.6-1) unstable; urgency=medium
+
+  * Imported Upstream version 0.6
+  * Add OpenSSL 1.1.0 patch from upstream (Closes: #828427)
+
+ -- Ondřej Surý <ondrej@debian.org>  Thu, 27 Oct 2016 17:16:10 +0200
+
+lua-sec (0.5.1-1) unstable; urgency=medium
+
+  * new upstream release
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Sun, 06 Dec 2015 17:26:18 +0100
+
+lua-sec (0.5-3) unstable; urgency=medium
+
+  * Cherry pick upstream 67f0867 to fix FTBFS after SSLv3 support
+    was removed from opanssl (Closes: #804607)
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Sun, 15 Nov 2015 19:28:23 +0100
+
+lua-sec (0.5-2) unstable; urgency=medium
+
+  * Do not Pre-Depend on multiarch-support
+  * Bump standards version, no change
+  * Update Homepage URL (Close: #775315)
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Sun, 16 Aug 2015 11:09:17 +0200
+
+lua-sec (0.5-1) unstable; urgency=medium
+
+  * New upstream release
+  * Bump Standards-Version to 3.9.5, no changes
+  * Copyright updated and ported to format 1.0
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Sat, 01 Feb 2014 14:21:36 +0100
+
+lua-sec (0.4.1+git063e8a8-2) unstable; urgency=low
+
+  * Bundle all C modules into a single ssl.so module, as the upstream
+    suggested
+  * Fix lua-sec.h listing all luaopen_ssl_xxx available
+  * Remove last bits of transitional packages
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Wed, 21 Aug 2013 09:10:18 +0200
+
+lua-sec (0.4.1+git063e8a8-1) unstable; urgency=low
+
+  * New upstream snaphost for luasocket 3.0
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Mon, 25 Jun 2012 20:44:04 +0200
+
+lua-sec (0.4.1-1) unstable; urgency=low
+
+  * New upstream release
+  * Update watch file
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Fri, 11 May 2012 16:23:17 +0200
+
+lua-sec (0.4-8) unstable; urgency=low
+
+  * Clean up samples directory (Closes: #670007)
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Sun, 06 May 2012 18:54:04 +0200
+
+lua-sec (0.4-7) unstable; urgency=low
+
+  * Switch to dh-lua
+  * Packages renamed according to the new Lua policy
+  * debian/compat set to 8
+  * Bumped standards-version to 3.9.3, no changes
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Sun, 06 May 2012 17:25:36 +0200
+
+lua-sec (0.4-6) unstable; urgency=low
+
+  * Install https.lua inside the ssl/ directory
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Sat, 18 Feb 2012 10:56:44 +0100
+
+lua-sec (0.4-5) unstable; urgency=low
+
+  * source format 3.0 (quilt)
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Thu, 21 Jul 2011 18:08:53 +0200
+
+lua-sec (0.4-4) unstable; urgency=low
+
+  * bumped standards-version to 3.9.2, no changes
+  * multi-arch compliant (dh >= 8.1.3, lua5.1-policy >= 32)
+  * mention in debian/copyright the copyright holders for https.lua, thanks
+    Barry deFreese for spotting that
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Thu, 21 Jul 2011 00:50:48 +0200
+
+lua-sec (0.4-3) unstable; urgency=low
+
+  * build depend on liblua5.1-policy-dev >= 26 to specify linker flags
+    for statical linkage (Closes: #555567)
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Fri, 13 Nov 2009 22:18:42 +0100
+
+lua-sec (0.4-2) unstable; urgency=low
+
+  * added Replace and Conflict entries in control
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Sun, 01 Nov 2009 11:06:54 +0100
+
+lua-sec (0.4-1) unstable; urgency=low
+
+  * new upstream release: main addition is the https.lua module
+  * added README.source mentioning dpatch default doc
+  * bumped standards-version to 3.8.3
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Sun, 01 Nov 2009 10:52:38 +0100
+
+lua-sec (0.3.3-1) unstable; urgency=low
+
+  * new upstream minor fix release
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Sat, 25 Jul 2009 21:58:51 +0200
+
+lua-sec (0.3.2-2) unstable; urgency=low
+
+  * build depend on lua5.1-policy-dev >= 22
+  * standards-version bumped to 3.8.2, no changes needed
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Tue, 21 Jul 2009 15:26:49 +0200
+
+lua-sec (0.3.2-1) unstable; urgency=low
+
+  * New ustream release
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Sun, 17 May 2009 19:05:00 +0200
+
+lua-sec (0.3.1-1) unstable; urgency=low
+
+  * new upstream bugfix release
+  * fixed watch file
+  * test sreipt improved, always terminates after 3 seconds
+  * updated copyright (holds for 2009 too)
+  * bumped standards-version to 3.8.1, no changes
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Sun, 05 Apr 2009 11:38:04 +0200
+
+lua-sec (0.3-1) unstable; urgency=low
+
+  * Initial release. (Closes: #511733)
+
+ -- Enrico Tassi <gareuselesinge@debian.org>  Fri, 09 Jan 2009 19:50:32 +0100

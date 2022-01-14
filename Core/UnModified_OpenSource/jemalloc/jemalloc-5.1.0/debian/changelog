@@ -1,0 +1,324 @@
+jemalloc (5.1.0-3) unstable; urgency=medium
+
+  * Build with -pthread instead of -lpthread, hopefully really fixing the
+    FTBFS on riscv64 this time. (Closes: #892295)
+  * Backport an upstream patch that more lazily initializes the libgcc unwind
+    initialization, and thus avoid the kind of deadlocks we've been seeing
+    with fakechroot. See #918742 or upstream #1438 for more context.
+  * Ship /usr/bin/jeprof in libjemalloc-dev, and ship a manpage for it out of
+    debian/.
+  * Set myself as the Maintainer. Thanks to Stig for all of his past efforts!
+
+ -- Faidon Liambotis <paravoid@debian.org>  Sat, 23 Feb 2019 13:52:18 +0200
+
+jemalloc (5.1.0-2) unstable; urgency=medium
+
+  * Upload to unstable.
+  * Bump debhelper compatibility level to 11.
+  * Bump Standards-Version to 4.3.0, no changes needed.
+  * Update debian/copyright:
+    - Include years 2018 and 2019.
+    - Use https to point to debian.org.
+  * Add Build-Depends-Package to libjemalloc2.symbols.
+  * autopkgtest: remove embedded code copy of sharness. (Closes: #906630)
+
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 07 Jan 2019 20:56:52 +0200
+
+jemalloc (5.1.0-1) experimental; urgency=medium
+
+  * New upstream release.
+    - Drop GNU/kFreeBSD support patch, merged upstream.
+    - Drop m68k, nios2 and SH3 support patch, merged upstream.
+    - Fixes a number of portability bugs in non-x86 architectures. See
+      upstream bugs #734, 761, #979, #985, #999 for more information about
+      these.
+    - Adds support for the 64-bit RISC-V architecture (Closes: #892295)
+  * Fix FTBFS on 32-bit architectures by adjusting the symbols file for
+    symbols that used std::size_t which varies per architecture.
+    (Closes: #877261)
+  * Build with a 64K page size on all architectures except x86, to avoid
+    having to maintain a whitelist of newer architectures.
+  * Set the hugepage size statically to 2MB, thus bypassing a build-time check
+    against the build machine's /proc/meminfo.
+  * Add support for multi-arch to libjemalloc2 (Multi-Arch: same).
+  * Update Vcs-* URLs to point to salsa.debian.org.
+  * Bump Standards-Version to 4.1.4, no changes needed.
+  * Drop Testsuite field from debian/control, unnecessary nowadays.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 27 May 2018 00:36:03 +0300
+
+jemalloc (5.0.1-1) experimental; urgency=medium
+
+  * New upstream release. (Closes: #809239)
+    - Rename to libjemalloc2 to account for upstream's ABI/SONAME bump.
+    - Update debian/copyright.
+    - Drop patch disable-HAVE_SSE2, was a backport
+    - Update GNU/kFreeBSD support patch.
+  * Build with a 64k page size on arm64, mips, mips64el, mipsel, powerpc,
+    ppc64 and ppc64el. (Closes: #843926)
+  * Move the m68k, nios2 and SH3 architecture support from debian/rules to
+    debian/patches and forward it upstream.
+  * Drop the attempts at Hurd support. They haven't worked, more issues were
+    introduced with 5.0.1 and, in general, it's debatable whether building a
+    memory allocator optimized for multiprocessing on an architecture that
+    doesn't support SMP is of any value.
+  * Cleanup debian/rules from old compiler flags and other artifacts.
+  * Bump Standards-Version to 4.0.1.
+  * Ship pkg-config file in libjemalloc-dev.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Sat, 12 Aug 2017 00:57:08 +0300
+
+jemalloc (3.6.0-11) unstable; urgency=medium
+
+  * Re-disable allocator profiling, as it breaks unrelated software such as
+    fakechroot. (Closes: #872669)
+
+ -- Faidon Liambotis <paravoid@debian.org>  Fri, 25 Aug 2017 18:54:58 +0300
+
+jemalloc (3.6.0-10) unstable; urgency=medium
+
+  * Bump debhelper compatibility level to 10.
+    - Remove --parallel from dh invocation, as this is now the default.
+    - Workaround a build failure due to autoreconf being called by default.
+    - Remove automake build dependency, as this is now implicit.
+  * Migrate from a custom -dbg package to dbgsyms.
+  * Bump Priority to optional, as libjemalloc has multiple reverse
+    dependencies that are Priority: optional.
+  * Actually regenerate the docs, as originally intended.
+  * Set the embedded VERSION to the Debian package version.
+  * Remove unused/no-op debian/rules targets.
+  * Include dpkg's architecture.mk for DEB_HOST_ARCH.
+  * Multiple debian/copyright fixes:
+    - Update copyright years.
+    - Merge Facebook's BSD-3-Clause copyright section into the main
+      BSD-2-Clause section, as the licenses were unified back in version 3.0.0
+      (see ChangeLog).
+    - Adjust the licensing section for bin/pprof
+    - Add missing copyright sections for:
+      + debian/tests/sharness.sh (GPL-2.0+)
+      + test/unit/hash.c (Expat)
+      + SFMT files (BSD-3-Clause)
+    - Update license stanza for debian/'s copyright.
+  * Update debian/watch, upstream has moved their releases to GitHub.
+  * Use HTTPS for Vcs-Git/Vcs-Browser.
+  * Update Homepage to point to http://jemalloc.net/.
+  * Bump Standards-Version to 4.0.0.
+  * Backport an upstream patch from 4.0 that disables SSE2. This rolls back
+    the patch that was introduced in 3.6.0-9.1 to address #834746.
+    (Closes: #812989)
+  * Multiple portability fixes:
+    - Build with -DLG_QUANTUM=4 on sh3.
+      Thanks to John Paul Adrian Glaubitz (Closes: #863424)
+    - Build with -DLG_QUANTUM=3 on nios2.
+      Thanks to Marek Vasut (Closes: #816236)
+    - dd support for GNU Hurd to configure.ac (Closes: #828871)
+    - dd support for GNU/kFreeBSD to configure.ac.
+    - dd support for non-glibc architectures.
+      Thanks to Helmut Grohne (Closes: #818095)
+  * Re-enable allocator profiling, but only for i386/amd64 where we know it
+    works and is supported by upstream. (Closes: #767342)
+  * Add myself (Faidon) to Uploaders.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 06 Aug 2017 19:41:28 +0300
+
+jemalloc (3.6.0-9.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Add testflags.patch which adds a TESTFLAGS env var support when
+    compiling tests.
+  * Add -msse4.1 to i386 TESTFLAGS (Closes: #834746)
+
+ -- Daniel Silverstone <dsilvers@digital-scurf.org>  Sat, 28 Jan 2017 17:21:21 +0000
+
+jemalloc (3.6.0-9) unstable; urgency=medium
+
+  [ Balint Reczey ]
+  * [d9db38e] Suppress intentional alignment issue detection in Address
+    Sanitizer (Closes: #812874)
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Wed, 27 Jan 2016 22:19:43 +0100
+
+jemalloc (3.6.0-8) unstable; urgency=medium
+
+  [ Helmut Grohne ]
+  * [2bdd4eb] Honour DEB_BUILD_OPTIONS=nocheck (Closes: #807532)
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Sat, 19 Dec 2015 18:58:44 +0100
+
+jemalloc (3.6.0-7) unstable; urgency=medium
+
+  * [6985721] Use DEB_HOST_* instead of DEB_BUILD_*
+    Thanks to Helmut Grohne (Closes: #808174)
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Sat, 19 Dec 2015 10:22:35 +0100
+
+jemalloc (3.6.0-6) unstable; urgency=medium
+
+  [ John Paul Adrian Glaubitz ]
+  * [f1dbdfd] Build with -DLG_QUANTUM=3 on m68k (Closes: #807554)
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Sun, 13 Dec 2015 19:54:59 +0100
+
+jemalloc (3.6.0-5) unstable; urgency=medium
+
+  * [7830a16] Revert "Enable allocator profiling capabilities"
+    (Closes: #807548)
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Thu, 10 Dec 2015 21:02:04 +0100
+
+jemalloc (3.6.0-4) unstable; urgency=medium
+
+  [ Stig Sandbeck Mathisen ]
+  * [690dfc4] Declare compliance with Debian policy 3.9.6
+
+  [ Giuseppe Lavagetto ]
+  * [ee6613a] Enable allocator profiling capabilities (Closes: #767342)
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Tue, 01 Dec 2015 12:37:42 +0100
+
+jemalloc (3.6.0-3) unstable; urgency=medium
+
+  * debian/control: update Vcs-Browser, Testsuite
+  * rebuild (Closes: #756783)
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Mon, 15 Sep 2014 20:58:29 +0200
+
+jemalloc (3.6.0-2) unstable; urgency=medium
+
+  * Support architecture «or1k»
+    Thanks to Manuel A. Fernandez Montecelo (Closes: #749007)
+  * autopkgtest: add missing test dependency on libc6-dev (Closes: #755752)
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Wed, 23 Jul 2014 10:24:05 +0200
+
+jemalloc (3.6.0-1) unstable; urgency=medium
+
+  * Imported upstream release 3.6.0
+  * Enable build tests on all architectures
+  * Drop backported patch included in this release
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Fri, 18 Apr 2014 13:34:13 +0200
+
+jemalloc (3.5.1-2) unstable; urgency=medium
+
+  * Import patch to fix powerpc build failure (upstream 9e20df1)
+  * Build with -maltivec on powerpc
+  * Disable build tests on some architectures due to errors in the test code
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Mon, 10 Mar 2014 11:44:07 +0100
+
+jemalloc (3.5.1-1) unstable; urgency=medium
+
+  * Imported upstream release 3.5.1
+  * [0bd04da] Drop "build test" patch included in this release
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Wed, 05 Mar 2014 14:09:42 +0100
+
+jemalloc (3.5.0-2) unstable; urgency=medium
+
+  * Import upstream patch to make build tests work (Closes: #736582)
+  * debian/rules: Use DEB_<FLAG>_MAINT_APPEND
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Sat, 22 Feb 2014 11:04:26 +0100
+
+jemalloc (3.5.0-1) unstable; urgency=medium
+
+  * Imported upstream release 3.5.0
+  * Add DEP-8 tests
+  * Add -std=gnu99 to CFLAGS
+  * Bump standards version (no changes)
+  * Update symbols file
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Fri, 24 Jan 2014 22:40:18 +0100
+
+jemalloc (3.4.1-1) unstable; urgency=low
+
+  * Imported upstream version 3.4.1
+  * Add LG_QUANTUM=4 for sparc64 (Closes: #727748)
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Sun, 24 Nov 2013 13:02:23 +0100
+
+jemalloc (3.4.0-1) unstable; urgency=low
+
+  [ Stig Sandbeck Mathisen ]
+  * Imported upstream version 3.4.0
+
+  [ Roland Stigge ]
+  * add arch powerpcspe (Closes: #706267)
+
+  [ Stig Sandbeck Mathisen ]
+  * Bump standards version
+  * Replace LG_QUANTUM patch with build flags for arch sparc
+  * Build on any architecture, add build flags for kfreebsd and hurd
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Sat, 07 Sep 2013 19:20:58 +0200
+
+jemalloc (3.3.1-1) unstable; urgency=low
+
+  * New upstream version
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Sun, 05 May 2013 12:52:28 +0200
+
+jemalloc (3.0.0-3) unstable; urgency=low
+
+  [ Robert S. Edmonds ]
+  * Create debug symbols package (Closes: #663929)
+
+  [ Stig Sandbeck Mathisen ]
+  * Add doc-base for libjemalloc
+  * Remove unnecessary patch for kfreebsd, we do not build for that
+    architecture
+  * Update debian/copyright
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Tue, 22 May 2012 19:54:42 +0200
+
+jemalloc (3.0.0-2) unstable; urgency=low
+
+  * Exclude the hurd-* and kfreebsd-* architectures
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Sat, 19 May 2012 14:05:19 +0200
+
+jemalloc (3.0.0-1) unstable; urgency=low
+
+  * New upstream version
+  * Build on all architectures
+  * Patch "configure" to know about "*-*-kfreebsd*"
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Fri, 18 May 2012 12:52:31 +0200
+
+jemalloc (2.2.5-2) unstable; urgency=low
+
+  * Fix FTBFS (Closes: #624325)
+    * Add patch for missing LG_QUANTUM values for "sparc" and "s390"
+    * Restrict architectures to "linux-any and not armel"
+  * Bump standards version (no changes)
+  * Use debhelper compat level 9, and multiarch
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Tue, 01 May 2012 22:29:12 +0200
+
+jemalloc (2.2.5-1) unstable; urgency=low
+
+  * New upstream release (Closes: #650627)
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Thu, 01 Dec 2011 15:39:44 +0100
+
+jemalloc (2.2.3-1) unstable; urgency=low
+
+  * New upstream release
+  * Use upstream tarball instead of git repo
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Sun, 18 Sep 2011 12:39:33 +0200
+
+jemalloc (2.2.2-1) unstable; urgency=low
+
+  * New upstream release
+  * Remove patch included upstream
+  * Bump debhelper compat level (no changes)
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Sat, 13 Aug 2011 11:59:48 +0200
+
+jemalloc (2.2.1-1) unstable; urgency=low
+
+  * Initial release (Closes: #613442)
+
+ -- Stig Sandbeck Mathisen <ssm@debian.org>  Tue, 26 Apr 2011 13:45:19 +0200

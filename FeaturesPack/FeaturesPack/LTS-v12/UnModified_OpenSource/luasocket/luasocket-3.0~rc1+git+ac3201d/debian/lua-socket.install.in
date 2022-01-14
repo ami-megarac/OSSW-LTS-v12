@@ -1,0 +1,7 @@
+include @@TEMPLATE@@/lib.install.in
+usr/lib/@@DEB_HOST_MULTIARCH@@/lua/@@LUA_VERSION@@/mime/core.so
+usr/lib/@@DEB_HOST_MULTIARCH@@/lua/@@LUA_VERSION@@/socket/unix.so
+usr/lib/@@DEB_HOST_MULTIARCH@@/lua/@@LUA_VERSION@@/socket/serial.so
+usr/lib/@@DEB_HOST_MULTIARCH@@/liblua@@LUA_VERSION@@-mime.so.*
+usr/lib/@@DEB_HOST_MULTIARCH@@/liblua@@LUA_VERSION@@-socket-unix.so.*
+usr/lib/@@DEB_HOST_MULTIARCH@@/liblua@@LUA_VERSION@@-socket-serial.so.*

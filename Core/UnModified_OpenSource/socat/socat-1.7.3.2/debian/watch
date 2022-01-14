@@ -1,0 +1,4 @@
+version=3
+opts=uversionmangle=s/-b(\d+)$/~beta$1/ \
+http://www.dest-unreach.org/socat/ \
+(?:|.*/)socat[_\-](1\S*)\.(?:tar\.xz|txz|tar\.bz2|tbz2|tar\.gz|tgz)

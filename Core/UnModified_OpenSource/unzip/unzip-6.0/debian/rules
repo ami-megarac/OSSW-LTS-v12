@@ -1,0 +1,34 @@
+#!/usr/bin/make -f
+
+export DEB_BUILD_MAINT_OPTIONS=hardening=-format
+
+DEB_HOST_GNU_TYPE := $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+CC = $(DEB_HOST_GNU_TYPE)-gcc
+CFLAGS := `dpkg-buildflags --get CFLAGS` -Wall
+LDFLAGS := `dpkg-buildflags --get LDFLAGS`
+CPPFLAGS := `dpkg-buildflags --get CPPFLAGS`
+DEFINES = -DACORN_FTYPE_NFS -DWILD_STOP_AT_DIR -DLARGE_FILE_SUPPORT \
+ -DUNICODE_SUPPORT -DUNICODE_WCHAR -DUTF8_MAYBE_NATIVE -DNO_LCHMOD \
+ -DDATE_FORMAT=DF_YMD -DUSE_BZIP2 -DIZ_HAVE_UXUIDGID -DNOMEMCPY \
+ -DNO_WORKING_ISPRINT
+
+%:
+	dh $@
+
+override_dh_auto_clean:
+	$(MAKE) -f unix/Makefile clean
+
+override_dh_auto_build:
+	$(MAKE) -f unix/Makefile D_USE_BZ2=-DUSE_BZIP2 L_BZ2=-lbz2 \
+		CC="$(CC)" LF2="$(LDFLAGS)" \
+		CF="$(CFLAGS) $(CPPFLAGS) -I. $(DEFINES)" unzips
+
+override_dh_auto_install:
+	$(MAKE) -f unix/Makefile install prefix=`pwd`/debian/tmp/usr
+
+override_dh_strip:
+	dh_strip
+	cd debian/unzip/usr/bin && rm -f zipinfo && ln unzip zipinfo
+
+override_dh_compress:
+	dh_compress -XBUGS -XToDo

@@ -1,0 +1,24 @@
+Subject: Have compat.h define PATH_MAX if undefined
+From: Andreas Henriksson <andreas@fatal.se>
+
+This solves the build problem on Hurd. Not sure if this approach,
+replacing all PATH_MAX usages with UNIX_PATH_MAX is better.
+Or even if it would be possible to rewrite all users of both of
+them to not rely on PATH_MAX at all. Oh well, this builds...
+(no other testing done.)
+
+https://buildd.debian.org/status/fetch.php?pkg=socat&arch=hurd-i386&ver=1.7.3.2-1&stamp=1499666768&raw=0
+
+--- socat-1.7.3.2.orig/compat.h
++++ socat-1.7.3.2/compat.h
+@@ -72,6 +72,10 @@ typedef int sig_atomic_t;
+ #  define UNIX_PATH_MAX 104	/*! why 104? Linux: 108 ! */
+ #endif
+ 
++/* PATH_MAX is not define on Hurd. */
++#ifndef PATH_MAX
++#  define PATH_MAX UNIX_PATH_MAX
++#endif
+ 
+ /* SOL_IP: AIX 4.3.3 */
+ #ifndef SOL_IP

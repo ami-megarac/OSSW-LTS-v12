@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+# Check we can load/use the cjson extension.
+
+set -eu
+
+redis-cli EVAL 'cjson.decode("{}")' 0

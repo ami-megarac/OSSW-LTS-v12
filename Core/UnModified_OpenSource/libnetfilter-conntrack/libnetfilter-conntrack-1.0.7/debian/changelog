@@ -1,0 +1,188 @@
+libnetfilter-conntrack (1.0.7-1) unstable; urgency=medium
+
+  * [52b69a5] d/control: move package to pkg-netfilter team
+  * [670ea9b] New upstream version 1.0.7
+  * [29c7615] d/control: use salsa git service
+  * [3beadd2] dbgsym: drop old -dbg binary package
+
+ -- Arturo Borrero Gonzalez <arturo@debian.org>  Tue, 01 May 2018 12:33:53 +0200
+
+libnetfilter-conntrack (1.0.6-2) unstable; urgency=medium
+
+  * [07af40b] d/control: update Arturo's email address
+  * [4e69999] d/control: make -dev and -dbg packages Multi-Arch: same
+
+ -- Arturo Borrero Gonzalez <arturo@debian.org>  Tue, 11 Oct 2016 09:37:26 +0200
+
+libnetfilter-conntrack (1.0.6-1) unstable; urgency=medium
+
+  * [6498d86] Imported Upstream version 1.0.6
+  * [a1f284a] d/control: add myself to Uploaders
+  * [63159c9] d/control: bump std-version to 3.9.8
+  * [6462045] d/: wrap-and-sort
+
+ -- Arturo Borrero Gonzalez <arturo.borrero.glez@gmail.com>  Mon, 22 Aug 2016 14:28:11 +0200
+
+libnetfilter-conntrack (1.0.5-1) unstable; urgency=medium
+
+  [ Arturo Borrero Gonzalez ]
+  * [b86c655] Imported Upstream version 1.0.5
+  * [db5a75e] d/copyright: add proper copyright file
+  * [41d1f07] d/control: bump standars to 3.9.6
+
+ -- Alexander Wirt <formorer@debian.org>  Wed, 14 Oct 2015 12:38:18 +0200
+
+libnetfilter-conntrack (1.0.4-1) unstable; urgency=low
+
+  * [2d8ac0b] Imported Upstream version 1.0.4
+    Closes: #719320
+
+ -- Alexander Wirt <formorer@debian.org>  Fri, 16 Aug 2013 06:56:00 +0200
+
+libnetfilter-conntrack (1.0.3-1) unstable; urgency=low
+
+  * [e2c323b] Imported Upstream version 1.0.3
+
+ -- Alexander Wirt <formorer@debian.org>  Sat, 18 May 2013 20:51:10 +0200
+
+libnetfilter-conntrack (1.0.2-1) experimental; urgency=low
+
+  [ Maykel Moya ]
+  * New upstream version (closes: #699203).
+    + Add dependency on libmnl >= 1.0.3
+  * Bump Standards-Version to 3.9.4.
+  * lintian: Set -dbg's priority to extra.
+
+ -- Alexander Wirt <formorer@debian.org>  Sun, 24 Feb 2013 12:07:13 +0100
+
+libnetfilter-conntrack (1.0.1-1) unstable; urgency=low
+
+  * new upstream version
+  * bump standards version
+  * don't use brace expansion in .install file
+  * move to git
+  * update copyright file
+  * [222ddd2] We don't have .a
+  * [4232f72] Use dh and bump deps to dh 8
+  * [04a00d2] Ok, lets use dh 9
+  * [872a23c] Build debug packages and so on
+  * [6e85030] Add predepends for multiarch
+  * [db785f8] Multiarch support
+  * [d3c9660] Use debsource 1.0
+  * [0664014] Add Multi-Arch: same to library
+  * [9cd0616] Add git information to controlfile
+
+ -- Alexander Wirt <formorer@debian.org>  Sun, 03 Jun 2012 08:26:11 +0200
+
+libnetfilter-conntrack (1.0.0-1) unstable; urgency=low
+
+  * New upstream version 
+
+ -- Alexander Wirt <formorer@debian.org>  Thu, 05 Jan 2012 09:57:23 +0100
+
+libnetfilter-conntrack (0.9.1-1) unstable; urgency=low
+
+  * New upstream version (Closes: #616097)
+  * Bumps standards version
+
+ -- Alexander Wirt <formorer@debian.org>  Thu, 03 Mar 2011 22:56:04 +0100
+
+libnetfilter-conntrack (0.0.101-1) unstable; urgency=low
+
+  * New upstream version 
+  * Remove Max Kellermann from the list of uploaders 
+    (Thanks for your work on this package)
+
+ -- Alexander Wirt <formorer@debian.org>  Sat, 30 Jan 2010 18:08:16 +0100
+
+libnetfilter-conntrack (0.0.100-1) unstable; urgency=low
+
+  [ Max Kellermann ]
+  * new upstream release (Closes: #545915)
+    - require libnfnetlink 1.0.0
+    - so version increased to 3
+
+  [ Alexander Wirt ]
+  * Bump standards version
+  * Move dbg package to section debug
+
+ -- Alexander Wirt <formorer@debian.org>  Thu, 17 Sep 2009 12:22:01 +0200
+
+libnetfilter-conntrack (0.0.99-1) unstable; urgency=low
+
+  [ Max Kellermann ]
+  * New upstream release
+    - increased shlibs version because the symbols were added
+
+  [ Alexander Wirt ]
+  * Bump standards version (no changes) 
+
+ -- Alexander Wirt <formorer@debian.org>  Thu, 02 Apr 2009 10:32:58 +0200
+
+libnetfilter-conntrack (0.0.97-1) unstable; urgency=low
+
+  [ Max Kellermann ]
+  * new upstream release
+    - updated makeshlibs version due to API additions
+
+ -- Alexander Wirt <formorer@debian.org>  Fri, 17 Oct 2008 13:09:16 +0200
+
+libnetfilter-conntrack (0.0.96-1) unstable; urgency=low
+
+  [ Max Kellermann ]
+  * new upstream release
+
+  [ Alexander Wirt ]
+  * Bump standards version (No changes) 
+
+ -- Alexander Wirt <formorer@debian.org>  Tue, 22 Jul 2008 23:22:33 +0200
+
+libnetfilter-conntrack (0.0.89-1) unstable; urgency=low
+
+  [ Max Kellermann ]
+  * new upstream release
+    - /usr/lib/libnetfilter_conntrack was removed
+  * build-depend on libtool
+
+ -- Alexander Wirt <formorer@debian.org>  Fri, 21 Mar 2008 22:36:24 +0100
+
+libnetfilter-conntrack (0.0.82-1) unstable; urgency=low
+
+  [ Max Kellermann ]
+  * new upstream release
+    - shlibs version set to 0.0.82 because of API additions
+  * bumped Standards-Version to 3.7.3
+  * added Homepage header to debian/control
+
+ -- Alexander Wirt <formorer@debian.org>  Mon, 07 Jan 2008 10:16:05 +0100
+
+libnetfilter-conntrack (0.0.81-1) unstable; urgency=low
+
+  [ Max Kellermann ]
+  * new upstream release
+
+  [ Alexander Wirt ]
+  * Fix distclean call
+  * Make package Bin NMU safe
+
+ -- Alexander Wirt <formorer@debian.org>  Mon, 12 Nov 2007 13:21:00 +0100
+
+libnetfilter-conntrack (0.0.75-1) unstable; urgency=low
+
+  * New upstream release
+  * Add debian/compat file and remove compat from rules file 
+
+ -- Alexander Wirt <formorer@debian.org>  Fri, 25 May 2007 11:28:35 +0200
+
+libnetfilter-conntrack (0.0.50-1) unstable; urgency=low
+
+  * new upstream release (Closes: #414661)
+  * build-depend on libnfnetlink-dev 0.0.25
+
+ -- Max Kellermann <max@duempel.org>  Tue, 13 Mar 2007 08:22:02 +0100
+
+libnetfilter-conntrack (0.0.31-1) unstable; urgency=low
+
+  * initial debian release (Closes: #388614)
+
+ -- Max Kellermann <max@duempel.org>  Thu, 21 Sep 2006 18:29:00 +0200

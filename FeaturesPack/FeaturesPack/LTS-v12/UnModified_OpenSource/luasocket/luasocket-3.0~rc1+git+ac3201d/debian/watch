@@ -1,0 +1,6 @@
+# test this watch file using:
+# uscan --watchfile debian/watch --upstream-version 0.0.1 --package luasocket
+#
+version=3
+opts=uversionmangle=s/-/~/,dversionmangle=s/\.dfsg\.\d+$// \
+  https://github.com/diegonehab/luasocket/tags .*archive/v(.*)\.tar\.gz

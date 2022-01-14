@@ -1,0 +1,13 @@
+include @@TEMPLATE@@/dev.install.in
+usr/lib/@@DEB_HOST_MULTIARCH@@/liblua@@LUA_VERSION@@-mime.so
+usr/lib/@@DEB_HOST_MULTIARCH@@/liblua@@LUA_VERSION@@-mime.a
+test -z "@@CLIB_OBJS@@" || echo usr/lib/@@DEB_HOST_MULTIARCH@@/pkgconfig/@@LUA@@-mime.pc
+usr/include/@@LUA@@/mime.h
+usr/lib/@@DEB_HOST_MULTIARCH@@/liblua@@LUA_VERSION@@-socket-unix.so
+usr/lib/@@DEB_HOST_MULTIARCH@@/liblua@@LUA_VERSION@@-socket-unix.a
+test -z "@@CLIB_OBJS@@" || echo usr/lib/@@DEB_HOST_MULTIARCH@@/pkgconfig/@@LUA@@-socket-unix.pc
+usr/include/@@LUA@@/unix.h
+usr/lib/@@DEB_HOST_MULTIARCH@@/liblua@@LUA_VERSION@@-socket-serial.so
+usr/lib/@@DEB_HOST_MULTIARCH@@/liblua@@LUA_VERSION@@-socket-serial.a
+test -z "@@CLIB_OBJS@@" || echo usr/lib/@@DEB_HOST_MULTIARCH@@/pkgconfig/@@LUA@@-socket-serial.pc
+usr/include/@@LUA@@/lua-socket-serial.h

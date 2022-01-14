@@ -1,0 +1,5 @@
+set_buildflags
+ping-fix-main-loop-over-multiple-addrinfo-results.patch
+ping-try-next-addrinfo-on-connect-failure.patch
+bug-920434-Backport-timing-fixes-from-upstream.patch
+bug-976277-tracepath-dont-truncate-destination.patch

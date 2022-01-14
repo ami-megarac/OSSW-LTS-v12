@@ -1,0 +1,32 @@
+Description: Fix a typo in bc
+Author: Ryan Kavanagh <rak@debian.org>
+Origin: vendor
+Forwarded: no
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+Index: bc/bc/bc.c
+===================================================================
+--- bc.orig/bc/bc.c	2017-07-24 15:04:36.797244137 -0400
++++ bc/bc/bc.c	2017-07-24 15:04:53.193346967 -0400
+@@ -2062,7 +2062,7 @@
+ #line 470 "../../bc/bc.y" /* yacc.c:1646  */
+     {
+ 			      if ((yyvsp[0].i_value) & EX_COMP)
+-				ct_warn ("comparison in return expresion");
++				ct_warn ("comparison in return expression");
+ 			      if (!((yyvsp[0].i_value) & EX_PAREN))
+ 				ct_warn ("return expression requires parenthesis");
+ 			      if ((yyvsp[0].i_value) & EX_VOID)
+Index: bc/bc/bc.y
+===================================================================
+--- bc.orig/bc/bc.y	2017-07-10 13:40:18.727030635 -0400
++++ bc/bc/bc.y	2017-07-24 15:04:48.557317891 -0400
+@@ -469,7 +469,7 @@
+ 			| expression
+ 			    {
+ 			      if ($1 & EX_COMP)
+-				ct_warn ("comparison in return expresion");
++				ct_warn ("comparison in return expression");
+ 			      if (!($1 & EX_PAREN))
+ 				ct_warn ("return expression requires parenthesis");
+ 			      if ($1 & EX_VOID)

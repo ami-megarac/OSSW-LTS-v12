@@ -1,0 +1,171 @@
+From: Enrico Tassi <gareuselesinge@debian.org>
+Date: Fri, 9 Aug 2013 16:48:11 +0200
+Subject: add LUASOCKET_API to timeout_markstart/init (for lua-sec)
+
+---
+ src/buffer.c  | 12 ++++++------
+ src/io.c      |  2 +-
+ src/timeout.c |  6 +++---
+ src/usocket.c | 12 ++++++------
+ 4 files changed, 16 insertions(+), 16 deletions(-)
+
+diff --git a/src/buffer.c b/src/buffer.c
+index fff1634..94e6580 100644
+--- a/src/buffer.c
++++ b/src/buffer.c
+@@ -40,7 +40,7 @@ int buffer_open(lua_State *L) {
+ /*-------------------------------------------------------------------------*\
+ * Initializes C structure
+ \*-------------------------------------------------------------------------*/
+-void buffer_init(p_buffer buf, p_io io, p_timeout tm) {
++LUASOCKET_API void buffer_init(p_buffer buf, p_io io, p_timeout tm) {
+     buf->first = buf->last = 0;
+     buf->io = io;
+     buf->tm = tm;
+@@ -51,7 +51,7 @@ void buffer_init(p_buffer buf, p_io io, p_timeout tm) {
+ /*-------------------------------------------------------------------------*\
+ * object:getstats() interface
+ \*-------------------------------------------------------------------------*/
+-int buffer_meth_getstats(lua_State *L, p_buffer buf) {
++LUASOCKET_API int buffer_meth_getstats(lua_State *L, p_buffer buf) {
+     lua_pushnumber(L, (lua_Number) buf->received);
+     lua_pushnumber(L, (lua_Number) buf->sent);
+     lua_pushnumber(L, timeout_gettime() - buf->birthday);
+@@ -61,7 +61,7 @@ int buffer_meth_getstats(lua_State *L, p_buffer buf) {
+ /*-------------------------------------------------------------------------*\
+ * object:setstats() interface
+ \*-------------------------------------------------------------------------*/
+-int buffer_meth_setstats(lua_State *L, p_buffer buf) {
++LUASOCKET_API int buffer_meth_setstats(lua_State *L, p_buffer buf) {
+     buf->received = (long) luaL_optnumber(L, 2, (lua_Number) buf->received);
+     buf->sent = (long) luaL_optnumber(L, 3, (lua_Number) buf->sent);
+     if (lua_isnumber(L, 4)) buf->birthday = timeout_gettime() - lua_tonumber(L, 4);
+@@ -72,7 +72,7 @@ int buffer_meth_setstats(lua_State *L, p_buffer buf) {
+ /*-------------------------------------------------------------------------*\
+ * object:send() interface
+ \*-------------------------------------------------------------------------*/
+-int buffer_meth_send(lua_State *L, p_buffer buf) {
++LUASOCKET_API int buffer_meth_send(lua_State *L, p_buffer buf) {
+     int top = lua_gettop(L);
+     int err = IO_DONE;
+     size_t size = 0, sent = 0;
+@@ -105,7 +105,7 @@ int buffer_meth_send(lua_State *L, p_buffer buf) {
+ /*-------------------------------------------------------------------------*\
+ * object:receive() interface
+ \*-------------------------------------------------------------------------*/
+-int buffer_meth_receive(lua_State *L, p_buffer buf) {
++LUASOCKET_API int buffer_meth_receive(lua_State *L, p_buffer buf) {
+     int err = IO_DONE, top = lua_gettop(L);
+     luaL_Buffer b;
+     size_t size;
+@@ -154,7 +154,7 @@ int buffer_meth_receive(lua_State *L, p_buffer buf) {
+ /*-------------------------------------------------------------------------*\
+ * Determines if there is any data in the read buffer
+ \*-------------------------------------------------------------------------*/
+-int buffer_isempty(p_buffer buf) {
++LUASOCKET_API int buffer_isempty(p_buffer buf) {
+     return buf->first >= buf->last;
+ }
+ 
+diff --git a/src/io.c b/src/io.c
+index a4230ce..cd28b41 100644
+--- a/src/io.c
++++ b/src/io.c
+@@ -10,7 +10,7 @@
+ /*-------------------------------------------------------------------------*\
+ * Initializes C structure
+ \*-------------------------------------------------------------------------*/
+-void io_init(p_io io, p_send send, p_recv recv, p_error error, void *ctx) {
++LUASOCKET_API void io_init(p_io io, p_send send, p_recv recv, p_error error, void *ctx) {
+     io->send = send;
+     io->recv = recv;
+     io->error = error;
+diff --git a/src/timeout.c b/src/timeout.c
+index 5a601d5..742f7c8 100644
+--- a/src/timeout.c
++++ b/src/timeout.c
+@@ -46,7 +46,7 @@ static luaL_Reg func[] = {
+ /*-------------------------------------------------------------------------*\
+ * Initialize structure
+ \*-------------------------------------------------------------------------*/
+-void timeout_init(p_timeout tm, double block, double total) {
++LUASOCKET_API void timeout_init(p_timeout tm, double block, double total) {
+     tm->block = block;
+     tm->total = total;
+ }
+@@ -112,7 +112,7 @@ double timeout_getretry(p_timeout tm) {
+ * Input
+ *   tm: timeout control structure
+ \*-------------------------------------------------------------------------*/
+-p_timeout timeout_markstart(p_timeout tm) {
++LUASOCKET_API p_timeout timeout_markstart(p_timeout tm) {
+     tm->start = timeout_gettime();
+     return tm;
+ }
+@@ -155,7 +155,7 @@ int timeout_open(lua_State *L) {
+ *   time: time out value in seconds
+ *   mode: "b" for block timeout, "t" for total timeout. (default: b)
+ \*-------------------------------------------------------------------------*/
+-int timeout_meth_settimeout(lua_State *L, p_timeout tm) {
++LUASOCKET_API int timeout_meth_settimeout(lua_State *L, p_timeout tm) {
+     double t = luaL_optnumber(L, 2, -1);
+     const char *mode = luaL_optstring(L, 3, "b");
+     switch (*mode) {
+diff --git a/src/usocket.c b/src/usocket.c
+index 8adc573..fce2400 100644
+--- a/src/usocket.c
++++ b/src/usocket.c
+@@ -21,7 +21,7 @@
+ #define WAITFD_R        POLLIN
+ #define WAITFD_W        POLLOUT
+ #define WAITFD_C        (POLLIN|POLLOUT)
+-int socket_waitfd(p_socket ps, int sw, p_timeout tm) {
++LUASOCKET_API int socket_waitfd(p_socket ps, int sw, p_timeout tm) {
+     int ret;
+     struct pollfd pfd;
+     pfd.fd = *ps;
+@@ -75,7 +75,7 @@ int socket_waitfd(p_socket ps, int sw, p_timeout tm) {
+ /*-------------------------------------------------------------------------*\
+ * Initializes module
+ \*-------------------------------------------------------------------------*/
+-int socket_open(void) {
++LUASOCKET_API int socket_open(void) {
+     /* instals a handler to ignore sigpipe or it will crash us */
+     signal(SIGPIPE, SIG_IGN);
+     return 1;
+@@ -91,7 +91,7 @@ int socket_close(void) {
+ /*-------------------------------------------------------------------------*\
+ * Close and inutilize socket
+ \*-------------------------------------------------------------------------*/
+-void socket_destroy(p_socket ps) {
++LUASOCKET_API void socket_destroy(p_socket ps) {
+     if (*ps != SOCKET_INVALID) {
+         close(*ps);
+         *ps = SOCKET_INVALID;
+@@ -359,7 +359,7 @@ int socket_read(p_socket ps, char *data, size_t count, size_t *got, p_timeout tm
+ /*-------------------------------------------------------------------------*\
+ * Put socket into blocking mode
+ \*-------------------------------------------------------------------------*/
+-void socket_setblocking(p_socket ps) {
++LUASOCKET_API void socket_setblocking(p_socket ps) {
+     int flags = fcntl(*ps, F_GETFL, 0);
+     flags &= (~(O_NONBLOCK));
+     fcntl(*ps, F_SETFL, flags);
+@@ -368,7 +368,7 @@ void socket_setblocking(p_socket ps) {
+ /*-------------------------------------------------------------------------*\
+ * Put socket into non-blocking mode
+ \*-------------------------------------------------------------------------*/
+-void socket_setnonblocking(p_socket ps) {
++LUASOCKET_API void socket_setnonblocking(p_socket ps) {
+     int flags = fcntl(*ps, F_GETFL, 0);
+     flags |= O_NONBLOCK;
+     fcntl(*ps, F_SETFL, flags);
+@@ -405,7 +405,7 @@ const char *socket_hoststrerror(int err) {
+     }
+ }
+ 
+-const char *socket_strerror(int err) {
++LUASOCKET_API const char *socket_strerror(int err) {
+     if (err <= 0) return io_strerror(err);
+     switch (err) {
+         case EADDRINUSE: return PIE_ADDRINUSE;

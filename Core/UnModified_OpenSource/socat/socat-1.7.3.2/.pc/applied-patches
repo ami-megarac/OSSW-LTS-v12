@@ -1,0 +1,5 @@
+00-Manpage
+01-Index
+03-Truncate
+06-socat.1.patch
+07-compat-define-PATH_MAX.patch
